@@ -12,3 +12,7 @@
 /tests/last-*.txt
 .DS_Store
 *.tmp
+
+# Local Vercel account/project link
+.vercel/
+.env*

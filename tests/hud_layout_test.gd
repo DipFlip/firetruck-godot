@@ -10,9 +10,36 @@ func check(ok: bool, description: String) -> void:
 	if not ok:
 		failures+=1
 		print("FAIL: ",description)
+func check_motion(hud: FireHUD) -> void:
+	for fps in [30,60,120]:
+		var dt: float=1.0/float(fps)
+		hud.bubble_position_ready=false
+		hud._move_dialogue(Vector2(40,80),0,0)
+		var start:=hud.dialogue_panel.position
+		var target:=Vector2(440,80)
+		hud._move_dialogue(target,1,dt)
+		check(hud.dialogue_panel.position.distance_to(start)<5,"Relocation begins without a snap at %d Hz" % fps)
+		for i in int(.7*fps)-1:
+			hud._move_dialogue(target,1,dt)
+			if i==int(.35*fps)-2:
+				var distance:=hud.dialogue_panel.position.distance_to(start)
+				check(distance>160 and distance<220,"Relocation is about halfway after .35 seconds")
+		check(hud.dialogue_panel.position.distance_to(target)<.1,"Relocation finishes in .7 seconds at %d Hz" % fps)
+		var follow:=target+Vector2(30,20)
+		hud._move_dialogue(follow,1,dt)
+		check(hud.dialogue_panel.position.distance_to(target)<3,"Ordinary tracking also eases instead of jumping")
+		for i in int(1.5*fps): hud._move_dialogue(follow,1,dt)
+		check(hud.dialogue_panel.position.distance_to(follow)<.1,"Tracking catches up without a permanent offset")
+		var before:=hud.dialogue_panel.position
+		hud._move_dialogue(Vector2(100,200),2,dt)
+		hud._move_dialogue(Vector2(300,300),3,dt)
+		check(hud.dialogue_panel.position.distance_to(before)<10,"Retargeting an active move preserves position continuity")
+	hud.bubble_position_ready=false
+
 func run() -> void:
 	game=load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
+	check_motion(game.hud)
 	game.call_timer=0
 	game.set_process(false)
 	game.set_physics_process(false)
@@ -41,7 +68,7 @@ func run() -> void:
 			var focus: Vector3=game.truck.position.lerp(TownLayout.MAYA,.3)
 			game.camera.position=focus+game.TALK_CAMERA_OFFSET
 			game.camera.look_at(focus)
-			await frames(3)
+			await frames(100)
 			game.hud._position_dialogue()
 			var panel: SpeechFrame=game.hud.dialogue_panel
 			var rect:=Rect2(panel.position,panel.size)

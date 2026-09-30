@@ -48,6 +48,11 @@ var touch_portrait:=false
 var last_window_size:=Vector2i.ZERO
 var dialogue_layout_width:=-1.0
 var bubble_slot:=-1
+const BUBBLE_MOVE_TIME:=.7
+var bubble_position_ready:=false
+var bubble_move_from:=Vector2.ZERO
+var bubble_follow_target:=Vector2.ZERO
+var bubble_move_elapsed:=BUBBLE_MOVE_TIME
 var dialogue_text:=""
 var dialogue_pages: Array[String]=[]
 var page_index:=0
@@ -193,7 +198,7 @@ func begin_dialogue(speaker: String, text: String) -> void:
 	text_clock=0
 	radio_idle=0
 	dialogue_layout_width=-1
-	bubble_slot=-1
+	if not dialogue_panel.visible: bubble_position_ready=false
 	_reflow_dialogue()
 	dialogue_panel.show()
 	dialogue_panel.modulate.a=0
@@ -271,12 +276,13 @@ func truck_screen_rect() -> Rect2:
 				bounds=bounds.expand(game.camera.unproject_position(transform*Vector3(x,y,z)))
 	return bounds.grow(14)
 
-func _position_dialogue() -> void:
+func _position_dialogue(dt: float = 0.0) -> void:
 	_reflow_dialogue()
 	dialogue_panel.scale=Vector2.ONE
 	if dialogue_panel.phone_mode:
-		dialogue_panel.position=get_viewport_rect().size-dialogue_panel.size-Vector2(26,132)
-		if touch_mode: dialogue_panel.position=Vector2(size.x-dialogue_panel.size.x-18,80)
+		var phone_position:=get_viewport_rect().size-dialogue_panel.size-Vector2(26,132)
+		if touch_mode: phone_position=Vector2(size.x-dialogue_panel.size.x-18,80)
+		_move_dialogue(phone_position,-1,dt)
 		dialogue_panel.tail_tip=_phone_center()-Vector2(0,27)-dialogue_panel.position
 		dialogue_panel.queue_redraw()
 		return
@@ -317,10 +323,32 @@ func _position_dialogue() -> void:
 			best_score=score
 			best_position=at
 			best_slot=i
-	bubble_slot=best_slot
-	dialogue_panel.position=best_position
+	_move_dialogue(best_position,best_slot,dt)
 	dialogue_panel.tail_tip=screen-dialogue_panel.position
 	dialogue_panel.queue_redraw()
+
+func _move_dialogue(target: Vector2, slot: int, dt: float) -> void:
+	if not bubble_position_ready:
+		# A newly appearing card fades in at its anchor, without flying across town.
+		bubble_position_ready=true
+		bubble_slot=slot
+		bubble_follow_target=target
+		dialogue_panel.position=target
+		bubble_move_elapsed=BUBBLE_MOVE_TIME
+		return
+	if slot!=bubble_slot:
+		bubble_slot=slot
+		bubble_move_from=dialogue_panel.position
+		bubble_follow_target=target
+		bubble_move_elapsed=0
+	# Follow ordinary camera/speaker motion gently as well as slot changes.
+	bubble_follow_target=bubble_follow_target.lerp(target,1-exp(-6*dt))
+	if bubble_move_elapsed<BUBBLE_MOVE_TIME:
+		bubble_move_elapsed=minf(BUBBLE_MOVE_TIME,bubble_move_elapsed+dt)
+		var t:=bubble_move_elapsed/BUBBLE_MOVE_TIME
+		dialogue_panel.position=bubble_move_from.lerp(bubble_follow_target,t*t*(3-2*t))
+	else:
+		dialogue_panel.position=dialogue_panel.position.lerp(bubble_follow_target,1-exp(-7*dt))
 
 func advance_text() -> bool:
 	if dialogue_label.visible_characters<full_text.length():
@@ -342,7 +370,7 @@ func _process(dt: float) -> void:
 	toast_panel.visible=not toast_label.text.is_empty() and not game.paused and not game.dialogue_active
 	footer.visible=not touch_mode and not game.paused and game.elapsed<28
 	if dialogue_panel.visible and not game.paused:
-		_position_dialogue()
+		_position_dialogue(dt)
 		text_clock-=dt
 		if char_count<full_text.length() and text_clock<=0:
 			var ch:=full_text[char_count]

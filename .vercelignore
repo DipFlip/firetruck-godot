@@ -1,0 +1,9 @@
+.godot/
+builds/
+output/
+.playwright-cli/
+tests/*.png
+tests/*.mp4
+tests/last-*.txt
+.env*
+.vercel/
