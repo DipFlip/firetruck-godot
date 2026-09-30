@@ -21,7 +21,7 @@ Accept Captain Robin's call, follow the gold arrow to Maya, talk to her, then ex
 
 ## Web and mobile touch
 
-`tools/build_web.sh` exports the single-threaded WebGL 2 browser build using Godot **4.7.2** and its matching web export templates. Set `GODOT_BIN` if the editor is not installed at the default macOS path. Install the templates through Godot's Export Template Manager first. The desktop renderer remains Forward+; the web renderer uses Compatibility, separate particle material parameters, and calibrated daylight (sun energy 0.36 versus Forward+’s 1.05, saturation 1.16 versus 1.24). The lighting profile follows the active renderer, so a native Compatibility preview uses the same settings as the browser.
+`tools/build_web.sh` exports the single-threaded WebGL 2 browser build using Godot **4.7.2** and its matching web export templates. Set `GODOT_BIN` if the editor is not installed at the default macOS path. Install the templates through Godot's Export Template Manager first. The desktop renderer remains Forward+; the web renderer uses Compatibility, separate particle material parameters, and richer browser daylight (sun energy 0.24, exposure 0.75, contrast 1.08 and saturation 1.24). The lower exposure prevents pale, washed-out highlights while retaining ambient light in shadows; Forward+ keeps its native lighting. The lighting profile follows the active renderer, so a native Compatibility preview uses the same settings as the browser.
 
 ```sh
 tools/build_web.sh

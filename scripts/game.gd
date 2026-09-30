@@ -160,8 +160,8 @@ func _setup_light() -> void:
 	sun.rotation_degrees=Vector3(-48,-32,0)
 	sun.light_color=Color("ffffff")
 	# Compatibility blends shadowed lighting differently from Forward+.
-	# Calibrated against the same native view, before highlights clip to white.
-	sun.light_energy=.36 if compatibility else 1.05
+	# Keep browser highlights below the pale shoulder of the ACES curve.
+	sun.light_energy=.24 if compatibility else 1.05
 	sun.light_angular_distance=0.8
 	sun.shadow_enabled=true
 	sun.directional_shadow_max_distance=100
@@ -182,9 +182,9 @@ func _setup_light() -> void:
 	env.glow_intensity=0.3
 	env.glow_bloom=0.04
 	env.adjustment_enabled=true
-	env.adjustment_saturation=1.16 if compatibility else 1.24
-	env.adjustment_contrast=1.03
-	env.tonemap_exposure=0.92
+	env.adjustment_saturation=1.24
+	env.adjustment_contrast=1.08 if compatibility else 1.03
+	env.tonemap_exposure=.75 if compatibility else .92
 	world.environment=env
 	add_child(world)
 
