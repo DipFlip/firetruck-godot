@@ -21,7 +21,7 @@ Accept Captain Robin's call, follow the gold arrow to Maya, talk to her, then ex
 
 ## Web and mobile touch
 
-`tools/build_web.sh` exports the single-threaded WebGL 2 browser build using Godot **4.7.2** and its matching web export templates. Set `GODOT_BIN` if the editor is not installed at the default macOS path. Install the templates through Godot's Export Template Manager first. The desktop renderer remains Forward+; the web renderer uses Compatibility, separate particle material parameters, and adjusted daylight.
+`tools/build_web.sh` exports the single-threaded WebGL 2 browser build using Godot **4.7.2** and its matching web export templates. Set `GODOT_BIN` if the editor is not installed at the default macOS path. Install the templates through Godot's Export Template Manager first. The desktop renderer remains Forward+; the web renderer uses Compatibility, separate particle material parameters, and calibrated daylight (sun energy 0.36 versus Forward+’s 1.05, saturation 1.16 versus 1.24). The lighting profile follows the active renderer, so a native Compatibility preview uses the same settings as the browser.
 
 ```sh
 tools/build_web.sh
@@ -98,6 +98,8 @@ One rotation-locked `RigidBody3D` owns two spherical supports. Forces drive it; 
 Acceleration and top speed are 25% above the previous version (26.25 and 16.875); recoil acceleration is 17, up from 9. Acceleration, top speed, and recoil acceleration are exported on `FireEngine`. Soft drag above 1.55× the ordinary speed keeps extended hose boosts bounded. Jump and landing impulses add a small, decaying camera shake. Ballistic droplets raycast their travel every physics tick; walls block streams. The compact stream uses five equal, jittered droplets per pulse, with no fixed centre jet. Launch speed is 22 m/s relative to the truck, with full chassis velocity inherited by every droplet. Ordinary stationary reach is about 15 m; 26 m/s² water gravity makes the arc fall quickly. Five pale-blue tints vary the stream, and one small cosmetic breakaway droplet per fifteen main droplets adds irregular splashes without increasing mission water. Each pulse shares the original water budget, and each droplet contributes once to a job. Aim assistance uses a 42-degree forward cone over the full hose range and horizontal tolerances of 4.6 m for the fire, 4.3 m for the dog and 5.4 m for pool landing points. Target height does not penalize acquisition. Pool shots choose among three landing points safely inside the rim at the current water level. The assist solves a momentum-compensated ballistic arc and rejects paths blocked by walls. Real collision still determines whether water reaches a target. Successful fire hits make white steam and show an On target / cooling HUD response. Grounded Shift bracing is stronger to let the truck hold its aim. Surface hits produce expanding, fading ripples and bouncing sprinkles. Droplets and splash meshes use reusable pools.
 
 ## Validation and previews
+
+`tests/lighting_capture.gd` captures the same seeded, HUD-free scene for renderer comparisons. Run at `--resolution 1000x700 --fixed-fps 60`, with `--rendering-method gl_compatibility` for the web lighting profile; pass `-- --output=res://output/lighting/native.png` (or another output name) to save the image. It also accepts temporary `--sun=`, `--ambient=`, `--exposure=`, `--saturation=` and `--contrast=` overrides for calibration.
 
 ```sh
 /Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 60 --path . --script tests/traffic_aim_test.gd

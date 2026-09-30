@@ -155,10 +155,13 @@ func _setup_input() -> void:
 	InputMap.action_add_event("spray",mouse)
 
 func _setup_light() -> void:
+	var compatibility:=RenderingServer.get_current_rendering_method()=="gl_compatibility"
 	var sun:=DirectionalLight3D.new()
 	sun.rotation_degrees=Vector3(-48,-32,0)
 	sun.light_color=Color("ffffff")
-	sun.light_energy=.78 if OS.has_feature("web") else 1.05
+	# Compatibility blends shadowed lighting differently from Forward+.
+	# Calibrated against the same native view, before highlights clip to white.
+	sun.light_energy=.36 if compatibility else 1.05
 	sun.light_angular_distance=0.8
 	sun.shadow_enabled=true
 	sun.directional_shadow_max_distance=100
@@ -171,16 +174,16 @@ func _setup_light() -> void:
 	env.ambient_light_color=Color("d6e8ff")
 	env.ambient_light_energy=0.32
 	env.tonemap_mode=Environment.TONE_MAPPER_ACES
-	env.ssao_enabled=not OS.has_feature("web")
+	env.ssao_enabled=not compatibility
 	env.ssao_radius=1.2
 	env.ssao_intensity=1.5
 	env.ssao_light_affect=0.35
-	env.glow_enabled=not OS.has_feature("web")
+	env.glow_enabled=not compatibility
 	env.glow_intensity=0.3
 	env.glow_bloom=0.04
 	env.adjustment_enabled=true
-	env.adjustment_saturation=1.08 if OS.has_feature("web") else 1.24
-	env.adjustment_contrast=1.0 if OS.has_feature("web") else 1.03
+	env.adjustment_saturation=1.16 if compatibility else 1.24
+	env.adjustment_contrast=1.03
 	env.tonemap_exposure=0.92
 	world.environment=env
 	add_child(world)
