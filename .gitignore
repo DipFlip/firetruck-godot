@@ -1,0 +1,13 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Local exports, browser runs, and generated verification artifacts
+/builds/
+/output/
+/.playwright-cli/
+/tests/*.png
+/tests/*.mp4
+/tests/last-*.txt
+.DS_Store
+*.tmp

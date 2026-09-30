@@ -1,0 +1,13 @@
+{
+  "generator": "Built-in image_gen",
+  "assets": [
+    {
+      "file": "neighbours.png",
+      "prompt": "Use case: stylized-concept. Asset type: original dialogue portrait atlas for a cozy miniature-town firefighting game. Create one polished square 2-by-2 portrait sheet, four equally sized square cells, strict even grid, each character fully inside its own cell with generous margins and a solid pale warm cream background. No text, no borders, no letters. Bust portraits, charming rounded 3D clay / hand-painted animated-film style, soft warm light, subtle material texture, expressive large dark eyes and friendly human faces, very appealing original character design. Top left: friendly middle-aged woman fire dispatcher with deep brown skin, short dark curly hair, teal uniform, cream radio headset and a tiny gold fire badge, warm confident smile. Top right: Maya, young adult woman with tan skin, cinnamon freckles, auburn bob and a mustard yellow raincoat, expressive slightly worried but hopeful smile. Bottom left: Leo, middle-aged man with warm brown skin, dark curly hair, round glasses and a short neat beard, dusty blue shirt and terracotta apron, sheepish smile. Bottom right: June, older woman with light olive skin, silver hair in a loose bun, round green glasses, mauve cardigan, kind amused smile. Heads large and consistent scale, shoulders visible, charming subtle asymmetry, characters facing forward with tiny three-quarter tilt. High quality game UI art, not a screenshot, no UI chrome, no photorealism."
+    },
+    {
+      "file": "oliver.png",
+      "prompt": "Use case: stylized-concept. Original square dialogue portrait for a cozy miniature-town firefighting game. Bust portrait of Oliver, a cheerful young adult male neighbour with light warm skin, short wavy sandy blond hair, hazel eyes, a few freckles, a terracotta-orange polo shirt with a cream collar, amused easy smile. Original appealing rounded 3D clay / painted animated-film character style, large expressive dark eyes, soft detailed hair, restrained beautiful material textures, warm diffuse light. Face forward, slight three-quarter tilt, head large, shoulders included, generous clear margin around hair, pale warm cream solid background. Consistent high-end cozy game portrait, no frame, no text, no UI, no watermark."
+    }
+  ]
+}

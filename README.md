@@ -1,0 +1,133 @@
+# Firedriver — Maple Bay
+
+A native Godot 4.7 arcade fire-engine game. Open `project.godot` and press **F5**.
+The current art pass uses neutral daylight, brighter colour grading, Forward+ (Metal on macOS), soft directional shadows, ambient occlusion, original Blender-built GLB assets, and an illustrated blue-enamel HUD with dark outlines and coral accents. All runtime assets are included. Blender and addons are not required to play.
+
+## Play
+
+- **WASD:** camera-relative driving. The chassis turns toward the pressed direction.
+- **Mouse + left click:** aim and spray the roof cannon. **Arrow keys** also aim and spray.
+- **Shift:** brake / brace against hose recoil.
+- **Hold and release Space:** compress the suspension and charge a hop. The body lowers over planted tires, lifts its nose on takeoff, tips forward during descent, and cushions the landing. The cannon also propels the truck in the air.
+- **E:** extend or retract the telescopic ladder anywhere, including during a conversation. It stays deployed while you drive. Bring its tip close to Pippin to rescue him automatically; the truck holds steady while he jumps aboard, climbs down and hops to the ground, then the ladder stows.
+- **Space or Enter:** reveal / continue speech above a neighbour. Conversations begin automatically within six metres, keep driving and spraying active, and end when you drive more than nine metres away. Space used for conversation never charges a jump. Click always remains the hose control. Dispatch calls appear in a bottom-right speech bubble with the operator’s avatar and a tail pointing to a separate animated phone icon, and keep the normal driving camera. The initial greeting dismisses automatically; the barbecue call stays until acknowledged with Space/Enter or until the fire is discovered.
+- **Drive near a hydrant:** automatically refill at 25 units per second, including during conversations. Hydrants are blue dots on the framed compass map. Water is shown by the wordless horizontal tank gauge at the top centre.
+- **Tab:** expand the town map.
+- **M:** toggle the music.
+- **R:** recover at the station without resetting jobs.
+- **Esc:** pause and view controls.
+
+Accept Captain Robin's call, follow the gold arrow to Maya, talk to her, then extend the ladder with E and drive its tip close to Pippin. No second button press is needed. Maya thanks you after the rescue, leaving a quiet moment to explore. Twenty seconds later, dispatch rings about Leo's barbecue if you haven't discovered it yourself. Talking to Leo, spraying the fire, or stopping within eight metres of the fire for 1.25 seconds cancels that one-time call; a brief drive past does not. The barbecue can also be extinguished before rescuing Pippin. If another neighbour is speaking when the call is due, the phone rings while waiting for the conversation to finish. Optional jobs: wash Biscuit by Willow Cottage on the west side and fill Oliver's pool behind Rose Cottage in the south. Pink map dots mark these jobs; neither receives a dispatch call. Progress is currently single-session and resets on restart.
+
+## Web and mobile touch
+
+`tools/build_web.sh` exports the single-threaded WebGL 2 browser build using Godot **4.7.2** and its matching web export templates. Set `GODOT_BIN` if the editor is not installed at the default macOS path. Install the templates through Godot's Export Template Manager first. The desktop renderer remains Forward+; the web renderer uses Compatibility, separate particle material parameters, and adjusted daylight.
+
+```sh
+tools/build_web.sh
+python3 -m http.server 8064 --directory builds/web
+```
+
+Open `http://localhost:8064`. The game starts with a click/tap so browser audio can unlock. The complete upload folder is `builds/web/`; `builds/firetruck-web.zip` is ready for a static host or an itch.io HTML5 upload. Serve the files over HTTP(S), not `file://`. No cross-origin isolation headers are needed for this single-threaded build. The initial download is approximately 47 MB uncompressed; enable HTTP compression on the host. See [Godot's web export documentation](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html).
+
+Touch-capable browsers automatically get two independent sticks: **DRIVE** on the left and **AIM + HOSE** on the right. Hold/release **JUMP** to charge a hop; it becomes **TALK** during conversations. **LADDER** toggles deployment. **Pause**, **MAP**, and **RESET** remain available. There is no steady/brake touch button. Landscape overlays the controls around the game; portrait uses a handheld-console layout with the game above a separate control deck. Touch input supports simultaneous fingers, pointer cancellation, focus loss, and rotation without leaving controls held down. Desktop mouse/keyboard controls remain available.
+
+`web/shell.html` contains the responsive browser shell. `scripts/web_controls.gd` connects its input to the existing Godot controls through JavaScriptBridge. Add `?touch` to the local URL to preview mobile controls with a mouse; `?touch&qa` also exposes read-only gameplay telemetry for browser verification. `tests/touch_test.gd` checks the shared gameplay actions. Browser screenshots are generated under `output/playwright/` and are not committed.
+
+The **Web build** GitHub Actions workflow exports the same build on pushes to `main` and uploads the `firetruck-web` artifact. It builds an uploadable package; hosting is configured separately. Exported binaries, engine caches, generated screenshots, recordings, and local test logs are excluded from Git.
+
+## Art and presentation
+
+- `assets/models/`: original rounded fire engine, detailed axle-oriented wheels, tiled cottages, bakery, station, and two tree variants. `tools/build_art.py` is the Blender source generator. Meshes are combined within each asset to reduce draw calls.
+- `assets/portraits/`: five original character portraits generated with the built-in image-generation tool. Exact prompts are recorded in `generation.json`. The four-character sheet is consumed with `AtlasTexture`; Oliver has a separate portrait.
+- `assets/fonts/Nunito.ttf`: Nunito, distributed under the bundled SIL Open Font License.
+- `assets/audio/maple_morning.wav`: original marimba loop, generated by `tools/compose_music.py`. Dialogue vowel chirps, engine and radio sounds are synthesized locally. `assets/audio/water_flow.ogg` is copied unchanged from the JavaScript prototype; the loop fades in and out at −24 dB, replacing the synthetic hose noise.
+- `shaders/`: subtle world-space ground variation, animated pool caustics, soft smoke, and moving flame shapes.
+- `scripts/hud.gd`: world-anchored speech balloons, a screen-anchored dispatch card, punctuation-aware animated text, seven vowel syllables with speaker-specific pitches, a wordless horizontal water gauge, a framed compass map, a coral triangle direction arrow without a circular surround, and contextual help. The cool-blue speech frames use fixed circular portrait masks; only the artwork inside bobs, with gentle, slower motion. NPC conversations ease over a full second into a closer view (orthographic size 18.8 versus 25.8), with a lower camera and sideways angle biased toward the speaker. Departure restores the driving view over one second. The top-left logo and mission text were removed. `scripts/speech_frame.gd` draws the portrait bezel, anchored balloon tail, phone handset and animated signal arcs.
+- `scripts/town_life.gd`: three rigid-body cars that yield to the fire engine and can be pushed and spun by contact, six pavement walkers with animated hip/arm joints and evasive jumps, and nine flocking birds. Traffic briefly coasts after an approaching impact, then gently steers back toward its route without overwriting collision velocity. Low rolling friction and sufficient drive force let cars restart after a complete stop. Traffic stranded for eight seconds away from the player fades out, returns to a checked-clear position on its lane, and fades back in; cars waiting for a nearby player are left alone. Walkers anticipate nearby vehicle paths, check escape directions against scenery, and maintain clearance even during sudden steering. All pause with gameplay.
+- `scripts/truck_effects.gd`: pooled soft dust and paired skid trails that fade during their final 1.5 seconds and disappear after five seconds, at 85% of the previous opacity. Marks require sufficient lateral slip, hard turning or braking while grounded; ordinary straight driving leaves none. Dust remains a separate effect.
+- `scripts/gardens.gd`: batched flower beds, low leafy plants, fallen leaves and fourteen animated butterflies. Oversized grassy mounds were removed from the town. Grass has subtle patch and tuft variation.
+- `scripts/atmosphere.gd`: garden paths, flower pots, curbs, fountain, smoke and embers. Town residents blink, breathe, turn toward the truck, and wave; trees sway gently.
+
+## Editing the town
+
+`scenes/main.tscn` contains the native `scenes/maple_bay.tscn` town. Open the town scene to move and duplicate props. Imported artwork stays instanced; colliders are separate siblings, kept with their prop root. Buildings and trunks carry deliberately simple collision geometry. Foliage has no oversized invisible collider.
+
+The town's exported references connect the cat, dog, pool, flames, and neighbours to their animations. Keep these references assigned when replacing visuals. Mission positions live in `scripts/layout.gd`, shared by the scene builder, gameplay, map and fire effects. Change those constants and rebake the town to relocate jobs consistently. `scripts/atmosphere.gd` contains decorative layout additions. `scripts/town.gd` retains the deterministic original layout.
+
+Regenerate art and town only when you intend to replace the corresponding generated files:
+
+```sh
+/Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup --python tools/build_art.py
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --editor --import --quit
+/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --script tools/bake_town.gd
+```
+
+**Baking replaces `scenes/maple_bay.tscn`, including manual layout edits.** Normal play never rebakes it. The baker preserves imported scene ownership so the models remain editable instances and shut down without orphaned meshes.
+
+## Ladder interactions
+
+`scripts/ladder_event.gd` provides reusable `LadderEvent` areas on physics layer 3. Add one to a rescue target, set its availability and dock offset, and connect its `activated(engine)` signal. The ladder tip has a fixed-size sphere trigger that detects available events once; its collider does not stretch with the telescoping mesh. Nearby targets gently guide the ladder, with solid-world occlusion checks. Events already touching the tip activate as soon as their availability permits it. NPC speech does not block rescue; boarding clears the speech bubble automatically. Pippin uses this interface, with a three-part boarding, paw-stepping and dismount animation. Pause holds the rescue; R cancels and rearms it. Retraction waits until the cat is safely down.
+
+## Pool and water jobs
+
+`scripts/pool_basin.gd` replaces the old raised pool with a 1.3 m deep tiled basin, a drain and ladder. The terrain shader cuts the opening and four surrounding ground colliders preserve the lawn while leaving a real hole. It starts dry; transparent water appears near the floor and rises to 12 cm below ground as it fills. The changing depth is the progress indicator. Hose assistance aims at the current water level, with surface splashes below ground supported. Rose Cottage’s path bends around the opening, and the two foreground trees sit farther outside the garden.
+
+The pool and dog require half their previous delivered water; the barbecue requires 60%. These rates change mission progress per hit without increasing hose consumption or recoil.
+
+`scripts/job_rewards.gd` gives each completed water job a one-time rising sparkle burst and a soft four-note chime. The neighbour's thank-you follows after 1.8 seconds, once the reward has played. This does not stop driving or spraying. If another conversation is active, it waits; if the truck leaves, the thank-you waits for the player to return within speaking distance. Pause holds the effect, sound and delay. Dispatch also waits until the reward has played.
+
+## Interactive scenery
+
+`scripts/town_interactions.gd` adapts the existing baked props without replacing the town scene. It registers 51 trees, 12 lamp posts, 90 bushes, three benches, seven hydrants, four fences and four planters as `BreakableProp` rigid bodies. Houses, roads, ramps, the fountain and pool structure remain fixed. The rescue tree stays anchored until Pippin is safely down.
+
+Props start anchored. Swept truck contact measures the speed into the surface: bushes give way at 1.8 m/s, planters at 2.8, fences at 3.5, benches at 4, lamp posts at 5.5, hydrants at 8 and trees at 11. Below the threshold they block the truck; sufficient momentum knocks them loose, reduces truck speed and transfers motion into tipping, sliding and bouncing physics. Fallen props fade during seconds eight through ten, then return to their original position and fade in over one second. Reset waits if a vehicle or pedestrian occupies the spot. Knocked hydrants cannot refill until restored. Pause freezes loose bodies and their timers.
+
+To add a prop, call `TownInteractions.add_prop()` with its visual parts, original position, collision box, impact threshold and mass. `BreakableProp` exposes the impact threshold and respawn time for tuning. Existing art and colliders stay grouped through the conversion. Four small capsule colliders on physics layer 5 protect the quest neighbours' personal space; vehicle and loose-prop collisions respect these boundaries while hose and ladder queries remain available.
+
+## Road surfaces and ramps
+
+`scripts/drive_surfaces.gd` registers shallow visible paving on query-only physics layer 4. Tire contact and skid marks query these actual surfaces instead of estimating road height from street coordinates. The physical supports remain smooth over shallow decorative steps. Tracks align with surface normals and keep their five-second fade.
+
+`scripts/town_ramps.gd` adds four matching mesh-and-convex-collider wedges on clear outer streets: west Maple Lane, both southern approaches, and the east end of the southern road. Mint edges and coral chevrons mark the sloped deck; small coral marks identify ramps on the map. Drive onto the low end at speed to leave the lip naturally. There is no ramp jump impulse or scripted launch. The body and axle pose follow the slope.
+
+## Driving and water
+
+One rotation-locked `RigidBody3D` owns two spherical supports. Forces drive it; steering changes yaw. Compared with separately driven balls, the front and rear cannot pull against each other. Each wheel now has a Y steering parent and a separate X axle pivot. Signed forward travel divided by tire radius determines spin. Body lean, acceleration pitch, jump compression, landing spring, and camera look-ahead animate independently of collision geometry. A vertex deformation compresses only the body above the wheel arches, preserving chassis and fender coverage. Roof-mounted equipment follows the same deformation. A separate axle rig keeps tires planted during the roughly 30 cm roof compression; in flight, both body and axles follow the jump attitude. A full-charge launch uses 9.67 m/s (quick hops still start at 4 m/s); measured peak height is 15% higher than the previous full-charge jump. Vertical velocity drives a smooth nose-up-to-nose-down arc, and landing impact excites a damped suspension spring. Each tire samples the road beneath its centre, curved tread and sidewalls so that raised paving and curb transitions do not clip through it. Tire clearance is also protected during touchdown. The cannon and ladder mounts follow the sprung body. Physics interpolation keeps the chassis and wheels smooth between physics ticks; the frame-updated camera follows the interpolated truck pose. Driving retains a fixed camera zoom, and temporal antialiasing remains off.
+
+Acceleration and top speed are 25% above the previous version (26.25 and 16.875); recoil acceleration is 17, up from 9. Acceleration, top speed, and recoil acceleration are exported on `FireEngine`. Soft drag above 1.55× the ordinary speed keeps extended hose boosts bounded. Jump and landing impulses add a small, decaying camera shake. Ballistic droplets raycast their travel every physics tick; walls block streams. The compact stream uses five equal, jittered droplets per pulse, with no fixed centre jet. Launch speed is 22 m/s relative to the truck, with full chassis velocity inherited by every droplet. Ordinary stationary reach is about 15 m; 26 m/s² water gravity makes the arc fall quickly. Five pale-blue tints vary the stream, and one small cosmetic breakaway droplet per fifteen main droplets adds irregular splashes without increasing mission water. Each pulse shares the original water budget, and each droplet contributes once to a job. Aim assistance uses a 42-degree forward cone over the full hose range and horizontal tolerances of 4.6 m for the fire, 4.3 m for the dog and 5.4 m for pool landing points. Target height does not penalize acquisition. Pool shots choose among three landing points safely inside the rim at the current water level. The assist solves a momentum-compensated ballistic arc and rejects paths blocked by walls. Real collision still determines whether water reaches a target. Successful fire hits make white steam and show an On target / cooling HUD response. Grounded Shift bracing is stronger to let the truck hold its aim. Surface hits produce expanding, fading ripples and bouncing sprinkles. Droplets and splash meshes use reusable pools.
+
+## Validation and previews
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 60 --path . --script tests/traffic_aim_test.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 60 --path . --script tests/interactions_test.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 60 --path . --script tests/dispatch_test.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 60 --path . --script tests/tuning_test.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 60 --path . --script tests/neighbourhood_test.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 60 --path . --script tests/jump_test.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 60 --path . --script tests/ladder_test.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 60 --path . --script tests/playtest.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 60 --path . --script tests/polish_test.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 60 --path . --script tests/feel_test.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 60 --path . --script tests/refinement_test.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 120 --path . --script tests/motion_clarity_test.gd
+/Applications/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 60 --path . --script tests/water_motion_test.gd
+/Applications/Godot.app/Contents/MacOS/Godot --path . --fixed-fps 60 --script tests/capture.gd -- --conversation
+/Applications/Godot.app/Contents/MacOS/Godot --path . --fixed-fps 60 --script tests/capture.gd -- --phone
+/Applications/Godot.app/Contents/MacOS/Godot --path . --fixed-fps 60 --script tests/capture.gd -- --action
+```
+
+Traffic/aim regression checks run the complete ladder rescue followed by an unattended wait for dispatch, ensure unread calls persist, and verify that a drive past does not cancel them. They also restart all three cars from rest, stop and release yielding traffic, recover a stranded car, follow a minute of cornering, and deliver real water from loose aim on all four sides of empty and nearly full pools. `tests/capture.gd -- --pool-assist` captures the assisted stream in `tests/pool-assist.png`.
+
+Dispatch checks cover the fixed bottom-right phone anchor, retained operator portrait, speech tail, driving control, Maya's thank-you, the 20-second delay and ring, cancellation on barbecue discovery before or during ringing, early fire completion, no repeated calls, waiting for another speaker, pause, and the one-second camera transitions. Native phone and NPC previews are `tests/phone-call.png` and `tests/dialogue-preview.png`.
+
+Interaction checks exercise all three reward delays and thank-yous, one-time completion, actual truck collisions at different prop thresholds, tree tipping, momentum loss, fade-out, occupied respawn points, restoration, pause, pushable traffic, quest-NPC collision boundaries, and pedestrian jumps with continuous clearance. Running `tests/interactions_test.gd` without `--headless` also captures `tests/reward-fire.png`, `tests/reward-dog.png`, `tests/reward-pool.png`, `tests/tree-impact.png` and `tests/pedestrian-dodge.png`.
+
+Tuning checks compare actual full-charge jump heights, camera zoom and recovery, basin and surrounding-ground collision, empty/half/full pool geometry, and exact water budgets for all three jobs. Native runs capture `tests/pool-empty.png`, `tests/pool-half.png` and `tests/pool-full.png`. Neighbourhood checks exercise driving and spraying during dialogue, automatic distance dismissal and return, world-anchored bubbles, fixed portrait frames, a text-free water gauge, intersection skid marks and tire clearance, and physical launches from all four ramps. Native runs capture `tests/neighbour-dialogue.png`, `tests/intersection-tracks.png` and `tests/ramp-flight.png`. Mission availability advances when instructions begin, so leaving a conversation cannot block the job or later roll back progress. Jump checks measure chassis compression, planted tires, roof mount attachment, ascent/descent pitch, landing compression, tire clearance throughout flight, settling and recovery. Running `tests/jump_test.gd` without `--headless` captures the individual poses in `tests/jump-*.png`. Ladder checks drive an already-deployed ladder toward Pippin using real physics, then exercise automatic boarding, climb and dismount, pause/resume, safe retraction, recovery, dialogue availability and reusable one-shot events. Running `tests/ladder_test.gd` without `--headless` also captures boarding and climbing stills. The integration checks exercise actual physics, water travel, mission progression, recoil, refills, optional jobs, recovery, empty tank, jumping, pause/resume, and wall collisions/occlusion. The 10 polish checks cover text reveal/advance, wheel spin axis, front-only steering, distinct portraits, generated voice syllables, and animated facial features. The feel checks additionally compare measured road and hose-boost speeds, ladder behaviour, proximity greeting hysteresis, dust/trails, jump shake, splash spread, traffic yielding, walkers, birds and pause. Refinement checks cover shortened reach, off-centre assisted hits, wall occlusion, feedback on hits versus misses, Space dialogue without accidental jumping, manual ladder retraction, removed mounds, and butterflies. Motion checks exercise 120 Hz render sampling against 60 Hz physics, a fixed driving zoom, recovery without interpolation streaks, and the complete five-second skid-mark fade. Water-motion checks cover shooting ahead at driving speed, inherited lateral/vertical momentum, flight/fall speed, sparse cosmetic particles, colour variation, unchanged water budget, and accurate assisted hits while moving. Logs are in `tests/last-*-test.txt` and `tests/last-playtest.txt`.
+
+`tests/feel-preview.mp4` is an earlier short in-engine recording (before the current HUD and conversation pass): the compact spray at rest and while driving, ground splashes and fire steam, live traffic and walkers, a charged jump, the telescopic ladder, and the relocated barbecue. `tests/feel_showcase.gd` reproduces it.
+
+`tests/showcase.mp4` is the earlier 26-second art-pass recording of the running engine, including dialogue, physics-driven driving, ladder rescue, and firefighting. The showcase script deliberately cuts to the barbecue to keep the review short. Still previews are `tests/dialogue-preview.png` and `tests/action-preview.png`.
+
+Current scope remains one town, two story missions, and two optional jobs. There is no save system or gamepad support yet; mobile browser touch controls are included. Traffic follows predefined neighbourhood loops with obstacle yielding. The JavaScript prototype remains unchanged.

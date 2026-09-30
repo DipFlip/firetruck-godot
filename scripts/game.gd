@@ -1,0 +1,595 @@
+extends Node3D
+
+var town: LittleTown
+var truck: FireEngine
+var camera: Camera3D
+var hud: FireHUD
+var stage := 0
+var dialogue_active := false
+var dialogue_next := 0
+var dialogue_actor: Node3D
+var paused := false
+var fire_progress := 0.0
+var fire_feedback := 0.0
+var dog_progress := 0.0
+var pool_progress := 0.0
+var dog_done := false
+var pool_done := false
+var rescued := false
+var elapsed := 0.0
+var toast_time := 0.0
+var audio: AudioStreamPlayer
+var stream: AudioStreamGenerator
+var playback: AudioStreamGeneratorPlayback
+var audio_phase := 0.0
+var audio_clock := 0.0
+var call_timer := 1.5
+var barbecue_discovered := false
+var barbecue_notice_time := 0.0
+var barbecue_briefed := false
+var barbecue_call_delay := -1.0
+var barbecue_ring_timer := -1.0
+var barbecue_call_sent := false
+const BARBECUE_CALL_DELAY := 20.0
+var marker: MeshInstance3D
+var job_label: Label3D
+var camera_offset:=Vector3(16,23,29)
+var camera_focus:=Vector3.ZERO
+const TALK_CAMERA_SIZE := 18.8
+const TALK_CAMERA_OFFSET := Vector3(22,16.5,26)
+var camera_subject: Node3D
+var conversation_blend := 0.0
+var camera_blend_from := 0.0
+var camera_blend_to := 0.0
+var camera_transition_time := 1.0
+var music: AudioStreamPlayer
+var music_muted:=false
+var water_audio: AudioStreamPlayer
+var hose_volume := 0.0
+var camera_trauma := 0.0
+var proximity_latches: Dictionary = {}
+var rescue_running := false
+var rescue_tween: Tween
+var cat_ladder_event: LadderEvent
+var cat_rescued:=false
+var cat_home:=Vector3.ZERO
+var cat_home_rotation:=Vector3.ZERO
+var cat_paws: Array[Node3D]=[]
+var life: TownLife
+var gardens: TownGardens
+var atmosphere: TownAtmosphere
+var surfaces: DriveSurfaces
+var pool_basin: PoolBasin
+var ramps: TownRamps
+var rewards: JobRewards
+var interactions: TownInteractions
+var web_controls: WebControls
+
+func _ready() -> void:
+	# Frame-driven scenery and camera are not physics-interpolated a second time.
+	physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_setup_input()
+	_setup_light()
+	town=$MapleBay
+	truck=FireEngine.new()
+	truck.name="Engine04"
+	truck.position=Vector3(0,1,12)
+	add_child(truck)
+	truck.hit_receiver = _water_hit
+	truck.aim_assist = _assisted_water_target
+	truck.bump.connect(func(strength: float): camera_trauma=maxf(camera_trauma,strength))
+	town.truck=truck
+	cat_home=town.cat.global_position
+	cat_home_rotation=town.cat.rotation
+	for child in town.cat.get_children():
+		if child is MeshInstance3D and is_equal_approx(child.position.y,.2): cat_paws.append(child)
+	cat_ladder_event=LadderEvent.new()
+	cat_ladder_event.name="PippinLadderEvent"
+	cat_ladder_event.availability=func(): return stage==1 and not paused and not rescue_running and not cat_rescued
+	cat_ladder_event.activated.connect(_on_cat_ladder_reached)
+	town.cat.add_child(cat_ladder_event)
+	camera=Camera3D.new()
+	camera.physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_OFF
+	camera.projection=Camera3D.PROJECTION_ORTHOGONAL
+	camera.size=25.8
+	camera.far=250
+	add_child(camera)
+	camera.position=truck.position+camera_offset
+	camera.look_at(truck.position)
+	camera.current=true
+	camera_focus=truck.position
+	truck.camera=camera
+	var canvas:=CanvasLayer.new()
+	add_child(canvas)
+	hud=FireHUD.new()
+	hud.game=self
+	canvas.add_child(hud)
+	marker=MeshInstance3D.new()
+	var ring:=TorusMesh.new()
+	ring.inner_radius=1.78
+	ring.outer_radius=1.83
+	marker.mesh=ring
+	marker.material_override=TownProps.material(Color("e5b378"),true)
+	marker.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(marker)
+	job_label=TownProps.label(self,Vector3(12,4,-7),"01  /  A CAT IN A TREE",28)
+	_setup_audio()
+	atmosphere=TownAtmosphere.new()
+	atmosphere.game=self
+	add_child(atmosphere)
+	life=TownLife.new()
+	life.game=self
+	add_child(life)
+	gardens=TownGardens.new()
+	gardens.game=self
+	add_child(gardens)
+	pool_basin=PoolBasin.new()
+	pool_basin.game=self
+	add_child(pool_basin)
+	surfaces=DriveSurfaces.new()
+	add_child(surfaces)
+	surfaces.register(town)
+	surfaces.register(atmosphere)
+	ramps=TownRamps.new()
+	add_child(ramps)
+	rewards=JobRewards.new()
+	rewards.game=self
+	add_child(rewards)
+	interactions=TownInteractions.new()
+	interactions.game=self
+	add_child(interactions)
+	web_controls=WebControls.new()
+	web_controls.game=self
+	add_child(web_controls)
+
+func _setup_input() -> void:
+	var bindings := {"left":KEY_A,"right":KEY_D,"forward":KEY_W,"back":KEY_S,"jump":KEY_SPACE,"brake":KEY_SHIFT,"interact":KEY_E,"continue":KEY_ENTER,"recover":KEY_R,"pause":KEY_ESCAPE,"aim_left":KEY_LEFT,"aim_right":KEY_RIGHT,"aim_up":KEY_UP,"aim_down":KEY_DOWN,"map":KEY_TAB,"music":KEY_M}
+	for action in bindings:
+		if not InputMap.has_action(action): InputMap.add_action(action)
+		var event:=InputEventKey.new()
+		event.physical_keycode=bindings[action]
+		InputMap.action_add_event(action,event)
+	InputMap.add_action("spray")
+	var mouse:=InputEventMouseButton.new()
+	mouse.button_index=MOUSE_BUTTON_LEFT
+	InputMap.action_add_event("spray",mouse)
+
+func _setup_light() -> void:
+	var sun:=DirectionalLight3D.new()
+	sun.rotation_degrees=Vector3(-48,-32,0)
+	sun.light_color=Color("ffffff")
+	sun.light_energy=.78 if OS.has_feature("web") else 1.05
+	sun.light_angular_distance=0.8
+	sun.shadow_enabled=true
+	sun.directional_shadow_max_distance=100
+	add_child(sun)
+	var world:=WorldEnvironment.new()
+	var env:=Environment.new()
+	env.background_mode=Environment.BG_COLOR
+	env.background_color=Color("aecbca")
+	env.ambient_light_source=Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color=Color("d6e8ff")
+	env.ambient_light_energy=0.32
+	env.tonemap_mode=Environment.TONE_MAPPER_ACES
+	env.ssao_enabled=not OS.has_feature("web")
+	env.ssao_radius=1.2
+	env.ssao_intensity=1.5
+	env.ssao_light_affect=0.35
+	env.glow_enabled=not OS.has_feature("web")
+	env.glow_intensity=0.3
+	env.glow_bloom=0.04
+	env.adjustment_enabled=true
+	env.adjustment_saturation=1.08 if OS.has_feature("web") else 1.24
+	env.adjustment_contrast=1.0 if OS.has_feature("web") else 1.03
+	env.tonemap_exposure=0.92
+	world.environment=env
+	add_child(world)
+
+func objective() -> Vector3:
+	if stage<=1: return TownLayout.MAYA
+	if stage==2: return TownLayout.LEO
+	return TownLayout.FIRE
+
+func talk(speaker: String, words: String, next: int) -> void:
+	dialogue_active=true
+	dialogue_next=next
+	var index: int={"MAYA":0,"LEO":1,"JUNE":2,"OLIVER":3}.get(speaker.get_slice("  /",0),-1)
+	dialogue_actor=town.people[index] if index>=0 else null
+	if dialogue_actor: camera_subject=dialogue_actor
+	_set_conversation_camera(dialogue_actor!=null)
+	# These are instructions, not choices: a neighbour's job remains available
+	# if the player drives away halfway through hearing about it.
+	stage=next
+	_update_mission()
+	hud.begin_dialogue(speaker,words)
+	truck.enabled=not paused and not rescue_running
+
+func end_dialogue() -> void:
+	dialogue_active=false
+	dialogue_actor=null
+	_set_conversation_camera(false)
+	hud.dialogue_panel.hide()
+	hud.voice.stop()
+	truck.enabled=not paused and not rescue_running
+
+func _set_conversation_camera(active: bool) -> void:
+	var target:=1.0 if active else 0.0
+	if target==camera_blend_to: return
+	camera_blend_from=conversation_blend
+	camera_blend_to=target
+	camera_transition_time=0.0
+
+func phone_ringing() -> bool:
+	return call_timer>0 or barbecue_ring_timer>=0
+
+func _discover_barbecue() -> void:
+	if barbecue_call_sent and dialogue_active and hud.speaker_key=="DISPATCH": end_dialogue()
+	barbecue_discovered=true
+	barbecue_call_delay=-1
+	barbecue_ring_timer=-1
+	if fire_progress<1 and (cat_rescued or stage==2):
+		stage=3
+		_update_mission()
+
+func _check_barbecue_discovery(dt: float) -> void:
+	if barbecue_discovered: return
+	# A brief drive past the neighbourhood is not acknowledgement of the job.
+	# Talking to Leo or spraying the fire still discovers it immediately.
+	var close:=truck.global_position.distance_to(TownLayout.FIRE)<8
+	var speed:=Vector2(truck.linear_velocity.x,truck.linear_velocity.z).length()
+	var query:=PhysicsRayQueryParameters3D.create(truck.cannon.global_position,TownLayout.FIRE+Vector3.UP*1.7,1,[truck.get_rid()])
+	if not close or speed>5 or not get_world_3d().direct_space_state.intersect_ray(query).is_empty():
+		barbecue_notice_time=0
+		return
+	barbecue_notice_time+=dt
+	if barbecue_notice_time>=1.25: _discover_barbecue()
+
+func _update_dispatch(dt: float) -> void:
+	if call_timer>0:
+		call_timer=maxf(0,call_timer-dt)
+		if call_timer==0:
+			if dialogue_active or rescue_running or rewards.playing_reward(): call_timer=.1
+			else: talk("DISPATCH  /  INCOMING CALL","Morning, rookie! Quiet shift today... except Maya's cat thinks he's a bird. Follow the arrow to Maple Green. You've got this.",1)
+	if barbecue_discovered or fire_progress>=1:
+		barbecue_call_delay=-1
+		barbecue_ring_timer=-1
+		return
+	if barbecue_call_delay>=0:
+		barbecue_call_delay=maxf(0,barbecue_call_delay-dt)
+		if barbecue_call_delay==0 and not rescue_running and not rewards.playing_reward():
+			barbecue_call_delay=-1
+			barbecue_ring_timer=1.2
+	elif barbecue_ring_timer>=0:
+		barbecue_ring_timer=maxf(0,barbecue_ring_timer-dt)
+		if barbecue_ring_timer==0 and not dialogue_active and not rescue_running and not rewards.playing_reward():
+			barbecue_ring_timer=-1
+			barbecue_call_sent=true
+			talk("DISPATCH  /  INCOMING CALL","Unit 04, we've had a call from Willow Lane. Leo's barbecue has flared up! Head east and lend him a hose.",2)
+			hud.auto_close_delay=-1 # Keep the job visible until acknowledged or discovered.
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.echo: return
+	if event.is_action_pressed("pause"):
+		paused=not paused
+		hud.pause_panel.visible=paused
+		truck.enabled=not paused and not rescue_running
+		truck.freeze=paused or rescue_running
+		truck.set_physics_process(not paused)
+		town.set_process(not paused)
+		if rescue_tween and rescue_tween.is_valid() and rescue_tween.is_running() and paused: rescue_tween.pause()
+		elif rescue_tween and rescue_tween.is_valid() and not paused: rescue_tween.play()
+	if paused: return
+	if event.is_action_pressed("map"): hud.map_open=not hud.map_open
+	if event.is_action_pressed("music"):
+		music_muted=not music_muted
+		if music: music.volume_db=-80 if music_muted else -25
+	if event.is_action_pressed("recover"):
+		end_dialogue()
+		if rescue_running: _cancel_cat_rescue()
+		truck.reset_truck()
+		toast("Back at the station. Ready when you are.")
+	if event.is_action_pressed("interact"):
+		if truck.ladder_deployed: truck.retract_ladder()
+		else: truck.extend_ladder()
+	if dialogue_active and (event.is_action_pressed("continue") or event.is_action_pressed("jump")):
+		if event.is_action_pressed("jump"):
+			truck.jump_blocked_until_release=true
+			truck.charge=0
+		interact()
+		get_viewport().set_input_as_handled()
+
+func interact() -> void:
+	if paused: return
+	if dialogue_active:
+		if not hud.advance_text(): return
+		end_dialogue()
+		return
+
+func _proximity_talk() -> void:
+	var positions := [TownLayout.MAYA,TownLayout.LEO,TownLayout.JUNE,TownLayout.OLIVER]
+	for i in positions.size():
+		var distance: float=truck.global_position.distance_to(positions[i])
+		if distance>8: proximity_latches.erase(i)
+		if distance>5.8 or proximity_latches.has(i) or dialogue_active or rescue_running: continue
+		if rewards.waiting_for(["MAYA","LEO","JUNE","OLIVER"][i]): continue
+		if i==0 and stage==1 and not rescued:
+			talk("MAYA  /  MAPLE GREEN","Oh, thank goodness! Pippin climbed up there and forgot how to be a cat. Extend your ladder with E and drive its tip close to Pippin. He'll hop on and climb down. Gently, please!",1)
+			rescued=true
+		elif i==1 and fire_progress<1 and not barbecue_briefed:
+			_discover_barbecue()
+			barbecue_briefed=true
+			talk("LEO  /  A LITTLE TOO WELL DONE","I was going for smoky flavour, not actual smoke! Aim at the barbecue and hold the hose. Shift will keep you steady.",3 if cat_rescued or stage in [2,3,5] else stage)
+		elif i==2:
+			talk("JUNE  /  BISCUIT'S BIG DAY", "He's spotless. Thank you!" if dog_done else "Biscuit found every puddle in town. Could you give him a gentle rinse? Aim the hose at him until he's clean.",stage)
+		elif i==3:
+			talk("OLIVER  /  POOL PARTY", "Pool party saved. You're always welcome here!" if pool_done else "The kids are coming over, and the pool is empty! Could you fill it? Spray into the tiled pool and watch the water rise.",stage)
+		else: continue
+		proximity_latches[i]=true
+
+func _process(dt: float) -> void:
+	if not is_instance_valid(truck): return
+	_audio_update(dt)
+	if paused: return
+	elapsed+=dt
+	fire_feedback=maxf(0,fire_feedback-dt*2.2)
+	town.water_response=fire_feedback
+	var ahead:=Vector3(truck.linear_velocity.x,0,truck.linear_velocity.z)*0.27
+	# Follow the same interpolated chassis pose that the renderer displays.
+	var rendered_truck_position:=truck.get_global_transform_interpolated().origin
+	var focus:=rendered_truck_position+ahead
+	if dialogue_active and is_instance_valid(dialogue_actor):
+		if truck.global_position.distance_to(dialogue_actor.global_position)>9: end_dialogue()
+	camera_transition_time=minf(1.0,camera_transition_time+dt)
+	conversation_blend=lerpf(camera_blend_from,camera_blend_to,smoothstep(0.0,1.0,camera_transition_time))
+	if is_instance_valid(camera_subject):
+		var conversation_focus:=rendered_truck_position.lerp(camera_subject.global_position,.5)+Vector3.UP*.25+ahead*.1
+		focus=focus.lerp(conversation_focus,conversation_blend)
+	camera_focus=camera_focus.lerp(focus,1-exp(-4.5*dt))
+	camera_trauma=maxf(0,camera_trauma-dt*1.5)
+	var shake:=camera_trauma*camera_trauma
+	camera.global_position=camera_focus+camera_offset.lerp(TALK_CAMERA_OFFSET,conversation_blend)+Vector3(sin(elapsed*63)*.16,sin(elapsed*79)*.12,cos(elapsed*53)*.08)*shake
+	camera.look_at(camera_focus)
+	camera.rotation.z+=sin(elapsed*47)*0.004*shake
+	camera.size=lerpf(25.8,TALK_CAMERA_SIZE,conversation_blend)
+	_check_barbecue_discovery(dt)
+	_update_dispatch(dt)
+	if toast_time>0:
+		toast_time-=dt
+		if toast_time<=0: hud.toast_label.text=""
+	marker.visible=stage>0 and stage<4
+	job_label.visible=false
+	marker.position=objective()+Vector3.UP*0.12
+	marker.scale=Vector3.ONE*(1+sin(elapsed*3)*0.06)
+	job_label.position=objective()+Vector3.UP*(4.3+sin(elapsed*2)*0.15)
+	_proximity_talk()
+	var refill_prompt:=""
+	for i in town.hydrants.size():
+		var h:=town.hydrants[i]
+		if interactions.hydrant_props[i].loose: continue
+		if truck.global_position.distance_to(h)<4.5:
+			truck.water=minf(truck.tank_capacity,truck.water+dt*25)
+			refill_prompt="Tank full" if truck.water>=truck.tank_capacity else "Refilling at the hydrant..."
+	var prompt:=""
+	if not dialogue_active:
+		var distance:=truck.global_position.distance_to(objective())
+		if rescue_running: prompt="Pippin is climbing down..."
+		elif stage==1 and distance<12:
+			prompt="Bring the ladder tip close to Pippin" if truck.ladder_deployed else "E  ·  Extend ladder, then approach Pippin"
+		elif stage==3 and distance<19: prompt="On target · Cooling the fire!" if fire_feedback>.1 else "Hold click to spray   ·   Shift to brace"
+		if not refill_prompt.is_empty(): prompt=refill_prompt
+		if prompt=="" and not dog_done and truck.global_position.distance_to(TownLayout.JUNE+Vector3.UP)<6: prompt="BISCUIT  /  %d%% clean" % (dog_progress*100)
+		if prompt=="" and not pool_done and truck.global_position.distance_to(TownLayout.OLIVER+Vector3.UP)<6: prompt="POOL  /  %d%% full" % (pool_progress*100)
+		if truck.water<=0: prompt="Tank empty · Find a blue hydrant on the map"
+	hud.prompt_label.text=prompt
+	if stage==3:
+		hud.heading_label.text="ON TARGET  /  COOLING" if fire_feedback>.1 else "02  /  HOSE AT THE READY"
+		hud.detail_label.text="Extinguish the barbecue  ·  %d%%\n" % (fire_progress*100) + ("Keep it there!" if fire_feedback>.1 else "Aim near the flames · Shift to brace.")
+
+func _assisted_water_target(origin: Vector3, requested: Vector3) -> Variant:
+	var aim:=Vector3(requested.x-origin.x,0,requested.z-origin.z).normalized()
+	if aim.length()<.1: return null
+	var targets: Array[Dictionary]=[]
+	if fire_progress<1 and (stage==3 or barbecue_discovered): targets.append({"point":TownLayout.FIRE+Vector3.UP*1.7,"radius":4.6})
+	if not dog_done: targets.append({"point":TownLayout.DOG+Vector3.UP*.7,"radius":4.3})
+	if not pool_done:
+		# Select safe landing points well inside the basin, rather than the rim.
+		# Multiple candidates let the arc clear a nearby wall or the pool ladder.
+		var center:=TownLayout.POOL+Vector3.UP*(town.pool_water.position.y+.06)
+		var low:=center-Vector3(3.0,0,1.05)
+		var high:=center+Vector3(3.0,0,1.05)
+		var cursor:=Vector3(requested.x,center.y,requested.z).clamp(low,high)
+		var near:=Vector3(origin.x,center.y,origin.z).clamp(low,high)
+		for point in [cursor,center,near]: targets.append({"point":point,"radius":5.4})
+	var best: Variant=null
+	var best_score:=INF
+	for target in targets:
+		var point: Vector3=target.point
+		var planar:=Vector3(point.x-origin.x,0,point.z-origin.z)
+		var ahead:=planar.dot(aim)
+		if planar.length()>FireEngine.AIM_RANGE or ahead<=0 or planar.normalized().dot(aim)<cos(deg_to_rad(42)): continue
+		# Compare horizontal aim error over the full hose range. Height differences
+		# (especially an empty recessed pool) must not make acquisition harder.
+		var error: float=(planar-aim*ahead).length()
+		if error>target.radius: continue
+		var cursor_error:=Vector2(point.x-requested.x,point.z-requested.z).length()
+		var score:=error+cursor_error*.12
+		if score>=best_score or not truck.shot_is_clear(origin,point): continue
+		best_score=score
+		best=point
+	return best
+
+func _water_hit(point: Vector3, amount: float) -> bool:
+	if paused: return false
+	var consumed := false
+	if fire_progress<1 and point.distance_to(TownLayout.FIRE+Vector3.UP*1.8)<1.8:
+		_discover_barbecue()
+		consumed = true
+		fire_feedback=1.0
+		fire_progress=minf(1,fire_progress+amount*(0.22/0.60))
+		town.fire_amount=1-fire_progress
+		if fire_progress>=1:
+			stage=4 if cat_rescued or stage in [2,3,4] else 1
+			_update_mission()
+			toast("FIRE OUT   /   Maple Bay is in good hands")
+			rewards.celebrate("fire",TownLayout.FIRE+Vector3.UP*1.2,"LEO","You saved the afternoon! Thank you! I think I'll stick to sandwiches for the rest of the party.")
+	if not dog_done and point.distance_to(TownLayout.DOG+Vector3.UP*0.7)<1.4:
+		consumed = true
+		dog_progress=minf(1,dog_progress+amount*0.60)
+		if dog_progress>=1:
+			dog_done=true
+			for child in town.dog.get_children():
+				if child is MeshInstance3D: child.material_override=TownProps.material(Color("e9c58b"))
+			toast("BISCUIT IS CLEAN   /   One very happy tail")
+			rewards.celebrate("dog",TownLayout.DOG+Vector3.UP*.5,"JUNE","Look at that shiny coat! Thank you — Biscuit's ready for cuddles again.")
+	if not pool_done and absf(point.x-TownLayout.POOL.x)<4.4 and absf(point.z-TownLayout.POOL.z)<2.4 and point.y<=town.pool_water.position.y+.12:
+		consumed = true
+		pool_progress=minf(1,pool_progress+amount*0.32)
+		pool_basin.set_fill(pool_progress)
+		truck._splash(Vector3(point.x,town.pool_water.position.y,point.z),Vector3.UP,true)
+		if pool_progress>=1:
+			pool_done=true
+			toast("POOL PARTY SAVED   /   Everybody in!")
+			rewards.celebrate("pool",TownLayout.POOL+Vector3.UP*.15,"OLIVER","It's perfect! Thank you for saving our pool party. You're always welcome for a swim!")
+	if stage==4: _update_mission()
+	return consumed
+
+func _update_mission() -> void:
+	match stage:
+		1:
+			hud.heading_label.text="01  /  THE FIRST CALL"
+			hud.mission_label.text="A cat in a tree"
+			hud.detail_label.text="E to extend the ladder.\nBring its tip close to Pippin." if rescued else "Follow the gold arrow to Maya.\nDrive close to say hello."
+		2:
+			hud.heading_label.text="02  /  WILLOW LANE"
+			hud.mission_label.text="A little too well done"
+			hud.detail_label.text="Find Leo beside his barbecue.\nDrive close to check in."
+			job_label.text="02  /  TALK TO LEO"
+		3:
+			hud.heading_label.text="02  /  HOSE AT THE READY"
+			hud.mission_label.text="Cool things down"
+			job_label.text="SPRAY THE FLAMES"
+		4:
+			hud.heading_label.text="OFF DUTY  /  STILL A HERO"
+			hud.mission_label.text="Little acts of kindness"
+			hud.detail_label.text=("✓" if dog_done else "○")+" Rinse Biscuit · west side\n"+("✓" if pool_done else "○")+" Fill the pool · Rose Cottage"
+		5:
+			hud.heading_label.text="A QUIET MOMENT"
+			hud.mission_label.text="Explore the neighbourhood"
+			hud.detail_label.text=""
+
+func toast(words: String) -> void:
+	hud.toast_label.text=words
+	toast_time=5
+
+func _setup_audio() -> void:
+	if DisplayServer.get_name()=="headless": return
+	audio=AudioStreamPlayer.new()
+	audio.playback_type=AudioServer.PLAYBACK_TYPE_STREAM
+	stream=AudioStreamGenerator.new()
+	stream.mix_rate=22050
+	stream.buffer_length=0.12
+	audio.stream=stream
+	add_child(audio)
+	audio.play()
+	playback=audio.get_stream_playback()
+	music=AudioStreamPlayer.new()
+	var song: AudioStreamWAV=load("res://assets/audio/maple_morning.wav")
+	song.loop_mode=AudioStreamWAV.LOOP_FORWARD
+	song.loop_end=song.data.size()/2
+	music.stream=song
+	music.volume_db=-25
+	add_child(music)
+	music.play()
+	water_audio=AudioStreamPlayer.new()
+	var water_loop: AudioStreamOggVorbis=load("res://assets/audio/water_flow.ogg")
+	water_loop.loop=true
+	water_audio.stream=water_loop
+	water_audio.volume_db=-80
+	add_child(water_audio)
+	water_audio.play()
+
+func _audio_update(dt: float) -> void:
+	hose_volume=lerpf(hose_volume,1.0 if truck.spraying and not paused else 0.0,1-exp(-10*dt))
+	if water_audio: water_audio.volume_db=linear_to_db(maxf(0.00001,hose_volume*0.063))
+	if not playback: return
+	var count:=playback.get_frames_available()
+	var speed:=truck.linear_velocity.length()
+	for i in count:
+		audio_clock+=1.0/22050.0
+		audio_phase+=TAU*(48+speed*4)/22050.0
+		var sample: float=sin(audio_phase)*0.018+sin(audio_phase*2)*0.006
+		if phone_ringing() and fmod(audio_clock,0.5)<0.22: sample+=sin(audio_clock*TAU*740)*0.035
+		if paused: sample=0
+		playback.push_frame(Vector2(sample,sample))
+
+
+func _on_cat_ladder_reached(engine: FireEngine) -> void:
+	if rescue_running or cat_rescued: return
+	if dialogue_active: end_dialogue()
+	rescue_running=true
+	truck.enabled=false
+	truck.charge=0
+	truck.linear_velocity=Vector3.ZERO
+	truck.angular_velocity=Vector3.ZERO
+	truck.freeze=true
+	truck.ladder_busy=true
+	var cat:=town.cat
+	var start:=cat.global_position
+	var tip:=engine.ladder_tip.global_position+Vector3.UP*.05
+	var base:=engine.ladder.global_position+Vector3.UP*.06
+	var landing:=engine.global_position+engine.global_basis*Vector3(1.75,0,1.3)
+	var other:=engine.global_position+engine.global_basis*Vector3(-1.75,0,1.3)
+	if other.distance_to(TownLayout.MAYA)<landing.distance_to(TownLayout.MAYA): landing=other
+	var probe:=PhysicsRayQueryParameters3D.create(landing+Vector3.UP*3,landing+Vector3.DOWN*5,1,[engine.get_rid()])
+	var ground:=get_world_3d().direct_space_state.intersect_ray(probe)
+	landing.y=(ground.position.y if ground else 0.0)+.10
+	cat.look_at(base,Vector3.UP)
+	rescue_tween=create_tween()
+	rescue_tween.tween_method(func(t: float):
+		cat.global_position=start.lerp(tip,t)+Vector3.UP*sin(t*PI)*.65,0.0,1.0,.5)
+	rescue_tween.tween_method(func(t: float):
+		cat.global_position=tip.lerp(base,t)+Vector3.UP*absf(sin(t*TAU*6))*.035
+		for i in cat_paws.size(): cat_paws[i].rotation.x=sin(t*TAU*6+(i%2)*PI)*.35,0.0,1.0,1.45)
+	rescue_tween.tween_callback(func():
+		for paw in cat_paws: paw.rotation.x=0
+		cat.look_at(Vector3(landing.x,cat.global_position.y,landing.z)))
+	rescue_tween.tween_method(func(t: float):
+		cat.global_position=base.lerp(landing,t)+Vector3.UP*sin(t*PI)*.4,0.0,1.0,.6)
+	rescue_tween.tween_callback(func():
+		cat.rotation.x=0
+		cat.rotation.z=0
+		cat_rescued=true
+		rescue_running=false
+		truck.freeze=false
+		truck.release_ladder()
+		toast("PIPPIN RESCUED   +   A grateful neighbour")
+		_after_cat_rescue())
+
+func _after_cat_rescue() -> void:
+	var next_stage:=4 if fire_progress>=1 else (3 if barbecue_discovered else 5)
+	talk("MAYA  /  THANK YOU","Thank you! Pippin, you little rascal. Let's keep all four paws on the ground from now on.",next_stage)
+	hud.auto_close_delay=4.0
+	if not barbecue_discovered and not barbecue_call_sent and fire_progress<1:
+		barbecue_call_delay=BARBECUE_CALL_DELAY
+		barbecue_ring_timer=-1
+
+func _cancel_cat_rescue() -> void:
+	if rescue_tween and rescue_tween.is_valid(): rescue_tween.kill()
+	town.cat.global_position=cat_home
+	town.cat.rotation=cat_home_rotation
+	for paw in cat_paws: paw.rotation.x=0
+	cat_ladder_event.consumed=false
+	rescue_running=false
+	truck.freeze=paused
+	truck.enabled=not paused
+	truck.release_ladder()
+	if not cat_rescued:
+		barbecue_call_delay=-1
+		barbecue_ring_timer=-1
+
+func _exit_tree() -> void:
+	if audio: audio.stop()
+	playback=null
+	TownProps.materials.clear()
+	TownProps.effect_shaders.clear()
+	TownProps.rounded_mesh=null

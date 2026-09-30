@@ -1,0 +1,303 @@
+class_name TownLife
+extends Node3D
+
+var game: Node3D
+var cars: Array[Dictionary]=[]
+var walkers: Array[Dictionary]=[]
+var birds: Array[Dictionary]=[]
+var time:=0.0
+
+func _ready() -> void:
+	physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_ON
+	# Lanes circulate around separate blocks, leaving the centre of junctions clear.
+	_car([Vector3(1.8,0,12),Vector3(1.8,0,34.2),Vector3(34.2,0,34.2),Vector3(34.2,0,1.8),Vector3(1.8,0,1.8)],Color("e5bd72"),0)
+	_car([Vector3(-34.2,0,-15),Vector3(-34.2,0,-1.8),Vector3(-1.8,0,-1.8),Vector3(-1.8,0,-34.2),Vector3(-34.2,0,-34.2)],Color("91afb4"),1)
+	_car([Vector3(1.8,0,-12),Vector3(1.8,0,-1.8),Vector3(34.2,0,-1.8),Vector3(34.2,0,-34.2),Vector3(1.8,0,-34.2)],Color("c78e83"),2)
+	var paths: Array[Array]=[
+		[Vector3(5.0,.16,8),Vector3(5.0,.16,31),Vector3(30.7,.16,31),Vector3(30.7,.16,5),Vector3(5.0,.16,5)],
+		[Vector3(-5,.16,-9),Vector3(-5,.16,-31),Vector3(-31,.16,-31),Vector3(-31,.16,-5),Vector3(-5,.16,-5)],
+		[Vector3(41,.16,-8),Vector3(41,.16,-31),Vector3(58,.16,-31),Vector3(58,.16,-5),Vector3(41,.16,-5)],
+		[Vector3(-5,.16,24),Vector3(-5,.16,5),Vector3(-31,.16,5),Vector3(-31,.16,31),Vector3(-5,.16,31)],
+		[Vector3(5,.16,43),Vector3(5,.16,60),Vector3(30,.16,60),Vector3(30,.16,41),Vector3(5,.16,41)],
+		[Vector3(-41,.16,-9),Vector3(-41,.16,-31),Vector3(-59,.16,-31),Vector3(-59,.16,-5),Vector3(-41,.16,-5)]]
+	for i in paths.size():
+		var person:=TownProps.person(self,paths[i][0],[Color("819a83"),Color("d4a17a"),Color("8d9db6"),Color("c59099"),Color("dcbe77"),Color("9b9b7a")][i])
+		person.scale=Vector3.ONE*.85
+		var legs: Array[Node3D]=[]
+		for side in [-1,1]:
+			var pivot:=Node3D.new()
+			person.add_child(pivot)
+			pivot.position=Vector3(side*.22,.72,0)
+			# Reparent each matching trouser and shoe under a hip joint.
+			for child in person.get_children():
+				if child is MeshInstance3D and absf(child.position.x-side*.22)<.01 and child.position.y<.75:
+					child.reparent(pivot)
+			legs.append(pivot)
+		walkers.append({"node":person,"path":paths[i],"next":1,"speed":.95+i*.06,"phase":i*1.7,"legs":legs,"hop":1.0,"from":person.position,"to":person.position,"cooldown":0.0})
+	for i in 9:
+		var bird:=Node3D.new()
+		add_child(bird)
+		TownProps.ball(bird,Vector3.ZERO,Vector3(.19,.16,.42),Color("677a79"))
+		TownProps.ball(bird,Vector3(0,.06,-.19),Vector3(.17,.17,.19),Color("ece5cc"))
+		TownProps.box(bird,Vector3(0,.035,-.3),Vector3(.06,.05,.12),Color("d7a55d"))
+		var wings: Array[Node3D]=[]
+		for side in [-1,1]:
+			var wing:=Node3D.new()
+			bird.add_child(wing)
+			TownProps.ball(wing,Vector3(side*.22,0,.015),Vector3(.50,.045,.21),Color("d4d8c5"))
+			wings.append(wing)
+		birds.append({"node":bird,"wings":wings,"phase":i*.48,"center":Vector3(-15,8,6) if i<5 else Vector3(43,9,-16),"radius":12.0+i*.6})
+
+func _car(path: Array, color: Color, index: int) -> void:
+	var body:=RigidBody3D.new()
+	body.name="NeighbourCar%d" % index
+	body.collision_layer=2
+	body.collision_mask=19
+	body.mass=1.0
+	body.continuous_cd=true
+	body.can_sleep=false
+	body.linear_damp=.6
+	body.angular_damp=2.5
+	body.axis_lock_angular_x=true
+	body.axis_lock_angular_z=true
+	var material:=PhysicsMaterial.new()
+	material.friction=.035
+	material.bounce=.12
+	body.physics_material_override=material
+	add_child(body)
+	body.position=path[0]+Vector3.UP*.12
+	var collision:=CollisionShape3D.new()
+	var shape:=BoxShape3D.new()
+	shape.size=Vector3(1.65,1.45,3.0)
+	collision.shape=shape
+	collision.position.y=.725
+	body.add_child(collision)
+	TownProps.box(body,Vector3(0,.65,0),Vector3(1.7,.62,3.0),color)
+	TownProps.box(body,Vector3(0,1.18,.1),Vector3(1.4,.75,1.65),color)
+	TownProps.box(body,Vector3(0,1.22,-.75),Vector3(1.25,.46,.07),Color("577884"))
+	TownProps.box(body,Vector3(0,1.22,.94),Vector3(1.25,.4,.06),Color("577884"))
+	for side in [-1,1]:
+		TownProps.box(body,Vector3(side*.713,1.22,.1),Vector3(.035,.42,1.36),Color("577884"))
+		TownProps.box(body,Vector3(side*.715,1.22,.1),Vector3(.04,.5,.08),color)
+		TownProps.box(body,Vector3(side*.54,.7,-1.5),Vector3(.38,.2,.07),Color("fff0c5"))
+		TownProps.box(body,Vector3(side*.55,.7,1.5),Vector3(.28,.15,.07),Color("b15d4f"))
+	TownProps.box(body,Vector3(0,.46,-1.53),Vector3(1.4,.13,.13),Color("cfceb7"))
+	var wheels: Array[Node3D]=[]
+	for side in [-1,1]:
+		for z in [-.95,.98]:
+			var wheel:=Node3D.new()
+			body.add_child(wheel)
+			wheel.position=Vector3(side*.82,.32,z)
+			var tire:=TownProps.cylinder(wheel,Vector3.ZERO,.34,.19,Color("435152"))
+			tire.rotation.z=PI/2
+			var hub:=TownProps.box(wheel,Vector3(side*.11,0,0),Vector3(.035,.36,.07),Color("d7d1b9"))
+			wheels.append(wheel)
+	cars.append({"node":body,"path":path,"next":1,"speed":0.0,"cruise":4.0+index*.4,"wheels":wheels,"coast":0.0,"stalled":0.0,"recovery":-1.0,"fade_in":1.0,"last_position":body.position,"progress_clock":0.0})
+
+func _physics_process(dt: float) -> void:
+	for car in cars: car.node.freeze=game.paused
+	if game.paused: return
+	time+=dt
+	for car in cars:
+		var body: RigidBody3D=car.node
+		if _recover_traffic(car,dt): continue
+		var target: Vector3=car.path[car.next]+Vector3.UP*.12
+		var direction:=target-body.position
+		direction.y=0
+		if direction.length()<.8:
+			car.next=(car.next+1)%car.path.size()
+			direction=car.path[car.next]-body.position
+			direction.y=0
+		direction=direction.normalized()
+		var yield_now:=false
+		var to_truck: Vector3=game.truck.global_position-body.position
+		if to_truck.length()<7 and to_truck.normalized().dot(direction)>.25: yield_now=true
+		var query:=PhysicsRayQueryParameters3D.create(body.position+Vector3.UP*.7,body.position+Vector3.UP*.7+direction*4,3,[body.get_rid()])
+		if get_world_3d().direct_space_state.intersect_ray(query): yield_now=true
+		var relative: Vector3=game.truck.linear_velocity-body.linear_velocity
+		if to_truck.length()<4.2 and relative.length()>1.5 and relative.dot(-to_truck)>0:
+			car.coast=2.0
+		car.coast=maxf(0,car.coast-dt)
+		var planar:=Vector3(body.linear_velocity.x,0,body.linear_velocity.z)
+		car.speed=planar.length()
+		# Leave collision momentum alone briefly, then gently steer back to the lane.
+		if car.coast<=0:
+			var desired: Vector3=direction*(0.0 if yield_now else car.cruise)
+			var force: Vector3=((desired-planar)*2.8+desired*body.linear_damp)*body.mass
+			body.apply_central_force(force.limit_length(body.mass*8))
+			var error:=wrapf(atan2(-direction.x,-direction.z)-body.rotation.y,-PI,PI)
+			body.apply_torque(Vector3.UP*(error*7-body.angular_velocity.y*3))
+		for wheel in car.wheels: wheel.rotation.x-=car.speed*dt/.34
+	for walker in walkers:
+		var person: Node3D=walker.node
+		var target: Vector3=walker.path[walker.next]
+		var delta:=target-person.position
+		delta.y=0
+		if delta.length()<.25:
+			walker.next=(walker.next+1)%walker.path.size()
+			continue
+		walker.cooldown=maxf(0,walker.cooldown-dt)
+		var danger:=_threat(person.global_position)
+		if not danger.is_empty() and walker.cooldown<=0:
+			_begin_dodge(walker,danger)
+		if walker.hop<1:
+			walker.hop=minf(1,walker.hop+dt/.48)
+			person.position=walker.from.lerp(walker.to,smoothstep(0,1,walker.hop))+Vector3.UP*sin(walker.hop*PI)*.75
+			walker.legs[0].rotation.x=-.55*sin(walker.hop*PI)
+			walker.legs[1].rotation.x=.35*sin(walker.hop*PI)
+			person.get_node("ArmLeft").rotation.z=-.85*sin(walker.hop*PI)
+			person.get_node("ArmRight").rotation.z=.85*sin(walker.hop*PI)
+			_keep_clear(person)
+			continue
+		var stop: bool=person.global_position.distance_to(game.truck.global_position)<4.5 or walker.cooldown>.3
+		if not stop:
+			person.position+=delta.normalized()*walker.speed*dt
+			person.rotation.y=lerp_angle(person.rotation.y,atan2(-delta.x,-delta.z),1-exp(-6*dt))
+			walker.phase+=dt*6
+		var step: float=sin(walker.phase)*(.45 if not stop else .03)
+		walker.legs[0].rotation.x=step
+		walker.legs[1].rotation.x=-step
+		person.get_node("ArmLeft").rotation.x=-step
+		person.get_node("ArmRight").rotation.x=step
+		person.get_node("ArmLeft").rotation.z=-.12
+		person.get_node("ArmRight").rotation.z=.12
+		person.position.y=.16+absf(cos(walker.phase))*(.035 if not stop else .0)
+		_keep_clear(person)
+	for bird in birds:
+		var a: float=time*.23+bird.phase
+		var p: Vector3=bird.center+Vector3(cos(a)*bird.radius,sin(time*.7+bird.phase)*1.2,sin(a)*bird.radius*.65)
+		bird.node.position=p
+		bird.node.rotation.y=atan2(sin(a),-cos(a)*.65)
+		bird.wings[0].rotation.z=sin(time*13+bird.phase)*.65
+		bird.wings[1].rotation.z=-sin(time*13+bird.phase)*.65
+
+func _recover_traffic(car: Dictionary, dt: float) -> bool:
+	var body: RigidBody3D=car.node
+	if car.recovery>=0:
+		car.recovery+=dt
+		_car_opacity(body,1-clampf(car.recovery,0,1))
+		if car.recovery<1: return true
+		var spot:=_clear_lane_spot(car)
+		if spot.is_empty(): return true
+		body.global_position=spot.position
+		body.rotation=Vector3(0,spot.heading,0)
+		body.linear_velocity=Vector3.ZERO
+		body.angular_velocity=Vector3.ZERO
+		body.reset_physics_interpolation()
+		car.next=spot.next
+		car.recovery=-1.0
+		car.fade_in=0.0
+		car.stalled=0.0
+		car.last_position=body.position
+		car.coast=0.0
+		return false
+	if car.fade_in<1:
+		car.fade_in=minf(1,car.fade_in+dt)
+		_car_opacity(body,car.fade_in)
+	car.progress_clock+=dt
+	if car.progress_clock<1: return false
+	car.progress_clock=0.0
+	var progress: float=body.position.distance_to(car.last_position)
+	car.last_position=body.position
+	# Yield patiently to the player; only recover genuinely stranded traffic.
+	if game.truck.global_position.distance_to(body.position)<10:
+		car.stalled=0.0
+	elif progress<.6 or absf(body.position.y)>.7:
+		car.stalled+=1.0
+	else: car.stalled=maxf(0,car.stalled-2.0)
+	if car.stalled>=8:
+		car.recovery=0.0
+		return true
+	return false
+
+func _car_opacity(body: RigidBody3D, opacity: float) -> void:
+	for mesh in body.find_children("*","GeometryInstance3D",true,false): mesh.transparency=1-opacity
+
+func _clear_lane_spot(car: Dictionary) -> Dictionary:
+	var body: RigidBody3D=car.node
+	var best: Dictionary={}
+	var nearest:=INF
+	var box:=BoxShape3D.new()
+	box.size=Vector3(2.2,1.5,3.8)
+	for i in car.path.size():
+		var start: Vector3=car.path[i]
+		var end: Vector3=car.path[(i+1)%car.path.size()]
+		var direction: Vector3=(end-start).normalized()
+		var heading:=atan2(-direction.x,-direction.z)
+		for step in range(2,int(start.distance_to(end))-2,4):
+			var p: Vector3=start+direction*step+Vector3.UP*.08
+			if p.distance_to(game.truck.global_position)<10: continue
+			var distance:=p.distance_squared_to(body.position)
+			if distance>=nearest: continue
+			var query:=PhysicsShapeQueryParameters3D.new()
+			query.shape=box
+			query.transform=Transform3D(Basis(Vector3.UP,heading),p+Vector3.UP*.8)
+			query.collision_mask=19
+			query.exclude=[body.get_rid()]
+			if not get_world_3d().direct_space_state.intersect_shape(query,1).is_empty(): continue
+			var occupied:=false
+			for walker in walkers:
+				if walker.node.global_position.distance_to(p)<3: occupied=true
+			if occupied: continue
+			nearest=distance
+			best={"position":p,"heading":heading,"next":(i+1)%car.path.size()}
+	return best
+
+func _threat(point: Vector3) -> Dictionary:
+	var vehicles: Array[RigidBody3D]=[game.truck]
+	for car in cars: vehicles.append(car.node)
+	for vehicle in vehicles:
+		var velocity:=Vector3(vehicle.linear_velocity.x,0,vehicle.linear_velocity.z)
+		var offset:=point-vehicle.global_position
+		offset.y=0
+		var speed:=velocity.length()
+		var arrival:=clampf(offset.dot(velocity)/maxf(.01,speed*speed),0,.85)
+		var closest:=offset-velocity*arrival
+		if (speed>1.0 and closest.length()<2.7 and offset.dot(velocity)>0 and offset.length()<speed*.85+3.3) or offset.length()<2.6:
+			return {"vehicle":vehicle,"velocity":velocity,"offset":offset}
+	return {}
+
+func _keep_clear(person: Node3D) -> void:
+	# A final horizontal separation guard covers sudden steering, boost speeds,
+	# and a vehicle arriving during an existing dodge. People are never obstacles.
+	var vehicles: Array[RigidBody3D]=[game.truck]
+	for car in cars: vehicles.append(car.node)
+	for vehicle in vehicles:
+		var center:=vehicle.global_position+vehicle.linear_velocity/60.0
+		if absf(center.y-person.global_position.y)>3: continue
+		var axis:=vehicle.global_basis.z
+		axis.y=0
+		axis=axis.normalized()
+		var offset:=person.global_position-center
+		offset.y=0
+		var closest:=axis*clampf(offset.dot(axis),-1.25,1.25)
+		var away:=offset-closest
+		var distance:=away.length()
+		if distance>=1.7: continue
+		if distance<.01: away=Vector3(-axis.z,0,axis.x)
+		person.global_position+=away.normalized()*(1.7-distance)
+
+func _begin_dodge(walker: Dictionary, danger: Dictionary) -> void:
+	var person: Node3D=walker.node
+	var travel: Vector3=danger.velocity.normalized()
+	if travel.length()<.1: travel=-danger.vehicle.global_basis.z
+	var side:=Vector3(-travel.z,0,travel.x)
+	if side.dot(danger.offset)<0: side=-side
+	var chosen:=person.position
+	var best:=-INF
+	for direction in [side,-side,(side-travel*.6).normalized(),(-side-travel*.6).normalized()]:
+		var destination: Vector3=person.position+direction*3.4
+		destination.y=.16
+		var query:=PhysicsRayQueryParameters3D.create(person.position+Vector3.UP*.9,destination+Vector3.UP*.9,17,[game.truck.get_rid()])
+		if get_world_3d().direct_space_state.intersect_ray(query): continue
+		var floor_query:=PhysicsRayQueryParameters3D.create(destination+Vector3.UP,destination+Vector3.DOWN*.3,1)
+		if get_world_3d().direct_space_state.intersect_ray(floor_query).is_empty(): continue
+		var future: Vector3=danger.vehicle.global_position+danger.velocity*.45
+		var safety:=Vector2(destination.x-future.x,destination.z-future.z).length()
+		if safety>best: best=safety; chosen=destination
+	if best==-INF: return
+	walker.from=person.position
+	walker.to=chosen
+	walker.hop=0.0
+	walker.cooldown=.9
+	person.rotation.y=atan2(-travel.x,-travel.z)
