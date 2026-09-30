@@ -27,8 +27,7 @@ func _physics_process(_dt: float) -> void:
 	var view:=Vector2(float(state.width),float(state.height))
 	if view!=last_view and view.x>0 and view.y>0:
 		last_view=view
-		var logical_width:=720.0 if bool(state.portrait) else (1100.0 if bool(state.enabled) else 1440.0)
-		get_window().content_scale_size=Vector2i(int(logical_width),int(logical_width*view.y/view.x))
+		get_window().content_scale_size=logical_size(view)
 		get_window().content_scale_aspect=Window.CONTENT_SCALE_ASPECT_EXPAND
 	if int(state.cancel)!=int(sequences.get("cancel",0)):
 		sequences.cancel=int(state.cancel)
@@ -58,3 +57,9 @@ func _send(action: String) -> void:
 	event.action=action
 	event.pressed=true
 	game._unhandled_input(event)
+
+# CSS pixels (not the high-DPI backing buffer) determine readable HUD sizes.
+# Both dimensions contribute; extra height no longer makes a narrow screen tiny.
+static func logical_size(view: Vector2) -> Vector2i:
+	var ui_scale:=clampf(minf(view.x/1000.0,view.y/700.0),.85,1.5)
+	return Vector2i((view/ui_scale).round())

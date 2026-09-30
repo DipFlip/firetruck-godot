@@ -3,23 +3,39 @@ extends Panel
 
 var tail_tip := Vector2(270,224)
 var phone_mode := false
+var portrait_center:=Vector2(74,92)
+var portrait_radius:=53.0
+var divider_start:=148.0
 const INK := Color("294754")
 const FACE := Color("eff8fc")
 
 func _draw() -> void:
 	# A drawn balloon tail and enamel portrait bezel, fixed independently of
 	# the moving artwork inside the portrait's circular shader mask.
-	var base_x:=clampf(tail_tip.x,52,size.x-52)
-	var base:=Vector2(base_x,size.y-3)
-	draw_colored_polygon(PackedVector2Array([base+Vector2(-18,0),tail_tip,base+Vector2(18,0)]),INK)
-	draw_colored_polygon(PackedVector2Array([base+Vector2(-11,-3),tail_tip+Vector2(0,-9),base+Vector2(11,-3)]),FACE)
-	draw_circle(Vector2(74,92),53,INK)
-	draw_circle(Vector2(74,92),49,Color("70b7c7"))
-	draw_circle(Vector2(74,92),45,FACE)
+	# Attach the notch to whichever edge faces the speaker after collision avoidance.
+	var relative:=tail_tip-size*.5
+	var normal:=Vector2.ZERO
+	var base:=Vector2.ZERO
+	if absf(relative.x)/size.x>absf(relative.y)/size.y:
+		normal=Vector2(signf(relative.x),0)
+		base=Vector2(size.x-3 if normal.x>0 else 3,clampf(tail_tip.y,38,size.y-38))
+	else:
+		normal=Vector2(0,signf(relative.y))
+		base=Vector2(clampf(tail_tip.x,38,size.x-38),size.y-3 if normal.y>0 else 3)
+	var tangent:=Vector2(-normal.y,normal.x)
+	# The world anchor sets the direction; keep the notch short even when the
+	# card has to move far away from its speaker to clear the vehicle.
+	var tip:=base+(tail_tip-base).limit_length(48)
+	if not Rect2(Vector2.ZERO,size).has_point(tail_tip):
+		draw_colored_polygon(PackedVector2Array([base-tangent*18,tip,base+tangent*18]),INK)
+		draw_colored_polygon(PackedVector2Array([base-tangent*11-normal*3,tip-(tip-base).normalized()*9,base+tangent*11-normal*3]),FACE)
+	draw_circle(portrait_center,portrait_radius,INK)
+	draw_circle(portrait_center,portrait_radius-4,Color("70b7c7"))
+	draw_circle(portrait_center,portrait_radius-8,FACE)
 	for x in [18.0,size.x-18]:
 		draw_circle(Vector2(x,18),3,Color("80b9c8"))
 		draw_circle(Vector2(x,size.y-18),3,Color("80b9c8"))
-	draw_line(Vector2(148,34),Vector2(size.x-28,34),Color("c6dfe8"),2,true)
+	draw_line(Vector2(divider_start,30 if portrait_radius<50 else 34),Vector2(size.x-28,30 if portrait_radius<50 else 34),Color("c6dfe8"),2,true)
 
 static func draw_phone(canvas: CanvasItem, center: Vector2, scale_factor: float, clock: float, active: bool) -> void:
 	var shape:=PackedVector2Array()

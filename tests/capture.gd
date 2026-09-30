@@ -4,6 +4,9 @@ func run() -> void:
 	var game=load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	var args:=OS.get_cmdline_user_args()
+	if "--touch" in args:
+		game.hud.touch_mode=true
+		game.hud.touch_portrait=root.size.y>root.size.x
 	var action := "--action" in args
 	var drive := "--drive" in args
 	var ground := "--ground" in args
