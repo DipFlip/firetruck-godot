@@ -8,9 +8,12 @@ var sequences: Dictionary={}
 var last_view:=Vector2.ZERO
 var last_talking:=false
 var telemetry_clock:=0.0
+var map_clock:=0.0
+var map_initialized:=false
 
 func _ready() -> void:
 	process_physics_priority=-100
+	process_mode=Node.PROCESS_MODE_ALWAYS
 	if OS.has_feature("web"):
 		state=JavaScriptBridge.get_interface("firetruckTouch")
 	else: set_physics_process(false)
@@ -21,7 +24,7 @@ func _physics_process(_dt: float) -> void:
 		telemetry_clock+=_dt
 		if telemetry_clock>.2:
 			telemetry_clock=0
-			state.telemetry=JSON.stringify({"speed":game.truck.linear_velocity.length(),"water":game.truck.water,"ladder":game.truck.ladder_deployed,"charge":game.truck.charge,"height":game.truck.position.y,"paused":game.paused,"talking":game.dialogue_active,"fps":Engine.get_frames_per_second()})
+			state.telemetry=JSON.stringify({"speed":game.truck.linear_velocity.length(),"water":game.truck.water,"ladder":game.truck.ladder_deployed,"charge":game.truck.charge,"height":game.truck.position.y,"paused":game.paused,"talking":game.dialogue_active,"fps":Engine.get_frames_per_second(),"loading":game.loading,"draw_calls":Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),"objects":Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),"dialogue_lines":game.hud.dialogue_label.get_line_count(),"dialogue_text":game.hud.full_text,"pages":game.hud.dialogue_pages.size(),"batched":game.batched_decorations})
 	game.hud.touch_mode=bool(state.enabled)
 	game.hud.touch_portrait=bool(state.portrait)
 	var view:=Vector2(float(state.width),float(state.height))
@@ -29,6 +32,19 @@ func _physics_process(_dt: float) -> void:
 		last_view=view
 		get_window().content_scale_size=logical_size(view)
 		get_window().content_scale_aspect=Window.CONTENT_SCALE_ASPECT_EXPAND
+	if game.loading: return
+	if not map_initialized:
+		map_initialized=true
+		var hydrants: Array=[]
+		for h in game.town.hydrants: hydrants.append([h.x,h.z])
+		var jobs: Array=[[TownLayout.DOG.x,TownLayout.DOG.z],[TownLayout.POOL.x,TownLayout.POOL.z]]
+		JavaScriptBridge.eval("window.firetruckMapSetup(%s)" % JSON.stringify({"hydrants":hydrants,"jobs":jobs}))
+	map_clock+=_dt
+	if bool(state.portrait) and map_clock>=.1:
+		map_clock=0
+		var p: Vector3=game.truck.position
+		var objective: Vector3=game.objective()
+		JavaScriptBridge.eval("window.firetruckMap(%f,%f,%f,%d,%f,%f)" % [p.x,p.z,game.truck.heading,game.stage,objective.x,objective.z])
 	if int(state.cancel)!=int(sequences.get("cancel",0)):
 		sequences.cancel=int(state.cancel)
 		game.truck.charge=0

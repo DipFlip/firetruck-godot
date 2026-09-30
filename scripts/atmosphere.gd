@@ -41,7 +41,7 @@ func _ready() -> void:
 			for col in range(2):
 				# Bend Rose Cottage's path beside Oliver instead of over the pool.
 				var bend: float=-maxf(0,row-1)*.75 if garden==Vector3(18,0,49) else 0.0
-				TownProps.box(self,garden+Vector3(-0.56+col*1.12+bend,0.105,4.3+row*.88),Vector3(1.06,.1,.81),Color("c9c8bb"))
+				TownProps.box(self,garden+Vector3(-0.56+col*1.12+bend,0.105,4.3+row*.88),Vector3(1.06,.1,.81),Color("c9c8bb")).set_meta("batch_static",true)
 		for side in [-1,1]:
 			for n in range(5):
 				var p: Vector3=garden+Vector3(side*(2.7+n*.65),0,5.8)
@@ -73,8 +73,8 @@ func _ready() -> void:
 		for n in range(-27,28):
 			if absf(n*2.2)<8 or absf(absf(n*2.2)-36)<8: continue
 			for side in [-1,1]:
-				TownProps.box(self,Vector3(street+side*4.1,.13,n*2.2),Vector3(.18,.18,2.12),Color("c5bca7"))
-				TownProps.box(self,Vector3(n*2.2,.13,street+side*4.1),Vector3(2.12,.18,.18),Color("c5bca7"))
+				TownProps.box(self,Vector3(street+side*4.1,.13,n*2.2),Vector3(.18,.18,2.12),Color("c5bca7")).set_meta("batch_static",true)
+				TownProps.box(self,Vector3(n*2.2,.13,street+side*4.1),Vector3(2.12,.18,.18),Color("c5bca7")).set_meta("batch_static",true)
 	var smoke_material:=TownProps.effect_material(preload("res://shaders/smoke.gdshader"))
 	for i in range(12):
 		var puff:=MeshInstance3D.new()
@@ -109,11 +109,11 @@ func _ready() -> void:
 	fire_light.light_energy=0.5
 
 func _flower(p: Vector3, color: Color) -> void:
-	TownProps.cylinder(self,p+Vector3.UP*.22,.025,.44,Color("718d60"))
+	TownProps.cylinder(self,p+Vector3.UP*.22,.025,.44,Color("718d60")).set_meta("batch_static",true)
 	for i in range(5):
 		var a:=i*TAU/5
-		TownProps.ball(self,p+Vector3(cos(a)*.09,.47,sin(a)*.09),Vector3(.15,.09,.15),color)
-	TownProps.ball(self,p+Vector3.UP*.49,Vector3(.10,.07,.10),Color("f0d493"))
+		TownProps.ball(self,p+Vector3(cos(a)*.09,.47,sin(a)*.09),Vector3(.15,.09,.15),color).set_meta("batch_static",true)
+	TownProps.ball(self,p+Vector3.UP*.49,Vector3(.10,.07,.10),Color("f0d493")).set_meta("batch_static",true)
 
 func _process(dt: float) -> void:
 	if game.paused: return

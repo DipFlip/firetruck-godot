@@ -3,6 +3,8 @@ extends RefCounted
 
 static var materials: Dictionary = {}
 static var rounded_mesh: Mesh
+static var sphere_mesh: SphereMesh
+static var cylinder_meshes: Dictionary = {}
 static var effect_shaders: Dictionary = {}
 
 static func model(path: String, parent: Node3D) -> Node3D:
@@ -56,10 +58,11 @@ static func box(parent: Node3D, pos: Vector3, size: Vector3, color: Color, solid
 
 static func ball(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
 	var node := MeshInstance3D.new()
-	var mesh := SphereMesh.new()
-	mesh.radial_segments = 20
-	mesh.rings = 12
-	node.mesh = mesh
+	if sphere_mesh==null:
+		sphere_mesh=SphereMesh.new()
+		sphere_mesh.radial_segments=20
+		sphere_mesh.rings=12
+	node.mesh=sphere_mesh
 	node.material_override = material(color)
 	parent.add_child(node)
 	node.position = pos
@@ -68,12 +71,15 @@ static func ball(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> M
 
 static func cylinder(parent: Node3D, pos: Vector3, radius: float, height: float, color: Color, top: float = -1) -> MeshInstance3D:
 	var node := MeshInstance3D.new()
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius if top < 0 else top
-	mesh.bottom_radius = radius
-	mesh.height = height
-	mesh.radial_segments = 20
-	node.mesh = mesh
+	var key:=Vector3(radius,height,top)
+	if not cylinder_meshes.has(key):
+		var mesh:=CylinderMesh.new()
+		mesh.top_radius=radius if top<0 else top
+		mesh.bottom_radius=radius
+		mesh.height=height
+		mesh.radial_segments=20
+		cylinder_meshes[key]=mesh
+	node.mesh=cylinder_meshes[key]
 	node.material_override = material(color)
 	parent.add_child(node)
 	node.position = pos
@@ -175,3 +181,31 @@ static func effect_opacity(mesh: MeshInstance3D, value: float) -> void:
 	if RenderingServer.get_current_rendering_method()=="gl_compatibility":
 		(mesh.material_override as ShaderMaterial).set_shader_parameter("opacity",value)
 	else: mesh.set_instance_shader_parameter("opacity",value)
+
+# Merge opt-in, static decoration after collision surfaces and breakable props
+# have been registered. Small spatial groups preserve neighbourhood culling.
+static func batch_decorations(root: Node3D) -> int:
+	var groups: Dictionary={}
+	var count:=0
+	for child in root.get_children():
+		if not child is MeshInstance3D or not child.get_meta("batch_static",false): continue
+		var cell:=Vector2i(floori(child.position.x/16),floori(child.position.z/16))
+		var key:="%s/%s/%s" % [child.mesh.get_rid(),child.material_override.get_rid(),cell]
+		if not groups.has(key): groups[key]=[]
+		groups[key].append(child)
+	for meshes in groups.values():
+		if meshes.size()<2: continue
+		var batch:=MultiMeshInstance3D.new()
+		var instances:=MultiMesh.new()
+		instances.transform_format=MultiMesh.TRANSFORM_3D
+		instances.mesh=meshes[0].mesh
+		instances.instance_count=meshes.size()
+		batch.multimesh=instances
+		batch.material_override=meshes[0].material_override
+		root.add_child(batch)
+		for i in meshes.size():
+			instances.set_instance_transform(i,meshes[i].transform)
+			meshes[i].hide()
+			meshes[i].queue_free()
+			count+=1
+	return count

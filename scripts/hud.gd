@@ -227,22 +227,26 @@ func _reflow_dialogue() -> void:
 	dialogue_panel.divider_start=left
 	speaker_label.position.x=left+1
 	speaker_label.size.x=text_width
-	dialogue_label.position=Vector2(left,36 if compact else 46)
+	dialogue_label.position=Vector2(left,34 if compact else 46)
 	dialogue_label.size.x=text_width
 	continue_label.position.x=left
 	continue_label.size.x=text_width
-	var extra:=70.0 if compact else 86.0
+	var extra:=60.0 if compact else 86.0
 	var max_height:=size.y-36
 	if size.x<size.y: max_height=minf(max_height,maxf(142,size.y*.32))
 	elif touch_mode: max_height=minf(max_height,maxf(179,size.y*.43))
-	var max_text_height:=maxf(48,max_height-extra)
+	# Reserve actual line metrics, with tolerance for fractional web font sizes.
+	# The old extra 18px in every measurement could reject an otherwise fitting row.
+	var line_height:=font.get_height(19)
+	var line_budget:=maxi(3,floori((max_height-extra)/line_height))
+	var max_text_height:=line_budget*line_height+.5
 	var previous_page_start:=0
 	for i in mini(page_index,dialogue_pages.size()): previous_page_start+=dialogue_pages[i].length()+1
 	dialogue_pages.clear()
 	var page:=""
 	for word in dialogue_text.split(" ",false):
 		var next:=word if page.is_empty() else page+" "+word
-		if not page.is_empty() and font.get_multiline_string_size(next,HORIZONTAL_ALIGNMENT_LEFT,text_width,19).y+18>max_text_height:
+		if not page.is_empty() and font.get_multiline_string_size(next,HORIZONTAL_ALIGNMENT_LEFT,text_width,19).y>max_text_height:
 			dialogue_pages.append(page)
 			page=word
 		else: page=next
@@ -261,9 +265,9 @@ func _show_dialogue_page(compact: bool = false) -> void:
 	dialogue_label.visible_characters=0
 	text_clock=0
 	radio_idle=0
-	var text_height:=font.get_multiline_string_size(full_text,HORIZONTAL_ALIGNMENT_LEFT,dialogue_label.size.x,19).y+18
+	var text_height:=font.get_multiline_string_size(full_text,HORIZONTAL_ALIGNMENT_LEFT,dialogue_label.size.x,19).y+4
 	dialogue_label.size.y=maxf(50 if compact else 93,text_height)
-	dialogue_panel.size.y=maxf(128 if compact else 174,dialogue_label.size.y+(70 if compact else 86))
+	dialogue_panel.size.y=maxf(128 if compact else 174,dialogue_label.size.y+(60 if compact else 86))
 	continue_label.position.y=dialogue_panel.size.y-(25 if compact else 33)
 
 func truck_screen_rect() -> Rect2:
@@ -309,7 +313,7 @@ func _position_dialogue(dt: float = 0.0) -> void:
 	var best_position:=Vector2.ZERO
 	var best_slot:=0
 	for i in candidates.size():
-		var margin:=8.0 if minf(view.x,view.y)<480 else 18.0
+		var margin:=7.0 if minf(view.x,view.y)<480 else 18.0
 		var at:=candidates[i].clamp(Vector2.ONE*margin,Vector2(maxf(margin,view.x-card.x-margin),maxf(margin,view.y-card.y-margin)))
 		var rect:=Rect2(at,card)
 		var overlap:=rect.intersection(truck_rect).get_area()
@@ -394,7 +398,7 @@ func _layout_viewport() -> void:
 		get_window().content_scale_size=WebControls.logical_size(Vector2(last_window_size))
 		get_window().content_scale_aspect=Window.CONTENT_SCALE_ASPECT_EXPAND
 	if touch_mode:
-		pause_help.text="LEFT STICK     Drive\nRIGHT STICK     Aim and spray\n\nHold JUMP, then release     A springy hop\nTALK     Reveal / continue a conversation\nLADDER     Extend / retract\n\nPark by a hydrant to refill.\nDrive away to leave a conversation.\n\nMAP     Open the town map\nRESET     Return to the station\n\nTap the pause button to return to town."
+		pause_help.text="LEFT STICK     Drive\nRIGHT STICK     Aim and spray\n\nHold JUMP, then release     A springy hop\nTALK     Reveal / continue a conversation\nLADDER     Extend / retract\n\nPark by a hydrant to refill.\nDrive away to leave a conversation.\n\nTap the pause button to return to town."
 	prompt_panel.position=Vector2((size.x-prompt_panel.size.x)*.5,size.y-93)
 	toast_panel.position=Vector2((size.x-toast_panel.size.x)*.5,85 if touch_mode else 109)
 	footer.position=Vector2((size.x-footer.size.x)*.5,size.y-35)
@@ -433,7 +437,7 @@ func _draw() -> void:
 	if not game or not game.truck: return
 	_draw_water()
 	if not game.paused:
-		_draw_map()
+		if not (OS.has_feature("web") and touch_portrait) or map_open: _draw_map()
 		if game.phone_ringing() or (game.dialogue_active and dialogue_panel.phone_mode):
 			var phone_center:=_phone_center()
 			draw_circle(phone_center+Vector2(0,3),29,Color(INK,.2))
@@ -454,6 +458,9 @@ func _phone_center() -> Vector2:
 
 func _draw_water() -> void:
 	var center:=Vector2(size.x*.5,45)
+	var gauge_scale:=minf(1,(size.x-148)/344) if touch_mode else 1.0
+	draw_set_transform(center,0,Vector2.ONE*gauge_scale)
+	center=Vector2.ZERO
 	var rect:=Rect2(center+Vector2(-172,-25),Vector2(344,50))
 	draw_style_box(style(PAPER,24),rect)
 	var inside:=Rect2(center+Vector2(-115,-13),Vector2(264,26))
@@ -473,6 +480,8 @@ func _draw_water() -> void:
 	for x in [-160.0,160.0]: draw_circle(center+Vector2(x,0),2.2,Color("8baeba"))
 	if game.truck.water<20:
 		draw_arc(drop_center,21,-PI/2,PI*1.5,40,Color(ORANGE,.5+sin(time*4)*.25),2,true)
+
+	draw_set_transform(Vector2.ZERO)
 
 func _draw_navigation() -> void:
 	var screen: Vector2=game.camera.unproject_position(game.objective()+Vector3.UP*1.6)

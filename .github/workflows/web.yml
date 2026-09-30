@@ -19,6 +19,7 @@ jobs:
           source tools/install_godot_linux.sh
           tools/build_web.sh
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/hud_layout_test.gd
+          "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/performance_test.gd
       - uses: actions/upload-artifact@v5
         with:
           name: firetruck-web

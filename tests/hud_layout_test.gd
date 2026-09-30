@@ -54,7 +54,7 @@ func run() -> void:
 		game.talk("MAYA  /  MAPLE GREEN","Oh, thank goodness you're here! Pippin has decided he's a bird. Could you help him down from that tree?",1)
 		var hud: FireHUD=game.hud
 		check(" ".join(hud.dialogue_pages)==hud.dialogue_text,"Pagination preserves every word: "+str(screen))
-		if screen.x<=390: check(hud.dialogue_pages.size()>1,"Small screens paginate instead of shrinking type")
+		check(hud.font.get_multiline_string_size(hud.full_text,HORIZONTAL_ALIGNMENT_LEFT,hud.dialogue_label.size.x,19).y>=hud.font.get_height(19)*2.9,"Dialogue uses at least three available text rows")
 		for page in hud.dialogue_pages.size():
 			hud.dialogue_label.visible_characters=hud.full_text.length()
 			var finished:=hud.advance_text()

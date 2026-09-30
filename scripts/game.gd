@@ -64,6 +64,8 @@ var ramps: TownRamps
 var rewards: JobRewards
 var interactions: TownInteractions
 var web_controls: WebControls
+var loading:=false
+var batched_decorations:=0
 
 func _ready() -> void:
 	# Frame-driven scenery and camera are not physics-interpolated a second time.
@@ -138,9 +140,16 @@ func _ready() -> void:
 	interactions=TownInteractions.new()
 	interactions.game=self
 	add_child(interactions)
+	batched_decorations=TownProps.batch_decorations(atmosphere)
 	web_controls=WebControls.new()
 	web_controls.game=self
 	add_child(web_controls)
+	if OS.has_feature("web"):
+		loading=true
+		var warmup:=WebWarmup.new()
+		warmup.game=self
+		add_child(warmup)
+		warmup.call_deferred("run")
 
 func _setup_input() -> void:
 	var bindings := {"left":KEY_A,"right":KEY_D,"forward":KEY_W,"back":KEY_S,"jump":KEY_SPACE,"brake":KEY_SHIFT,"interact":KEY_E,"continue":KEY_ENTER,"recover":KEY_R,"pause":KEY_ESCAPE,"aim_left":KEY_LEFT,"aim_right":KEY_RIGHT,"aim_up":KEY_UP,"aim_down":KEY_DOWN,"map":KEY_TAB,"music":KEY_M}
@@ -164,7 +173,9 @@ func _setup_light() -> void:
 	sun.light_energy=.24 if compatibility else 1.05
 	sun.light_angular_distance=0.8
 	sun.shadow_enabled=true
-	sun.directional_shadow_max_distance=100
+	sun.directional_shadow_max_distance=60 if compatibility else 100
+	# The fixed orthographic camera does not need four perspective shadow splits.
+	if compatibility: sun.directional_shadow_mode=DirectionalLight3D.SHADOW_ORTHOGONAL
 	add_child(sun)
 	var world:=WorldEnvironment.new()
 	var env:=Environment.new()
@@ -271,6 +282,7 @@ func _update_dispatch(dt: float) -> void:
 			hud.auto_close_delay=-1 # Keep the job visible until acknowledged or discovered.
 
 func _unhandled_input(event: InputEvent) -> void:
+	if loading: return
 	if event is InputEventKey and event.echo: return
 	if event.is_action_pressed("pause"):
 		paused=not paused

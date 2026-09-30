@@ -146,10 +146,11 @@ func _ready() -> void:
 		splash.visible=false
 		splash.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		splash_pool.append(splash)
+	var ripple_plane:=PlaneMesh.new()
 	for i in 32:
 		var ring:=MeshInstance3D.new()
 		ring.physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_ON
-		ring.mesh=PlaneMesh.new()
+		ring.mesh=ripple_plane
 		var ripple_material:=TownProps.effect_material(preload("res://shaders/ripple.gdshader"))
 		ring.material_override=ripple_material
 		ring.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

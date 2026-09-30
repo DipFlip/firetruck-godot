@@ -18,9 +18,11 @@ var skid_strength:=0.0
 func _ready() -> void:
 	var dust_material:=TownProps.effect_material(preload("res://shaders/soft_particle.gdshader"))
 	var track_material:=TownProps.effect_material(preload("res://shaders/trail.gdshader"))
+	var dust_quad:=QuadMesh.new()
+	var track_plane:=PlaneMesh.new()
 	for i in 48:
 		var mesh:=MeshInstance3D.new()
-		mesh.mesh=QuadMesh.new()
+		mesh.mesh=dust_quad
 		mesh.material_override=TownProps.effect_instance(dust_material)
 		mesh.visible=false
 		mesh.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -28,7 +30,7 @@ func _ready() -> void:
 		dust_pool.append(mesh)
 	for i in 480:
 		var mesh:=MeshInstance3D.new()
-		mesh.mesh=PlaneMesh.new()
+		mesh.mesh=track_plane
 		mesh.material_override=TownProps.effect_instance(track_material)
 		mesh.visible=false
 		mesh.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
