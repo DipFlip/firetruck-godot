@@ -7,6 +7,7 @@ var walkers: Array[Dictionary]=[]
 var birds: Array[Dictionary]=[]
 var time:=0.0
 var ground_birds: Array[Dictionary]=[]
+const BIRD_FLEE_RADIUS:=9.5
 var honk_stream: AudioStreamWAV
 
 func _ready() -> void:
@@ -42,7 +43,8 @@ func _ready() -> void:
 		bird.center=Vector3(-15,8,6) if i<5 else Vector3(43,9,-16)
 		bird.radius=12.0+i*.6
 		birds.append(bird)
-	var perches: Array[Vector3]=[Vector3(-3,.22,18),Vector3(-2,.22,19),Vector3(8,.3,-5),Vector3(9,.3,-4),Vector3(-9,.3,-24),Vector3(-10,.3,-25),Vector3(31,.3,23),Vector3(30,.3,24),Vector3(42,.3,-10),Vector3(43,.3,-9),Vector3(9,.3,45),Vector3(10,.3,44),Vector3(-41,.3,27),Vector3(-42,.3,28),Vector3(-29,.3,-48),Vector3(28,.3,53)]
+	# Individual foraging patches, rather than paired birds at each stop.
+	var perches: Array[Vector3]=[Vector3(-8,0,21),Vector3(8,0,29),Vector3(8,0,-7),Vector3(28,0,-27),Vector3(-9,0,-25),Vector3(-29,0,-6),Vector3(29,0,29),Vector3(-28,0,29),Vector3(43,0,-8),Vector3(58,0,8),Vector3(8,0,45),Vector3(29,0,56),Vector3(-41,0,28),Vector3(-57,0,-7),Vector3(-29,0,-48),Vector3(-8,0,57)]
 	for i in perches.size():
 		var bird:=_bird(i+9)
 		bird.node.scale=Vector3.ONE*1.6
@@ -52,24 +54,64 @@ func _ready() -> void:
 		bird.age=0.0
 		bird.escape=Vector3.ZERO
 		bird.from=perches[i]
+		bird.terrain_ready=false
+		bird.forage="idle"
+		bird.forage_age=0.0
+		bird.wait=1.0+fmod(i*.71,2.0)
+		bird.goal=perches[i]
+		bird.ground_y=0.0
+		bird.visits=i
+		bird.open=0.0
+		_pose_bird(bird,0,0,0,0)
 		ground_birds.append(bird)
 
 func _bird(index: int) -> Dictionary:
 	var bird:=Node3D.new()
 	add_child(bird)
-	TownProps.ball(bird,Vector3.ZERO,Vector3(.19,.16,.42),Color("677a79"))
-	var head:=TownProps.ball(bird,Vector3(0,.06,-.19),Vector3(.17,.17,.19),Color("ece5cc"))
-	TownProps.box(bird,Vector3(0,.035,-.3),Vector3(.06,.05,.12),Color("d7a55d"))
+	var body:=Node3D.new()
+	bird.add_child(body)
+	TownProps.ball(body,Vector3(0,.17,.035),Vector3(.22,.26,.37),Color("677a79"))
+	var tail:=TownProps.ball(body,Vector3(0,.15,.23),Vector3(.10,.065,.20),Color("52676d"))
+	tail.rotation.x=.25
+	# Beak and eyes share the neck pivot, so the complete head pecks together.
+	var head:=Node3D.new()
+	body.add_child(head)
+	head.position=Vector3(0,.20,-.10)
+	TownProps.ball(head,Vector3(0,.03,-.065),Vector3(.18,.18,.21),Color("ece5cc"))
+	TownProps.box(head,Vector3(0,.005,-.175),Vector3(.055,.045,.10),Color("d7a55d"))
 	for side in [-1,1]:
-		TownProps.ball(bird,Vector3(side*.07,.09,-.245),Vector3(.035,.035,.035),Color("294754"))
-		TownProps.box(bird,Vector3(side*.05,-.11,.02),Vector3(.024,.10,.025),Color("d7a55d"))
+		TownProps.ball(head,Vector3(side*.076,.055,-.125),Vector3(.032,.032,.032),Color("294754"))
+	var legs: Array[Node3D]=[]
+	for side in [-1,1]:
+		var leg:=Node3D.new()
+		bird.add_child(leg)
+		leg.position=Vector3(side*.055,.06,.035)
+		TownProps.box(leg,Vector3.ZERO,Vector3(.024,.10,.024),Color("d7a55d"))
+		TownProps.box(leg,Vector3(0,-.05,-.025),Vector3(.036,.02,.075),Color("d7a55d"))
+		legs.append(leg)
 	var wings: Array[Node3D]=[]
+	var feathers: Array[MeshInstance3D]=[]
 	for side in [-1,1]:
 		var wing:=Node3D.new()
-		bird.add_child(wing)
-		TownProps.ball(wing,Vector3(side*.22,0,.015),Vector3(.50,.045,.21),Color("d4d8c5"))
+		body.add_child(wing)
+		wing.position=Vector3(side*.105,.18,0)
+		feathers.append(TownProps.ball(wing,Vector3(side*.20,0,0),Vector3(.44,.045,.20),Color("d4d8c5")))
 		wings.append(wing)
-	return {"node":bird,"head":head,"wings":wings,"phase":index*.48}
+	return {"node":bird,"body":body,"head":head,"legs":legs,"wings":wings,"feathers":feathers,"phase":index*.48,"open":1.0}
+
+func _pose_bird(bird: Dictionary, open: float, peck: float, step: float, flap: float) -> void:
+	bird.body.rotation.x=.12*open-.10*peck
+	bird.head.rotation.x=-.8*peck
+	bird.head.position.y=.20-.03*peck
+	for i in 2:
+		var side: float=-1 if i==0 else 1
+		# A folded feather lies along the flank, rather than rotating a wide
+		# flight wing vertically. Unfold the same mesh smoothly on takeoff.
+		bird.feathers[i].position=Vector3(side*.01,-.02,.045).lerp(Vector3(side*.20,0,0),open)
+		bird.feathers[i].scale=Vector3(.065,.18,.31).lerp(Vector3(.44,.045,.20),open)
+		bird.wings[i].rotation.z=-side*sin(flap)*.8*open
+		bird.legs[i].rotation.x=lerpf(step*side,-1.1,open)
+		bird.legs[i].position.y=lerpf(.06,.13,open)
 
 func _car(path: Array, color: Color, index: int) -> void:
 	var body:=RigidBody3D.new()
@@ -231,49 +273,101 @@ func _physics_process(dt: float) -> void:
 		var p: Vector3=bird.center+Vector3(cos(a)*bird.radius,sin(time*.7+bird.phase)*1.2,sin(a)*bird.radius*.65)
 		bird.node.position=p
 		bird.node.rotation.y=atan2(sin(a),-cos(a)*.65)
-		bird.wings[0].rotation.z=sin(time*13+bird.phase)*.65
-		bird.wings[1].rotation.z=-sin(time*13+bird.phase)*.65
+		_pose_bird(bird,1,0,0,time*13+bird.phase)
 	_update_ground_birds(dt)
 
 func _update_ground_birds(dt: float) -> void:
 	var truck: Vector3=game.truck.global_position
-	var ahead: Vector3=truck+game.truck.linear_velocity*.3
+	var ahead: Vector3=truck+game.truck.linear_velocity*.65
 	for bird in ground_birds:
 		bird.age+=dt
 		var node: Node3D=bird.node
+		if not bird.terrain_ready:
+			bird.home=_bird_floor(bird.home)
+			node.position=bird.home
+			bird.ground_y=bird.home.y
+			bird.goal=bird.home
+			bird.terrain_ready=true
+		var danger:=minf(Vector2(node.position.x-truck.x,node.position.z-truck.z).length(),Vector2(node.position.x-ahead.x,node.position.z-ahead.z).length())<BIRD_FLEE_RADIUS
+		if bird.mode!="flee" and danger:
+			bird.mode="flee"
+			bird.age=0.0
+			bird.from=node.position
+			var away: Vector3=node.position-truck
+			away.y=0
+			if away.length()<.1: away=Vector3(cos(bird.phase),0,sin(bird.phase))
+			bird.escape=node.position+away.normalized()*14+Vector3.UP*7
 		if bird.mode=="ground":
-			node.rotation.y=bird.phase+sin(time*.7+bird.phase)*.25
-			bird.head.rotation.x=maxf(0,sin(time*2+bird.phase))*.35
-			bird.wings[0].rotation.z=-1.18
-			bird.wings[1].rotation.z=1.18
-			if minf(node.position.distance_to(truck),node.position.distance_to(ahead))<5.5:
-				bird.mode="flee"
-				bird.age=0.0
-				bird.from=node.position
-				var away: Vector3=node.position-truck
-				away.y=0
-				if away.length()<.1: away=Vector3(cos(bird.phase),0,sin(bird.phase))
-				bird.escape=bird.home+away.normalized()*14+Vector3.UP*7
+			_forage_bird(bird,dt)
 		else:
-			bird.head.rotation.x=0
-			bird.wings[0].rotation.z=sin(time*19+bird.phase)*.8
-			bird.wings[1].rotation.z=-bird.wings[0].rotation.z
+			var folding: bool=bird.mode=="land" and bird.age>2.05
+			bird.open=move_toward(bird.open,0.0 if folding else 1.0,dt*5)
+			_pose_bird(bird,bird.open,0,0,time*19+bird.phase)
 			if bird.mode=="flee":
 				var t: float=clampf(bird.age/2.1,0,1)
-				node.position=bird.from.lerp(bird.escape,smoothstep(0,1,t))+Vector3.UP*sin(t*PI)*2
-				node.rotation.y=atan2(bird.from.x-bird.escape.x,bird.from.z-bird.escape.z)
+				node.position=bird.from.lerp(bird.escape,1-pow(1-t,2))+Vector3.UP*sin(t*PI)*2
+				node.rotation.y=lerp_angle(node.rotation.y,atan2(bird.from.x-bird.escape.x,bird.from.z-bird.escape.z),1-exp(-8*dt))
 				if t>=1: node.position+=Vector3(sin(bird.age*2+bird.phase)*.5,sin(bird.age*3)*.25,cos(bird.age*2+bird.phase)*.5)
-				if bird.age>5 and truck.distance_to(bird.home)>12:
+				if bird.age>5 and truck.distance_to(bird.home)>15 and ahead.distance_to(bird.home)>12:
 					bird.mode="land"
 					bird.from=node.position
 					bird.age=0.0
 			else:
 				var t: float=clampf(bird.age/2.4,0,1)
 				node.position=bird.from.lerp(bird.home,smoothstep(0,1,t))+Vector3.UP*sin(t*PI)*1.1
-				node.rotation.y=atan2(bird.from.x-bird.home.x,bird.from.z-bird.home.z)
+				node.rotation.y=lerp_angle(node.rotation.y,atan2(bird.from.x-bird.home.x,bird.from.z-bird.home.z),1-exp(-6*dt))
 				if t>=1:
 					bird.mode="ground"
 					bird.age=0.0
+					bird.forage="idle"
+					bird.forage_age=0.0
+					bird.wait=1.5+fmod(bird.phase,1.0)
+					bird.ground_y=bird.home.y
+
+func _bird_floor(point: Vector3) -> Vector3:
+	var query:=PhysicsRayQueryParameters3D.create(point+Vector3.UP*2,point+Vector3.DOWN*2,9,[game.truck.get_rid()])
+	var floor_hit:=get_world_3d().direct_space_state.intersect_ray(query)
+	if floor_hit and floor_hit.normal.y>.7: point.y=floor_hit.position.y+.012
+	return point
+
+func _forage_bird(bird: Dictionary, dt: float) -> void:
+	var node: Node3D=bird.node
+	bird.forage_age+=dt
+	bird.open=move_toward(bird.open,0.0,dt*5)
+	var step:=0.0
+	var peck:=0.0
+	var bob:=0.0
+	if bird.forage=="walk":
+		var delta: Vector3=bird.goal-node.position
+		delta.y=0
+		if delta.length()<.04:
+			bird.forage="peck"
+			bird.forage_age=0.0
+			bird.wait=1.2+fmod(bird.phase,.6)
+		else:
+			node.position+=delta.normalized()*minf(delta.length(),dt*.5)
+			node.rotation.y=lerp_angle(node.rotation.y,atan2(-delta.x,-delta.z),1-exp(-5*dt))
+			bird.ground_y=move_toward(bird.ground_y,bird.goal.y,dt*.15)
+			step=sin(bird.forage_age*11)*.30
+			bob=absf(sin(bird.forage_age*11))*.012
+	elif bird.forage=="peck":
+		peck=pow(maxf(0,sin(bird.forage_age*TAU*1.6)),2)
+		if bird.forage_age>bird.wait:
+			bird.forage="idle"
+			bird.forage_age=0.0
+			bird.wait=1.0+fmod(bird.phase,1.4)
+	elif bird.forage_age>bird.wait:
+		bird.visits+=1
+		var angle: float=bird.phase+bird.visits*2.39996
+		var goal: Vector3=_bird_floor(bird.home+Vector3(cos(angle),0,sin(angle))*(.65+fmod(bird.phase,.6)))
+		var query:=PhysicsRayQueryParameters3D.create(node.position+Vector3.UP*.3,goal+Vector3.UP*.3,19,[game.truck.get_rid()])
+		var middle: Vector3=_bird_floor(node.position.lerp(goal,.5))
+		if absf(goal.y-bird.home.y)<.045 and absf(middle.y-bird.home.y)<.045 and get_world_3d().direct_space_state.intersect_ray(query).is_empty():
+			bird.goal=goal
+			bird.forage="walk"
+		bird.forage_age=0.0
+	node.position.y=bird.ground_y+bob
+	_pose_bird(bird,bird.open,peck,step,time*19+bird.phase)
 
 func water_hit(point: Vector3, _amount: float) -> bool:
 	for car in cars:
