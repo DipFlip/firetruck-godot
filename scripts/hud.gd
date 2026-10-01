@@ -41,6 +41,10 @@ var prompt_panel: Panel
 var hud_group: Control
 var portrait_atlas := preload("res://assets/portraits/neighbours.png")
 var shown_water := 1.0
+var water_activity:=0.0
+var water_empty_time:=0.0
+var water_gauge_scale:=1.0
+var water_gauge_offset:=Vector2.ZERO
 var radio_idle := 0.0
 var auto_close_delay := -1.0
 var touch_mode:=false
@@ -355,6 +359,12 @@ func _process(dt: float) -> void:
 	_layout_viewport()
 	if not game.paused: time+=dt
 	shown_water=lerpf(shown_water,game.truck.water/game.truck.tank_capacity,1-exp(-8*dt))
+	if not game.paused:
+		water_activity=lerpf(water_activity,1.0 if game.truck.spraying or game.refill_hose.active else 0.0,1-exp(-10*dt))
+		water_empty_time=maxf(0,water_empty_time-dt)
+		var empty_strength:=sin(PI*clampf(water_empty_time/.45,0,1))
+		water_gauge_scale=1+.025*water_activity*(.5+.5*sin(time*TAU*2.1))+.065*empty_strength
+		water_gauge_offset=Vector2(sin(time*48)*3.5,sin(time*61)*1.2)*empty_strength
 	prompt_panel.visible=not prompt_label.text.is_empty() and not game.dialogue_active and not game.paused
 	toast_panel.visible=not toast_label.text.is_empty() and not game.paused and not game.dialogue_active
 	footer.visible=not touch_mode and not game.paused and game.elapsed<28
@@ -376,6 +386,9 @@ func _process(dt: float) -> void:
 			radio_idle+=dt
 			if radio_idle>auto_close_delay and advance_text(): game.end_dialogue()
 	queue_redraw()
+
+func on_empty_spray() -> void:
+	water_empty_time=.45
 
 func _layout_viewport() -> void:
 	if not OS.has_feature("web") and get_window().size!=last_window_size:
@@ -442,9 +455,9 @@ func _phone_center() -> Vector2:
 	return get_viewport_rect().size-Vector2(66,76)
 
 func _draw_water() -> void:
-	var center:=Vector2(size.x*.5,45)
+	var center:=Vector2(size.x*.5,45)+water_gauge_offset
 	var gauge_scale:=minf(1,(size.x-148)/344) if touch_mode else 1.0
-	draw_set_transform(center,0,Vector2.ONE*gauge_scale)
+	draw_set_transform(center,0,Vector2.ONE*gauge_scale*water_gauge_scale)
 	center=Vector2.ZERO
 	var rect:=Rect2(center+Vector2(-172,-25),Vector2(344,50))
 	draw_style_box(style(PAPER,24),rect)

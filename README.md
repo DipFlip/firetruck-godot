@@ -91,6 +91,8 @@ Props start anchored. Swept truck contact measures the speed into the surface: b
 
 To add a prop, call `TownInteractions.add_prop()` with its visual parts, original position, collision box, impact threshold and mass. `BreakableProp` exposes the impact threshold and respawn time for tuning. Existing art and colliders stay grouped through the conversion. Four small capsule colliders on physics layer 5 protect the quest neighbours' personal space; vehicle and loose-prop collisions respect these boundaries while hose and ladder queries remain available.
 
+The tank uses visual feedback: the gauge pulses gently during spraying/refilling, and an empty attempt shakes and pulses it while the nozzle emits a few cosmetic drops. Empty attempts consume no water, apply no recoil and cannot advance missions. Refilling picks the nearest intact hydrant and shows a curved hose to the truck’s rear socket, with moving water pulses and a pulsing hydrant. Finishing, leaving range or knocking the hydrant loose removes the hose and restores its artwork. Pause holds all feedback and water flow. `tests/water_feedback_test.gd` covers these transitions and runs in the web build checks.
+
 ## Road surfaces and ramps
 
 `scripts/drive_surfaces.gd` registers shallow visible paving on query-only physics layer 4. Tire contact and skid marks query these actual surfaces instead of estimating road height from street coordinates. The physical supports remain smooth over shallow decorative steps. Tracks align with surface normals and keep their five-second fade.

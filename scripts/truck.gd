@@ -4,6 +4,7 @@ extends RigidBody3D
 signal bump(strength: float)
 
 signal water_hit(point: Vector3, amount: float)
+signal empty_spray
 
 var hit_receiver: Callable
 var aim_assist: Callable
@@ -57,6 +58,8 @@ var splash_pool: Array[MeshInstance3D] = []
 var spray_direction := Vector3.FORWARD
 var aim_point := Vector3.ZERO
 var spraying := false
+var spray_requested:=false
+var empty_spray_cooldown:=0.0
 var enabled := true
 var grounded := false
 var charge := 0.0
@@ -344,7 +347,14 @@ func _physics_process(dt: float) -> void:
 	for i in lights.size(): lights[i].material_override = TownProps.material(Color("92efff") if sin(elapsed*9+i*PI)>0 else Color("47738d"),true)
 	_update_aim()
 	if not Input.is_action_pressed("spray"): pointer_spray_blocked=false
-	spraying = enabled and water>0 and (automated_spray if use_automation else touch_aim.length()>.12 or (Input.is_action_pressed("spray") and not pointer_spray_blocked) or Input.is_action_pressed("aim_up") or Input.is_action_pressed("aim_down") or Input.is_action_pressed("aim_left") or Input.is_action_pressed("aim_right"))
+	spray_requested = enabled and (automated_spray if use_automation else touch_aim.length()>.12 or (Input.is_action_pressed("spray") and not pointer_spray_blocked) or Input.is_action_pressed("aim_up") or Input.is_action_pressed("aim_down") or Input.is_action_pressed("aim_left") or Input.is_action_pressed("aim_right"))
+	spraying=water>0 and spray_requested
+	empty_spray_cooldown=maxf(0,empty_spray_cooldown-dt)
+	if not spray_requested: empty_spray_cooldown=0
+	if spray_requested and water<=0 and empty_spray_cooldown==0:
+		empty_spray_cooldown=.65
+		empty_spray.emit()
+		_emit_empty_sputter()
 	if spraying:
 		water = maxf(0,water-dt*5.5)
 		apply_central_force(-spray_direction*recoil_acceleration*mass)
@@ -354,6 +364,13 @@ func _physics_process(dt: float) -> void:
 			_emit_drop()
 	_update_drops(dt)
 	if global_position.y < -8 or absf(global_position.x)>85 or absf(global_position.z)>85: reset_truck()
+
+func _emit_empty_sputter() -> void:
+	# A few weak, cosmetic drops: no recoil, water budget or mission hits.
+	var side:=spray_direction.cross(Vector3.UP).normalized()
+	for i in 4:
+		var velocity:=linear_velocity+spray_direction*randf_range(2.5,4.0)+side*randf_range(-.9,.9)+Vector3.UP*randf_range(.8,1.6)
+		_spawn_drop(spray_direction,velocity,randf_range(.40,.52),0.0,true,2.2)
 
 func _update_suspension(dt: float, acceleration_local: Vector3, forward_speed: float) -> void:
 	# Contact is tighter than the forgiving gameplay jump probe, so impact
@@ -528,12 +545,12 @@ func _emit_drop() -> void:
 		var relative:=spray_direction*randf_range(10,16)+side*randf_range(-4,4)+up*randf_range(-2.5,4)
 		_spawn_drop(relative.normalized(),linear_velocity+relative,randf_range(.35,.55),0.0,true)
 
-func _spawn_drop(direction: Vector3, velocity: Vector3, lifetime: float, amount: float, stray: bool) -> void:
+func _spawn_drop(direction: Vector3, velocity: Vector3, lifetime: float, amount: float, stray: bool, size_multiplier: float=1.0) -> void:
 	for mesh in pool:
 		if mesh.visible: continue
 		mesh.visible=true
 		var width:=randf_range(.055,.085) if stray else randf_range(.115,.14)
-		mesh.scale=Vector3(width,width,randf_range(.10,.17) if stray else randf_range(.27,.37))
+		mesh.scale=Vector3(width,width,randf_range(.10,.17) if stray else randf_range(.27,.37))*size_multiplier
 		mesh.material_override=TownProps.material(WATER_COLORS[randi()%WATER_COLORS.size()])
 		mesh.global_position=cannon.global_position+direction*1.1
 		mesh.look_at(mesh.global_position+velocity,Vector3.FORWARD if absf(velocity.normalized().y)>.98 else Vector3.UP)

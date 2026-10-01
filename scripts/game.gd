@@ -65,6 +65,7 @@ var pool_basin: PoolBasin
 var ramps: TownRamps
 var rewards: JobRewards
 var interactions: TownInteractions
+var refill_hose: RefillHose
 var web_controls: WebControls
 var loading:=false
 var batched_decorations:=0
@@ -109,6 +110,7 @@ func _ready() -> void:
 	hud=FireHUD.new()
 	hud.game=self
 	canvas.add_child(hud)
+	truck.empty_spray.connect(hud.on_empty_spray)
 	marker=MeshInstance3D.new()
 	var ring:=TorusMesh.new()
 	ring.inner_radius=1.78
@@ -143,6 +145,9 @@ func _ready() -> void:
 	interactions=TownInteractions.new()
 	interactions.game=self
 	add_child(interactions)
+	refill_hose=RefillHose.new()
+	refill_hose.game=self
+	add_child(refill_hose)
 	batched_decorations=TownProps.batch_decorations(atmosphere)
 	web_controls=WebControls.new()
 	web_controls.game=self
@@ -446,13 +451,17 @@ func _process(dt: float) -> void:
 	marker.scale=Vector3.ONE*(1+sin(elapsed*3)*0.06)
 	job_label.position=objective()+Vector3.UP*(4.3+sin(elapsed*2)*0.15)
 	_proximity_talk()
-	var refill_prompt:=""
+	var refill_source: BreakableProp=null
+	var refill_distance:=4.5
 	for i in town.hydrants.size():
 		var h:=town.hydrants[i]
 		if interactions.hydrant_props[i].loose: continue
-		if truck.global_position.distance_to(h)<4.5:
-			truck.water=minf(truck.tank_capacity,truck.water+dt*25)
-			refill_prompt="Tank full" if truck.water>=truck.tank_capacity else "Refilling at the hydrant..."
+		var distance:=truck.global_position.distance_to(h)
+		if truck.water<truck.tank_capacity and distance<refill_distance:
+			refill_source=interactions.hydrant_props[i]
+			refill_distance=distance
+	if refill_source: truck.water=minf(truck.tank_capacity,truck.water+dt*25)
+	refill_hose.update(refill_source,dt)
 	var prompt:=""
 	if not dialogue_active:
 		var distance:=truck.global_position.distance_to(objective())
@@ -460,9 +469,7 @@ func _process(dt: float) -> void:
 		elif stage==1 and distance<12:
 			prompt="Bring the ladder tip close to Pippin" if truck.ladder_deployed else "E  ·  Extend ladder, then approach Pippin"
 		elif stage==3 and distance<19: prompt="On target · Cooling the fire!" if fire_feedback>.1 else "Hold click to spray   ·   Shift to brace"
-		if not refill_prompt.is_empty(): prompt=refill_prompt
 		if prompt=="" and not dog_done and truck.global_position.distance_to(TownLayout.JUNE+Vector3.UP)<6: prompt="BISCUIT  /  %d%% clean" % (dog_progress*100)
-		if truck.water<=0: prompt="Tank empty · Find a blue hydrant on the map"
 	hud.prompt_label.text=prompt
 	if stage==3:
 		hud.heading_label.text="ON TARGET  /  COOLING" if fire_feedback>.1 else "02  /  HOSE AT THE READY"

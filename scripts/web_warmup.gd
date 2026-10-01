@@ -47,6 +47,13 @@ func run() -> void:
 		proxy.position=Vector3((i%4-1.5)*2,2,float(i/4)*2)
 		if i>=7: proxy.transparency=.5
 		if proxy.material_override is ShaderMaterial: TownProps.effect_opacity(proxy,.6)
+	# Render the opaque refill shader before the first hydrant connection.
+	var hose_proxy:=MeshInstance3D.new()
+	hose_proxy.mesh=game.refill_hose.segments[0].mesh
+	hose_proxy.material_override=game.refill_hose.segments[0].material_override
+	proxies.add_child(hose_proxy)
+	hose_proxy.position=Vector3(0,2,0)
+	hose_proxy.scale=Vector3(.12,1,.12)
 	# Warm the instanced, vertex-coloured broken-hydrant water path too.
 	# A visible sample avoids a first-impact shader hitch with the jets hidden.
 	for effect in game.interactions.ground_effects:

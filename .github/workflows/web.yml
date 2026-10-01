@@ -21,6 +21,7 @@ jobs:
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/hud_layout_test.gd
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/performance_test.gd
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/conversations_life_test.gd
+          "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/water_feedback_test.gd
       - uses: actions/upload-artifact@v5
         with:
           name: firetruck-web
