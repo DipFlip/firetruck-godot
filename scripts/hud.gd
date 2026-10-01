@@ -56,6 +56,7 @@ var bubble_move_elapsed:=BUBBLE_MOVE_TIME
 var dialogue_text:=""
 var dialogue_pages: Array[String]=[]
 var page_index:=0
+var dialogue_font_size:=19
 
 func style(color: Color, radius: int = 20, shadow: bool = true) -> StyleBoxFlat:
 	var s:=StyleBoxFlat.new()
@@ -159,13 +160,14 @@ void fragment(){
 	portrait.material=mat
 	dialogue_label=words(dialogue_panel,Rect2(148,46,363,116),"",19,INK)
 	dialogue_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	dialogue_label.add_theme_constant_override("line_spacing",2)
+	dialogue_label.visible_characters_behavior=TextServer.VC_CHARS_AFTER_SHAPING
+	dialogue_label.add_theme_constant_override("line_spacing",0)
 	continue_label=words(dialogue_panel,Rect2(148,171,363,23),"SPACE  ·  continue",12,MUTED,true)
 	continue_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
 	dialogue_panel.hide()
 	pause_panel=panel(self,Rect2(446,163,548,568),PAPER,26)
 	words(pause_panel,Rect2(37,30,470,46),"Take a little breather.",30,INK,true)
-	pause_help=words(pause_panel,Rect2(38,91,475,425),"WASD     Drive toward that side of the screen\nMouse + click     Aim and spray\nArrow keys     Directional spray\nHold Space, release     A springy little hop\nShift     Brake / brace against the hose\nE     Extend / retract ladder\nSpace / Enter     Continue a conversation\nDrive away     Leave a conversation\nTab     Open the town map\nPark by a hydrant to refill\nR     Recover at the station\nM     Music on / off\n\nEsc     Back to the neighbourhood",18,INK)
+	pause_help=words(pause_panel,Rect2(38,91,475,425),"WASD     Drive toward that side of the screen\nMouse + click     Aim and spray\nArrow keys     Directional spray\nHold Space, release     A springy little hop\nShift     Brake / brace against the hose\nE     Extend / retract ladder\nSpace / Enter     Continue a conversation\nSpace / click a neighbour     Say hello\nTab     Open the town map\nPark by a hydrant to refill\nR     Recover at the station\nM     Music on / off\n\nEsc     Back to the neighbourhood",18,INK)
 	pause_panel.hide()
 	voice=AudioStreamPlayer.new()
 	voice.volume_db=-17
@@ -209,66 +211,50 @@ func begin_dialogue(speaker: String, text: String) -> void:
 
 func _reflow_dialogue() -> void:
 	var width:=minf(540,size.x-32)
-	if size.x>size.y*1.5 and size.y<650:
-		width=minf(width,size.x*.38)
-	# Height contributes to reflow as well, including rotation of the same device.
+	if (touch_mode and size.x>size.y) or (size.x>size.y*1.5 and size.y<650): width=minf(width,size.x*.34)
 	var layout_key:=Vector2(width,size.y)
 	if dialogue_panel.get_meta("layout_key",Vector2.ZERO)==layout_key and dialogue_layout_width==width: return
 	dialogue_panel.set_meta("layout_key",layout_key)
 	dialogue_layout_width=width
 	dialogue_panel.size.x=width
-	var compact:=width<390 and size.x<size.y
-	var left:=112.0 if compact else 148.0
-	var text_width:=width-left-29
-	portrait.position=Vector2(23,34) if compact else Vector2(30,48)
-	portrait.size=Vector2(70,70) if compact else Vector2(88,88)
-	dialogue_panel.portrait_center=Vector2(58,69) if compact else Vector2(74,92)
-	dialogue_panel.portrait_radius=43 if compact else 53
-	dialogue_panel.divider_start=left
-	speaker_label.position.x=left+1
-	speaker_label.size.x=text_width
-	dialogue_label.position=Vector2(left,34 if compact else 46)
+	var compact:=width<440
+	# On narrow screens the avatar shares the header, freeing the full width
+	# for the complete message instead of pushing a few words onto another page.
+	var left:=24.0 if compact else 148.0
+	var text_width:=width-left-24
+	portrait.position=Vector2(22,17) if compact else Vector2(30,48)
+	portrait.size=Vector2(54,54) if compact else Vector2(88,88)
+	dialogue_panel.portrait_center=Vector2(49,44) if compact else Vector2(74,92)
+	dialogue_panel.portrait_radius=33 if compact else 53
+	dialogue_panel.divider_start=91 if compact else left
+	speaker_label.position=Vector2(92,20) if compact else Vector2(left+1,6)
+	speaker_label.size.x=width-speaker_label.position.x-24
+	dialogue_label.position=Vector2(left,72 if compact else 46)
 	dialogue_label.size.x=text_width
 	continue_label.position.x=left
 	continue_label.size.x=text_width
-	var extra:=60.0 if compact else 86.0
-	var max_height:=size.y-36
-	if size.x<size.y: max_height=minf(max_height,maxf(142,size.y*.32))
-	elif touch_mode: max_height=minf(max_height,maxf(179,size.y*.43))
-	# Reserve actual line metrics, with tolerance for fractional web font sizes.
-	# The old extra 18px in every measurement could reject an otherwise fitting row.
-	var line_height:=font.get_height(19)
-	var line_budget:=maxi(3,floori((max_height-extra)/line_height))
-	var max_text_height:=line_budget*line_height+.5
-	var previous_page_start:=0
-	for i in mini(page_index,dialogue_pages.size()): previous_page_start+=dialogue_pages[i].length()+1
-	dialogue_pages.clear()
-	var page:=""
-	for word in dialogue_text.split(" ",false):
-		var next:=word if page.is_empty() else page+" "+word
-		if not page.is_empty() and font.get_multiline_string_size(next,HORIZONTAL_ALIGNMENT_LEFT,text_width,19).y>max_text_height:
-			dialogue_pages.append(page)
-			page=word
-		else: page=next
-	dialogue_pages.append(page)
+	var extra:=104.0 if compact else 86.0
+	var max_height:=maxf(174,size.y*(.52 if size.x<size.y and size.y<450 else (.58 if size.x<size.y else (.50 if touch_mode else .62))))
+	dialogue_font_size=19
+	while dialogue_font_size>15 and font.get_multiline_string_size(dialogue_text,HORIZONTAL_ALIGNMENT_LEFT,text_width,dialogue_font_size).y+extra+4>max_height:
+		dialogue_font_size-=1
+	dialogue_label.add_theme_font_size_override("font_size",dialogue_font_size)
+	dialogue_pages.assign([dialogue_text])
 	page_index=0
-	var consumed:=0
-	while page_index<dialogue_pages.size()-1 and consumed+dialogue_pages[page_index].length()<previous_page_start:
-		consumed+=dialogue_pages[page_index].length()+1
-		page_index+=1
-	_show_dialogue_page(compact)
-
-func _show_dialogue_page(compact: bool = false) -> void:
-	full_text=dialogue_pages[page_index]
+	full_text=dialogue_text
 	dialogue_label.text=full_text
-	char_count=0
-	dialogue_label.visible_characters=0
-	text_clock=0
-	radio_idle=0
-	var text_height:=font.get_multiline_string_size(full_text,HORIZONTAL_ALIGNMENT_LEFT,dialogue_label.size.x,19).y+4
+	_resize_dialogue()
+	# Rotation/reflow keeps the current reveal position.
+	dialogue_label.visible_characters=char_count
+
+func _resize_dialogue() -> void:
+	var compact:=dialogue_panel.size.x<440
+	var text_height:=font.get_multiline_string_size(full_text,HORIZONTAL_ALIGNMENT_LEFT,dialogue_label.size.x,dialogue_font_size).y+4
+	# Labels may retain their old minimum height until text is reshaped at the
+	# end of a frame. Reapply this after a font/width change so rotation can shrink.
 	dialogue_label.size.y=maxf(50 if compact else 93,text_height)
-	dialogue_panel.size.y=maxf(128 if compact else 174,dialogue_label.size.y+(60 if compact else 86))
-	continue_label.position.y=dialogue_panel.size.y-(25 if compact else 33)
+	dialogue_panel.size.y=maxf(174,dialogue_label.size.y+(104 if compact else 86))
+	continue_label.position.y=dialogue_panel.size.y-28
 
 func truck_screen_rect() -> Rect2:
 	# Cover the cab, body and wheels in their interpolated rendered position.
@@ -278,10 +264,11 @@ func truck_screen_rect() -> Rect2:
 		for y in [-.85,2.7]:
 			for z in [-2.7,2.7]:
 				bounds=bounds.expand(game.camera.unproject_position(transform*Vector3(x,y,z)))
-	return bounds.grow(14)
+	return bounds.grow(8 if size.x<size.y and size.y<450 else 14)
 
 func _position_dialogue(dt: float = 0.0) -> void:
 	_reflow_dialogue()
+	_resize_dialogue()
 	dialogue_panel.scale=Vector2.ONE
 	if dialogue_panel.phone_mode:
 		var phone_position:=get_viewport_rect().size-dialogue_panel.size-Vector2(26,132)
@@ -314,11 +301,13 @@ func _position_dialogue(dt: float = 0.0) -> void:
 	var best_slot:=0
 	for i in candidates.size():
 		var margin:=7.0 if minf(view.x,view.y)<480 else 18.0
-		var at:=candidates[i].clamp(Vector2.ONE*margin,Vector2(maxf(margin,view.x-card.x-margin),maxf(margin,view.y-card.y-margin)))
+		var top:=80.0 if view.x<view.y or touch_mode else margin
+		var lower_reserve:=150.0 if touch_mode and view.x>view.y else margin
+		var at:=candidates[i].clamp(Vector2(margin,top),Vector2(maxf(margin,view.x-card.x-margin),maxf(top,view.y-card.y-lower_reserve)))
 		var rect:=Rect2(at,card)
 		var overlap:=rect.intersection(truck_rect).get_area()
 		var closest:=screen.clamp(rect.position,rect.end)
-		var score:=overlap*1000+closest.distance_to(screen)
+		var score:=(1e9+overlap*1000 if overlap>0 else 0.0)+closest.distance_to(screen)
 		if rect.grow(18).has_point(screen): score+=100000
 		# Avoid the water gauge where possible, and don't flicker between equal choices.
 		score+=rect.intersection(Rect2(view.x*.5-180,14,360,65)).get_area()*.04
@@ -359,10 +348,6 @@ func advance_text() -> bool:
 		dialogue_label.visible_characters=full_text.length()
 		char_count=full_text.length()
 		return false
-	if page_index<dialogue_pages.size()-1:
-		page_index+=1
-		_show_dialogue_page(dialogue_panel.portrait_radius<50)
-		return false
 	return true
 
 func _process(dt: float) -> void:
@@ -386,7 +371,7 @@ func _process(dt: float) -> void:
 		var talking:=char_count<full_text.length()
 		portrait.material.set_shader_parameter("bob",Vector2(sin(time*8)*.004,sin(time*10)*.008) if talking else Vector2.ZERO)
 		portrait.material.set_shader_parameter("tilt",sin(time*7)*.010 if talking else 0.0)
-		continue_label.text=("TAP TALK  ·  reveal" if talking else "TAP TALK  ·  continue   ›") if touch_mode else ("SPACE  ·  reveal" if talking else "SPACE  ·  continue   ›")
+		continue_label.text=("TAP  ·  reveal" if talking else "TAP  ·  continue   ›") if touch_mode else ("SPACE  ·  reveal" if talking else "SPACE  ·  continue   ›")
 		if not talking and auto_close_delay>=0:
 			radio_idle+=dt
 			if radio_idle>auto_close_delay and advance_text(): game.end_dialogue()
@@ -398,7 +383,7 @@ func _layout_viewport() -> void:
 		get_window().content_scale_size=WebControls.logical_size(Vector2(last_window_size))
 		get_window().content_scale_aspect=Window.CONTENT_SCALE_ASPECT_EXPAND
 	if touch_mode:
-		pause_help.text="LEFT STICK     Drive\nRIGHT STICK     Aim and spray\n\nHold JUMP, then release     A springy hop\nTALK     Reveal / continue a conversation\nLADDER     Extend / retract\n\nPark by a hydrant to refill.\nDrive away to leave a conversation.\n\nTap the pause button to return to town."
+		pause_help.text="LEFT STICK     Drive\nRIGHT STICK     Aim and spray\n\nHold JUMP, then release     A springy hop\nTALK     Reveal / continue a conversation\nLADDER     Extend / retract\n\nPark by a hydrant to refill.\nTap a neighbour or their speech bubble.\n\nTap the pause button to return to town."
 	prompt_panel.position=Vector2((size.x-prompt_panel.size.x)*.5,size.y-93)
 	toast_panel.position=Vector2((size.x-toast_panel.size.x)*.5,85 if touch_mode else 109)
 	footer.position=Vector2((size.x-footer.size.x)*.5,size.y-35)

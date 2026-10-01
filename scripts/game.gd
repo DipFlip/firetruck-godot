@@ -8,6 +8,8 @@ var stage := 0
 var dialogue_active := false
 var dialogue_next := 0
 var dialogue_actor: Node3D
+var dialogue_seen_in_view:=false
+var dialogue_out_of_view_time:=0.0
 var paused := false
 var fire_progress := 0.0
 var fire_feedback := 0.0
@@ -66,6 +68,7 @@ var interactions: TownInteractions
 var web_controls: WebControls
 var loading:=false
 var batched_decorations:=0
+var conversation_pan:=0.0
 
 func _ready() -> void:
 	# Frame-driven scenery and camera are not physics-interpolated a second time.
@@ -209,6 +212,8 @@ func talk(speaker: String, words: String, next: int) -> void:
 	dialogue_next=next
 	var index: int={"MAYA":0,"LEO":1,"JUNE":2,"OLIVER":3}.get(speaker.get_slice("  /",0),-1)
 	dialogue_actor=town.people[index] if index>=0 else null
+	dialogue_seen_in_view=false
+	dialogue_out_of_view_time=0
 	if dialogue_actor: camera_subject=dialogue_actor
 	_set_conversation_camera(dialogue_actor!=null)
 	# These are instructions, not choices: a neighbour's job remains available
@@ -275,6 +280,8 @@ func _update_dispatch(dt: float) -> void:
 			barbecue_ring_timer=1.2
 	elif barbecue_ring_timer>=0:
 		barbecue_ring_timer=maxf(0,barbecue_ring_timer-dt)
+		# A finished rescue thank-you can hand the channel to the next call.
+		if barbecue_ring_timer==0 and dialogue_active and hud.speaker_key=="MAYA" and cat_rescued and hud.char_count==hud.full_text.length(): end_dialogue()
 		if barbecue_ring_timer==0 and not dialogue_active and not rescue_running and not rewards.playing_reward():
 			barbecue_ring_timer=-1
 			barbecue_call_sent=true
@@ -306,7 +313,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("interact"):
 		if truck.ladder_deployed: truck.retract_ladder()
 		else: truck.extend_ladder()
-	if dialogue_active and (event.is_action_pressed("continue") or event.is_action_pressed("jump")):
+	if (event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed) or (event is InputEventScreenTouch and event.pressed):
+		if _pointer_talk(event.position):
+			truck.pointer_spray_blocked=true
+			get_viewport().set_input_as_handled()
+			return
+	if (event.is_action_pressed("continue") or event.is_action_pressed("jump")) and (dialogue_active or _nearest_npc()>=0):
 		if event.is_action_pressed("jump"):
 			truck.jump_blocked_until_release=true
 			truck.charge=0
@@ -319,6 +331,38 @@ func interact() -> void:
 		if not hud.advance_text(): return
 		end_dialogue()
 		return
+	var index:=_nearest_npc()
+	if index>=0: _talk_to_npc(index,true)
+
+func _nearest_npc() -> int:
+	var index:=-1
+	var nearest:=7.0
+	for i in town.people.size():
+		var distance:=truck.global_position.distance_to(town.people[i].global_position)
+		if distance<nearest:
+			nearest=distance
+			index=i
+	return index
+
+func npc_screen_rect(actor: Node3D) -> Rect2:
+	var bounds:=Rect2(camera.unproject_position(actor.global_position),Vector2.ZERO)
+	for x in [-.7,.7]:
+		for y in [0.0,2.7]:
+			for z in [-.5,.5]: bounds=bounds.expand(camera.unproject_position(actor.global_position+Vector3(x,y,z)))
+	return bounds
+
+func npc_in_view(actor: Node3D) -> bool:
+	return not camera.is_position_behind(actor.global_position+Vector3.UP) and hud.get_viewport_rect().intersects(npc_screen_rect(actor))
+
+func _pointer_talk(point: Vector2) -> bool:
+	if dialogue_active and Rect2(hud.dialogue_panel.position,hud.dialogue_panel.size).has_point(point):
+		interact()
+		return true
+	for i in town.people.size():
+		if not npc_in_view(town.people[i]) or not npc_screen_rect(town.people[i]).grow(10).has_point(point): continue
+		if dialogue_active and dialogue_actor==town.people[i]: interact(); return true
+		return _talk_to_npc(i,true)
+	return false
 
 func _proximity_talk() -> void:
 	var positions := [TownLayout.MAYA,TownLayout.LEO,TownLayout.JUNE,TownLayout.OLIVER]
@@ -326,20 +370,34 @@ func _proximity_talk() -> void:
 		var distance: float=truck.global_position.distance_to(positions[i])
 		if distance>8: proximity_latches.erase(i)
 		if distance>5.8 or proximity_latches.has(i) or dialogue_active or rescue_running: continue
-		if rewards.waiting_for(["MAYA","LEO","JUNE","OLIVER"][i]): continue
-		if i==0 and stage==1 and not rescued:
-			talk("MAYA  /  MAPLE GREEN","Oh, thank goodness! Pippin climbed up there and forgot how to be a cat. Extend your ladder with E and drive its tip close to Pippin. He'll hop on and climb down. Gently, please!",1)
-			rescued=true
-		elif i==1 and fire_progress<1 and not barbecue_briefed:
-			_discover_barbecue()
-			barbecue_briefed=true
-			talk("LEO  /  A LITTLE TOO WELL DONE","I was going for smoky flavour, not actual smoke! Aim at the barbecue and hold the hose. Shift will keep you steady.",3 if cat_rescued or stage in [2,3,5] else stage)
-		elif i==2:
+		_talk_to_npc(i)
+
+func _talk_to_npc(i: int, manual: bool=false) -> bool:
+	if paused or rescue_running or rewards.waiting_for(["MAYA","LEO","JUNE","OLIVER"][i]): return false
+	match i:
+		0:
+			if cat_rescued:
+				if not manual: return false
+				talk("MAYA  /  MAPLE GREEN","Thank you again! Pippin's staying on the ground today.",stage)
+			elif stage==1 and (not rescued or manual):
+				talk("MAYA  /  MAPLE GREEN","Oh, thank goodness! Pippin climbed up there and forgot how to be a cat. Extend your ladder with E and drive its tip close to Pippin. He'll hop on and climb down. Gently, please!",1)
+				rescued=true
+			else: return false
+		1:
+			if fire_progress>=1:
+				if not manual: return false
+				talk("LEO  /  WILLOW LANE","Thanks again for saving the afternoon! Sandwiches from now on.",stage)
+			elif not barbecue_briefed or manual:
+				_discover_barbecue()
+				barbecue_briefed=true
+				talk("LEO  /  A LITTLE TOO WELL DONE","I was going for smoky flavour, not actual smoke! Aim at the barbecue and hold the hose. Shift will keep you steady.",3 if cat_rescued or stage in [2,3,5] else stage)
+			else: return false
+		2:
 			talk("JUNE  /  BISCUIT'S BIG DAY", "He's spotless. Thank you!" if dog_done else "Biscuit found every puddle in town. Could you give him a gentle rinse? Aim the hose at him until he's clean.",stage)
-		elif i==3:
+		3:
 			talk("OLIVER  /  POOL PARTY", "Pool party saved. You're always welcome here!" if pool_done else "The kids are coming over, and the pool is empty! Could you fill it? Spray into the tiled pool and watch the water rise.",stage)
-		else: continue
-		proximity_latches[i]=true
+	proximity_latches[i]=true
+	return true
 
 func _process(dt: float) -> void:
 	if not is_instance_valid(truck): return
@@ -352,12 +410,14 @@ func _process(dt: float) -> void:
 	# Follow the same interpolated chassis pose that the renderer displays.
 	var rendered_truck_position:=truck.get_global_transform_interpolated().origin
 	var focus:=rendered_truck_position+ahead
-	if dialogue_active and is_instance_valid(dialogue_actor):
-		if truck.global_position.distance_to(dialogue_actor.global_position)>9: end_dialogue()
 	camera_transition_time=minf(1.0,camera_transition_time+dt)
 	conversation_blend=lerpf(camera_blend_from,camera_blend_to,smoothstep(0.0,1.0,camera_transition_time))
 	if is_instance_valid(camera_subject):
-		var conversation_focus:=rendered_truck_position.lerp(camera_subject.global_position,.5)+Vector3.UP*.25+ahead*.1
+		# Release the camera's attention gradually as the truck leaves, so the
+		# neighbour can naturally leave the screen instead of being held in view.
+		var separation:=rendered_truck_position.distance_to(camera_subject.global_position)
+		var attention:=.5*(1-smoothstep(6.0,24.0,separation))
+		var conversation_focus:=rendered_truck_position.lerp(camera_subject.global_position,attention)+Vector3.UP*.25+ahead*.1
 		focus=focus.lerp(conversation_focus,conversation_blend)
 	camera_focus=camera_focus.lerp(focus,1-exp(-4.5*dt))
 	camera_trauma=maxf(0,camera_trauma-dt*1.5)
@@ -365,7 +425,16 @@ func _process(dt: float) -> void:
 	camera.global_position=camera_focus+camera_offset.lerp(TALK_CAMERA_OFFSET,conversation_blend)+Vector3(sin(elapsed*63)*.16,sin(elapsed*79)*.12,cos(elapsed*53)*.08)*shake
 	camera.look_at(camera_focus)
 	camera.rotation.z+=sin(elapsed*47)*0.004*shake
-	camera.size=lerpf(25.8,TALK_CAMERA_SIZE,conversation_blend)
+	camera.size=lerpf(25.8,_talk_camera_size(),conversation_blend)
+	conversation_pan=lerpf(conversation_pan,_conversation_pan_target(),1-exp(-4*dt))
+	camera.v_offset=conversation_pan
+	if dialogue_active and is_instance_valid(dialogue_actor):
+		if npc_in_view(dialogue_actor):
+			dialogue_seen_in_view=true
+			dialogue_out_of_view_time=0
+		elif dialogue_seen_in_view:
+			dialogue_out_of_view_time+=dt
+			if dialogue_out_of_view_time>.7: end_dialogue()
 	_check_barbecue_discovery(dt)
 	_update_dispatch(dt)
 	if toast_time>0:
@@ -393,12 +462,32 @@ func _process(dt: float) -> void:
 		elif stage==3 and distance<19: prompt="On target · Cooling the fire!" if fire_feedback>.1 else "Hold click to spray   ·   Shift to brace"
 		if not refill_prompt.is_empty(): prompt=refill_prompt
 		if prompt=="" and not dog_done and truck.global_position.distance_to(TownLayout.JUNE+Vector3.UP)<6: prompt="BISCUIT  /  %d%% clean" % (dog_progress*100)
-		if prompt=="" and not pool_done and truck.global_position.distance_to(TownLayout.OLIVER+Vector3.UP)<6: prompt="POOL  /  %d%% full" % (pool_progress*100)
 		if truck.water<=0: prompt="Tank empty · Find a blue hydrant on the map"
 	hud.prompt_label.text=prompt
 	if stage==3:
 		hud.heading_label.text="ON TARGET  /  COOLING" if fire_feedback>.1 else "02  /  HOSE AT THE READY"
 		hud.detail_label.text="Extinguish the barbecue  ·  %d%%\n" % (fire_progress*100) + ("Keep it there!" if fire_feedback>.1 else "Aim near the flames · Shift to brace.")
+
+func _talk_camera_size() -> float:
+	if not dialogue_active or not is_instance_valid(dialogue_actor) or hud.size.x>=hud.size.y: return TALK_CAMERA_SIZE
+	# Very short portrait game views need enough room for the whole message,
+	# the gauge, and the complete vehicle. Taller screens retain the close shot.
+	var padding:=8.0 if hud.size.y<450 else 14.0
+	var extent:=(hud.truck_screen_rect().size.y-padding*2)*camera.size/hud.size.y
+	var available:=maxf(60,hud.size.y-hud.dialogue_panel.size.y-104)
+	return maxf(TALK_CAMERA_SIZE,extent*hud.size.y/available)
+
+func _conversation_pan_target() -> float:
+	if not dialogue_active or not is_instance_valid(dialogue_actor) or hud.size.x>=hud.size.y: return 0.0
+	# Leave a clear band for a complete mobile speech bubble while retaining
+	# the truck beneath it. Measure using the unshifted projection.
+	var rect:=hud.truck_screen_rect()
+	var p:=truck.get_global_transform_interpolated().origin
+	var pixels_per_unit:=absf(camera.unproject_position(p+camera.global_basis.y).y-camera.unproject_position(p).y)
+	var unshifted_top:=rect.position.y-camera.v_offset*pixels_per_unit
+	var reserved:=88.0 if hud.size.y<450 else 96.0
+	var shift:=maxf(0,hud.dialogue_panel.size.y+reserved-unshifted_top)
+	return shift/maxf(.01,pixels_per_unit)
 
 func _assisted_water_target(origin: Vector3, requested: Vector3) -> Variant:
 	var aim:=Vector3(requested.x-origin.x,0,requested.z-origin.z).normalized()
@@ -435,7 +524,7 @@ func _assisted_water_target(origin: Vector3, requested: Vector3) -> Variant:
 
 func _water_hit(point: Vector3, amount: float) -> bool:
 	if paused: return false
-	var consumed := false
+	var consumed := life.water_hit(point,amount)
 	if fire_progress<1 and point.distance_to(TownLayout.FIRE+Vector3.UP*1.8)<1.8:
 		_discover_barbecue()
 		consumed = true
@@ -445,7 +534,6 @@ func _water_hit(point: Vector3, amount: float) -> bool:
 		if fire_progress>=1:
 			stage=4 if cat_rescued or stage in [2,3,4] else 1
 			_update_mission()
-			toast("FIRE OUT   /   Maple Bay is in good hands")
 			rewards.celebrate("fire",TownLayout.FIRE+Vector3.UP*1.2,"LEO","You saved the afternoon! Thank you! I think I'll stick to sandwiches for the rest of the party.")
 	if not dog_done and point.distance_to(TownLayout.DOG+Vector3.UP*0.7)<1.4:
 		consumed = true
@@ -454,7 +542,6 @@ func _water_hit(point: Vector3, amount: float) -> bool:
 			dog_done=true
 			for child in town.dog.get_children():
 				if child is MeshInstance3D: child.material_override=TownProps.material(Color("e9c58b"))
-			toast("BISCUIT IS CLEAN   /   One very happy tail")
 			rewards.celebrate("dog",TownLayout.DOG+Vector3.UP*.5,"JUNE","Look at that shiny coat! Thank you — Biscuit's ready for cuddles again.")
 	if not pool_done and absf(point.x-TownLayout.POOL.x)<4.4 and absf(point.z-TownLayout.POOL.z)<2.4 and point.y<=town.pool_water.position.y+.12:
 		consumed = true
@@ -463,7 +550,6 @@ func _water_hit(point: Vector3, amount: float) -> bool:
 		truck._splash(Vector3(point.x,town.pool_water.position.y,point.z),Vector3.UP,true)
 		if pool_progress>=1:
 			pool_done=true
-			toast("POOL PARTY SAVED   /   Everybody in!")
 			rewards.celebrate("pool",TownLayout.POOL+Vector3.UP*.15,"OLIVER","It's perfect! Thank you for saving our pool party. You're always welcome for a swim!")
 	if stage==4: _update_mission()
 	return consumed
@@ -577,13 +663,11 @@ func _on_cat_ladder_reached(engine: FireEngine) -> void:
 		rescue_running=false
 		truck.freeze=false
 		truck.release_ladder()
-		toast("PIPPIN RESCUED   +   A grateful neighbour")
 		_after_cat_rescue())
 
 func _after_cat_rescue() -> void:
 	var next_stage:=4 if fire_progress>=1 else (3 if barbecue_discovered else 5)
 	talk("MAYA  /  THANK YOU","Thank you! Pippin, you little rascal. Let's keep all four paws on the ground from now on.",next_stage)
-	hud.auto_close_delay=4.0
 	if not barbecue_discovered and not barbecue_call_sent and fire_progress<1:
 		barbecue_call_delay=BARBECUE_CALL_DELAY
 		barbecue_ring_timer=-1

@@ -11,6 +11,7 @@
 
 #portrait-map{display:none}#pause{display:none;position:absolute;z-index:5;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));width:42px;height:38px;border:2px solid #9ac5cf;border-radius:12px;background:#294754e8;color:#eff8fc;font-size:18px;font-weight:900}.touch #pause{display:block}.touch.portrait #portrait-map{display:block;position:absolute;left:50%;top:0;width:clamp(104px,34vw,136px);height:clamp(104px,34vw,136px);transform:translateX(-50%);pointer-events:none}.touch.portrait #controls{height:280px;flex-basis:280px}.touch.portrait .stick{bottom:100px}.touch.portrait .action[data-action=jump]{bottom:12px;right:28px}.touch.portrait .action[data-action=ladder]{bottom:12px;left:28px;right:auto}
 @media(max-height:680px) and (orientation:portrait){.touch.portrait #controls{height:238px;flex-basis:238px}.touch.portrait .stick{bottom:90px;width:100px;height:100px}.touch.portrait .stick .knob{left:19px;top:19px}.touch.portrait .stick::before{left:46px;top:8px;height:78px}.touch.portrait .stick::after{top:46px;left:8px;width:78px}.touch.portrait .stick span{top:106px}.touch.portrait #portrait-map{width:108px;height:108px}.touch.portrait .action{height:50px;min-width:50px}.touch.portrait .action[data-action=jump],.touch.portrait .action[data-action=ladder]{bottom:6px}}
+.touch:not(.portrait) .stick{bottom:12px}.touch:not(.portrait) .stick span{top:auto;bottom:8px;font-size:9px;letter-spacing:1px}.touch:not(.portrait) .action[data-action=ladder]{left:178px;right:auto;bottom:28px}
 </style>
 $GODOT_HEAD_INCLUDE
 </head>

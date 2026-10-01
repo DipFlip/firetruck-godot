@@ -15,6 +15,7 @@ const AIM_RANGE := 15.0
 const WATER_COLORS := [Color("83cada"),Color("9bdce7"),Color("b1e6ed"),Color("cbf0f2"),Color("e0f5f4")]
 var spray_pulse := 0
 var jump_blocked_until_release := false
+var pointer_spray_blocked := false
 var touch_drive:=Vector2.ZERO
 var touch_aim:=Vector2.ZERO
 
@@ -331,7 +332,8 @@ func _physics_process(dt: float) -> void:
 		wheel_steers[i].rotation.y=steering if front_axles[i] else 0.0
 	for i in lights.size(): lights[i].material_override = TownProps.material(Color("92efff") if sin(elapsed*9+i*PI)>0 else Color("47738d"),true)
 	_update_aim()
-	spraying = enabled and water>0 and (automated_spray if use_automation else touch_aim.length()>.12 or Input.is_action_pressed("spray") or Input.is_action_pressed("aim_up") or Input.is_action_pressed("aim_down") or Input.is_action_pressed("aim_left") or Input.is_action_pressed("aim_right"))
+	if not Input.is_action_pressed("spray"): pointer_spray_blocked=false
+	spraying = enabled and water>0 and (automated_spray if use_automation else touch_aim.length()>.12 or (Input.is_action_pressed("spray") and not pointer_spray_blocked) or Input.is_action_pressed("aim_up") or Input.is_action_pressed("aim_down") or Input.is_action_pressed("aim_left") or Input.is_action_pressed("aim_right"))
 	if spraying:
 		water = maxf(0,water-dt*5.5)
 		apply_central_force(-spray_direction*recoil_acceleration*mass)

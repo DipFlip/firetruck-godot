@@ -12,6 +12,7 @@ var free_stars: Array[MeshInstance3D]=[]
 
 func _ready() -> void:
 	sound=AudioStreamPlayer.new()
+	sound.playback_type=AudioServer.PLAYBACK_TYPE_STREAM
 	sound.stream=_chime()
 	sound.volume_db=-15
 	add_child(sound)
@@ -47,13 +48,16 @@ func celebrate(job: String, at: Vector3, speaker: String, words: String) -> void
 	if game.dialogue_active and game.hud.speaker_key==speaker: game.end_dialogue()
 	pending.append({"speaker":speaker,"words":words,"remaining":THANK_YOU_DELAY})
 	if DisplayServer.get_name()!="headless": sound.play()
-	for i in 28:
+	sparkle_burst(at,28,3.4 if job=="pool" else 1.1,.55 if job=="pool" else 1.0)
+
+func sparkle_burst(at: Vector3, count: int=12, radius: float=1.1, squash: float=1.0) -> void:
+	for i in count:
 		if free_stars.is_empty(): break
 		var star:=free_stars.pop_back() as MeshInstance3D
+		star.scale=Vector3.ONE*.001
 		star.show()
-		var angle:=i*TAU/28
-		var radius:=1.1 if job!="pool" else 3.4
-		star.position=at+Vector3(cos(angle)*radius,.25+float(i%4)*.22,sin(angle)*radius*(.55 if job=="pool" else 1.0))
+		var angle:=i*TAU/count
+		star.position=at+Vector3(cos(angle)*radius,.25+float(i%4)*.22,sin(angle)*radius*squash)
 		sparkles.append({"mesh":star,"age":-float(i%5)*.045,"velocity":Vector3(cos(angle)*.7,1.15+float(i%3)*.2,sin(angle)*.7),"spin":angle})
 
 func waiting_for(speaker: String) -> bool:
@@ -112,6 +116,7 @@ func _chime() -> AudioStreamWAV:
 			var frequency: float=[659.25,830.61,987.77,1318.51][n]
 			var envelope:=minf(age/.007,1)*exp(-age*5.5)
 			sample+=(sin(age*TAU*frequency)+.22*sin(age*TAU*frequency*2))*envelope*.19
+		sample*=smoothstep(0.0,.012,t)*(1-smoothstep(1.22,1.5,t))
 		bytes.encode_s16(i*2,int(clampf(sample,-1,1)*32767))
 	result.data=bytes
 	return result

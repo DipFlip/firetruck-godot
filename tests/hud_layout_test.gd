@@ -53,8 +53,8 @@ func run() -> void:
 		await frames(3)
 		game.talk("MAYA  /  MAPLE GREEN","Oh, thank goodness you're here! Pippin has decided he's a bird. Could you help him down from that tree?",1)
 		var hud: FireHUD=game.hud
-		check(" ".join(hud.dialogue_pages)==hud.dialogue_text,"Pagination preserves every word: "+str(screen))
-		check(hud.font.get_multiline_string_size(hud.full_text,HORIZONTAL_ALIGNMENT_LEFT,hud.dialogue_label.size.x,19).y>=hud.font.get_height(19)*2.9,"Dialogue uses at least three available text rows")
+		check(" ".join(hud.dialogue_pages)==hud.dialogue_text,"Complete message preserves every word: "+str(screen))
+		check(hud.font.get_multiline_string_size(hud.full_text,HORIZONTAL_ALIGNMENT_LEFT,hud.dialogue_label.size.x,hud.dialogue_font_size).y>=hud.font.get_height(hud.dialogue_font_size)*2.9,"Dialogue uses at least three available text rows")
 		for page in hud.dialogue_pages.size():
 			hud.dialogue_label.visible_characters=hud.full_text.length()
 			var finished:=hud.advance_text()
@@ -68,6 +68,9 @@ func run() -> void:
 			var focus: Vector3=game.truck.position.lerp(TownLayout.MAYA,.3)
 			game.camera.position=focus+game.TALK_CAMERA_OFFSET
 			game.camera.look_at(focus)
+			await frames(3)
+			game.camera.size=game._talk_camera_size()
+			game.camera.v_offset=game._conversation_pan_target()
 			await frames(100)
 			game.hud._position_dialogue()
 			var panel: SpeechFrame=game.hud.dialogue_panel

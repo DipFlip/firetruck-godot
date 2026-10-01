@@ -6,9 +6,12 @@ var cars: Array[Dictionary]=[]
 var walkers: Array[Dictionary]=[]
 var birds: Array[Dictionary]=[]
 var time:=0.0
+var ground_birds: Array[Dictionary]=[]
+var honk_stream: AudioStreamWAV
 
 func _ready() -> void:
 	physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_ON
+	honk_stream=_make_honk()
 	# Lanes circulate around separate blocks, leaving the centre of junctions clear.
 	_car([Vector3(1.8,0,12),Vector3(1.8,0,34.2),Vector3(34.2,0,34.2),Vector3(34.2,0,1.8),Vector3(1.8,0,1.8)],Color("e5bd72"),0)
 	_car([Vector3(-34.2,0,-15),Vector3(-34.2,0,-1.8),Vector3(-1.8,0,-1.8),Vector3(-1.8,0,-34.2),Vector3(-34.2,0,-34.2)],Color("91afb4"),1)
@@ -35,18 +38,38 @@ func _ready() -> void:
 			legs.append(pivot)
 		walkers.append({"node":person,"path":paths[i],"next":1,"speed":.95+i*.06,"phase":i*1.7,"legs":legs,"hop":1.0,"from":person.position,"to":person.position,"cooldown":0.0})
 	for i in 9:
-		var bird:=Node3D.new()
-		add_child(bird)
-		TownProps.ball(bird,Vector3.ZERO,Vector3(.19,.16,.42),Color("677a79"))
-		TownProps.ball(bird,Vector3(0,.06,-.19),Vector3(.17,.17,.19),Color("ece5cc"))
-		TownProps.box(bird,Vector3(0,.035,-.3),Vector3(.06,.05,.12),Color("d7a55d"))
-		var wings: Array[Node3D]=[]
-		for side in [-1,1]:
-			var wing:=Node3D.new()
-			bird.add_child(wing)
-			TownProps.ball(wing,Vector3(side*.22,0,.015),Vector3(.50,.045,.21),Color("d4d8c5"))
-			wings.append(wing)
-		birds.append({"node":bird,"wings":wings,"phase":i*.48,"center":Vector3(-15,8,6) if i<5 else Vector3(43,9,-16),"radius":12.0+i*.6})
+		var bird:=_bird(i)
+		bird.center=Vector3(-15,8,6) if i<5 else Vector3(43,9,-16)
+		bird.radius=12.0+i*.6
+		birds.append(bird)
+	var perches: Array[Vector3]=[Vector3(-3,.22,18),Vector3(-2,.22,19),Vector3(8,.3,-5),Vector3(9,.3,-4),Vector3(-9,.3,-24),Vector3(-10,.3,-25),Vector3(31,.3,23),Vector3(30,.3,24),Vector3(42,.3,-10),Vector3(43,.3,-9),Vector3(9,.3,45),Vector3(10,.3,44),Vector3(-41,.3,27),Vector3(-42,.3,28),Vector3(-29,.3,-48),Vector3(28,.3,53)]
+	for i in perches.size():
+		var bird:=_bird(i+9)
+		bird.node.scale=Vector3.ONE*1.6
+		bird.node.position=perches[i]
+		bird.home=perches[i]
+		bird.mode="ground"
+		bird.age=0.0
+		bird.escape=Vector3.ZERO
+		bird.from=perches[i]
+		ground_birds.append(bird)
+
+func _bird(index: int) -> Dictionary:
+	var bird:=Node3D.new()
+	add_child(bird)
+	TownProps.ball(bird,Vector3.ZERO,Vector3(.19,.16,.42),Color("677a79"))
+	var head:=TownProps.ball(bird,Vector3(0,.06,-.19),Vector3(.17,.17,.19),Color("ece5cc"))
+	TownProps.box(bird,Vector3(0,.035,-.3),Vector3(.06,.05,.12),Color("d7a55d"))
+	for side in [-1,1]:
+		TownProps.ball(bird,Vector3(side*.07,.09,-.245),Vector3(.035,.035,.035),Color("294754"))
+		TownProps.box(bird,Vector3(side*.05,-.11,.02),Vector3(.024,.10,.025),Color("d7a55d"))
+	var wings: Array[Node3D]=[]
+	for side in [-1,1]:
+		var wing:=Node3D.new()
+		bird.add_child(wing)
+		TownProps.ball(wing,Vector3(side*.22,0,.015),Vector3(.50,.045,.21),Color("d4d8c5"))
+		wings.append(wing)
+	return {"node":bird,"head":head,"wings":wings,"phase":index*.48}
 
 func _car(path: Array, color: Color, index: int) -> void:
 	var body:=RigidBody3D.new()
@@ -92,14 +115,34 @@ func _car(path: Array, color: Color, index: int) -> void:
 			tire.rotation.z=PI/2
 			var hub:=TownProps.box(wheel,Vector3(side*.11,0,0),Vector3(.035,.36,.07),Color("d7d1b9"))
 			wheels.append(wheel)
-	cars.append({"node":body,"path":path,"next":1,"speed":0.0,"cruise":4.0+index*.4,"wheels":wheels,"coast":0.0,"stalled":0.0,"recovery":-1.0,"fade_in":1.0,"last_position":body.position,"progress_clock":0.0})
+	var honk:=AudioStreamPlayer3D.new()
+	honk.stream=honk_stream
+	honk.playback_type=AudioServer.PLAYBACK_TYPE_STREAM
+	honk.volume_db=-16
+	honk.max_distance=35
+	honk.unit_size=8
+	body.add_child(honk)
+	cars.append({"wet_age":10.0,"wash_time":0.0,"wash_cooldown":0.0,"honk":honk,"honk_count":0,"node":body,"path":path,"next":1,"speed":0.0,"cruise":4.0+index*.4,"wheels":wheels,"coast":0.0,"stalled":0.0,"recovery":-1.0,"fade_in":1.0,"last_position":body.position,"progress_clock":0.0})
 
 func _physics_process(dt: float) -> void:
-	for car in cars: car.node.freeze=game.paused
+	for car in cars:
+		car.node.freeze=game.paused
+		car.honk.stream_paused=game.paused
 	if game.paused: return
 	time+=dt
 	for car in cars:
 		var body: RigidBody3D=car.node
+		car.wet_age+=dt
+		car.wash_cooldown=maxf(0,car.wash_cooldown-dt)
+		if car.wet_age<.16:
+			car.wash_time+=dt
+			if car.wash_time>=1.5 and car.wash_cooldown<=0:
+				car.wash_time=0.0
+				car.wash_cooldown=8.0
+				car.honk_count+=1
+				if DisplayServer.get_name()!="headless": car.honk.play()
+				game.rewards.sparkle_burst(body.global_position+Vector3.UP*1.25,12,1.4)
+		else: car.wash_time=0.0
 		if _recover_traffic(car,dt): continue
 		var target: Vector3=car.path[car.next]+Vector3.UP*.12
 		var direction:=target-body.position
@@ -170,6 +213,69 @@ func _physics_process(dt: float) -> void:
 		bird.node.rotation.y=atan2(sin(a),-cos(a)*.65)
 		bird.wings[0].rotation.z=sin(time*13+bird.phase)*.65
 		bird.wings[1].rotation.z=-sin(time*13+bird.phase)*.65
+	_update_ground_birds(dt)
+
+func _update_ground_birds(dt: float) -> void:
+	var truck: Vector3=game.truck.global_position
+	var ahead: Vector3=truck+game.truck.linear_velocity*.3
+	for bird in ground_birds:
+		bird.age+=dt
+		var node: Node3D=bird.node
+		if bird.mode=="ground":
+			node.rotation.y=bird.phase+sin(time*.7+bird.phase)*.25
+			bird.head.rotation.x=maxf(0,sin(time*2+bird.phase))*.35
+			bird.wings[0].rotation.z=-1.18
+			bird.wings[1].rotation.z=1.18
+			if minf(node.position.distance_to(truck),node.position.distance_to(ahead))<5.5:
+				bird.mode="flee"
+				bird.age=0.0
+				bird.from=node.position
+				var away: Vector3=node.position-truck
+				away.y=0
+				if away.length()<.1: away=Vector3(cos(bird.phase),0,sin(bird.phase))
+				bird.escape=bird.home+away.normalized()*14+Vector3.UP*7
+		else:
+			bird.head.rotation.x=0
+			bird.wings[0].rotation.z=sin(time*19+bird.phase)*.8
+			bird.wings[1].rotation.z=-bird.wings[0].rotation.z
+			if bird.mode=="flee":
+				var t: float=clampf(bird.age/2.1,0,1)
+				node.position=bird.from.lerp(bird.escape,smoothstep(0,1,t))+Vector3.UP*sin(t*PI)*2
+				node.rotation.y=atan2(bird.from.x-bird.escape.x,bird.from.z-bird.escape.z)
+				if t>=1: node.position+=Vector3(sin(bird.age*2+bird.phase)*.5,sin(bird.age*3)*.25,cos(bird.age*2+bird.phase)*.5)
+				if bird.age>5 and truck.distance_to(bird.home)>12:
+					bird.mode="land"
+					bird.from=node.position
+					bird.age=0.0
+			else:
+				var t: float=clampf(bird.age/2.4,0,1)
+				node.position=bird.from.lerp(bird.home,smoothstep(0,1,t))+Vector3.UP*sin(t*PI)*1.1
+				node.rotation.y=atan2(bird.from.x-bird.home.x,bird.from.z-bird.home.z)
+				if t>=1:
+					bird.mode="ground"
+					bird.age=0.0
+
+func water_hit(point: Vector3, _amount: float) -> bool:
+	for car in cars:
+		var local: Vector3=car.node.to_local(point)
+		if absf(local.x)<=1.0 and absf(local.z)<=1.7 and local.y>=.25 and local.y<1.8:
+			car.wet_age=0.0
+			return true
+	return false
+
+func _make_honk() -> AudioStreamWAV:
+	var wav:=AudioStreamWAV.new()
+	wav.format=AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate=22050
+	var bytes:=PackedByteArray()
+	bytes.resize(int(.65*wav.mix_rate)*2)
+	for i in bytes.size()/2:
+		var t:=float(i)/wav.mix_rate
+		var envelope:=smoothstep(0,.025,t)*(1-smoothstep(.42,.65,t))
+		var sample: float=(sin(TAU*349.23*t)+.6*sin(TAU*440*t)+.15*sin(TAU*698.46*t))*.24*envelope
+		bytes.encode_s16(i*2,int(sample*32767))
+	wav.data=bytes
+	return wav
 
 func _recover_traffic(car: Dictionary, dt: float) -> bool:
 	var body: RigidBody3D=car.node
