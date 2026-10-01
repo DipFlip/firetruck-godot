@@ -36,13 +36,14 @@ func run() -> void:
 	game.hud.hide()
 	await frames(3)
 	await process_frame
-	var resting_y:=t.ladder.global_position.y
+	# Measure the cab roof mount; the ladder now hinges lower on the rear deck.
+	var resting_y:=t.cannon.global_position.y
 	var wheel_y:=t.wheel_steers[0].global_position.y
 	shot("rest")
 	Input.action_press("jump")
 	await frames(60)
 	tire_clearance()
-	check(resting_y-t.ladder.global_position.y>.27,"Charging compresses the upper body by about 30 cm")
+	check(resting_y-t.cannon.global_position.y>.27,"Charging compresses the upper body by about 30 cm")
 	check(absf(t.visual.position.y)<.015 and is_equal_approx(t.body_point(Vector3(1,.28,-1.3)).y,.28),"Lower body and wheel arches retain their unsquashed silhouette")
 	check(absf(t.wheel_steers[0].global_position.y-wheel_y)<.025,"Charge compression keeps tires planted at their original height")
 	check(t.cannon.position.distance_to(t.visual.transform*t.body_point(t.CANNON_MOUNT))<.001 and t.ladder.position.distance_to(t.visual.transform*t.body_point(t.LADDER_MOUNT))<.001,"Roof cannon and ladder mount follow the compressed upper body")

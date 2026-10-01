@@ -48,7 +48,7 @@ var ground_distance := INF
 var ground_normal := Vector3.UP
 var support_height := .8
 const CANNON_MOUNT := Vector3(0,2.07,-0.35)
-const LADDER_MOUNT := Vector3(0,2.18,1.25)
+const LADDER_MOUNT := Vector3(0,1.78,1.85)
 var wheel_travel := 0.0
 var droplets: Array[Dictionary] = []
 var pool: Array[MeshInstance3D] = []
@@ -68,12 +68,15 @@ var use_automation := false
 var automated_aim := Vector3.ZERO
 var ladder: Node3D
 var ladder_sections: Node3D
+var ladder_slides: Array[Node3D]=[]
 var ladder_amount:=0.0
 var ladder_deployed:=false
 var ladder_busy:=false
 var ladder_tip: Area3D
-const LADDER_REACH:=6.0
-var ladder_length:=6.0
+const LADDER_SECTION_LENGTH:=2.0
+const LADDER_OVERLAP:=.20
+const LADDER_REACH:=LADDER_SECTION_LENGTH*3-LADDER_OVERLAP*2
+var ladder_length:=LADDER_REACH
 var effects: TruckEffects
 var splash_clock:=0.0
 var rings: Array[Dictionary]=[]
@@ -162,13 +165,18 @@ func _ready() -> void:
 	ladder.name="TelescopicLadder"
 	add_child(ladder)
 	ladder.position=LADDER_MOUNT
-	TownProps.cylinder(ladder,Vector3.ZERO,.42,.2,Color("e4c995"))
 	ladder_sections=Node3D.new()
+	ladder_sections.name="RoofLadder"
 	ladder.add_child(ladder_sections)
-	for x in [-.32,.32]: TownProps.box(ladder_sections,Vector3(x,0,-.5),Vector3(.085,.11,1),Color("e7e2ce"))
-	for i in 15: TownProps.box(ladder_sections,Vector3(0,0,-float(i)/14),Vector3(.7,.075,.012),Color("fff0c9"))
-	ladder_sections.visible=false
-	# The trigger is under the unscaled pivot, never the stretching ladder mesh.
+	# The original roof ladder and two fixed-size copies slide over one another.
+	# Geometry and rung spacing never stretch, including during retraction.
+	for i in 3:
+		var section:=preload("res://assets/models/roof_ladder.glb").instantiate()
+		section.name="LadderSection%d" % i
+		ladder_sections.add_child(section)
+		section.position.y=i*.105
+		ladder_slides.append(section)
+	# The trigger follows the last rung, outside the sliding visual sections.
 	ladder_tip=Area3D.new()
 	ladder_tip.name="LadderTip"
 	ladder_tip.collision_layer=0
@@ -188,8 +196,7 @@ func _ready() -> void:
 func extend_ladder(target: Vector3=Vector3.ZERO) -> void:
 	ladder_deployed=true
 	if target!=Vector3.ZERO:
-		ladder_length=clampf(ladder.global_position.distance_to(target),2.0,LADDER_REACH)
-		ladder.look_at(target)
+		ladder_length=clampf(ladder.global_position.distance_to(target),LADDER_SECTION_LENGTH,LADDER_REACH)
 
 func retract_ladder() -> void:
 	if ladder_busy:
@@ -215,18 +222,22 @@ func _update_ladder(dt: float) -> void:
 				if distance<nearest and _ladder_path_clear(candidate.dock_position()):
 					target=candidate
 					nearest=distance
+		ladder_amount=move_toward(ladder_amount,1.0 if ladder_deployed else 0.0,dt*1.6)
+		var stowed:=visual.basis.get_rotation_quaternion()
 		var desired: Quaternion=(visual.basis*Basis(Vector3.RIGHT,deg_to_rad(28))).get_rotation_quaternion()
 		var length:=LADDER_REACH
 		if target:
 			var direction:=global_basis.inverse()*(target.dock_position()-ladder.global_position).normalized()
 			desired=Basis.looking_at(direction,Vector3.FORWARD if absf(direction.y)>.98 else Vector3.UP).get_rotation_quaternion()
-			length=clampf(nearest,2.0,LADDER_REACH)
-		ladder.quaternion=ladder.quaternion.slerp(desired,1-exp(-7*dt))
+			length=clampf(nearest,LADDER_SECTION_LENGTH,LADDER_REACH)
+		# Lift the stacked roof ladder before sliding the two upper sections out.
+		# Reversing the same timeline retracts them before lowering onto the roof.
+		desired=stowed.slerp(desired,smoothstep(0.0,.30,ladder_amount))
+		ladder.quaternion=stowed if ladder_amount==0 else ladder.quaternion.slerp(desired,1-exp(-12*dt))
 		ladder_length=lerpf(ladder_length,length,1-exp(-7*dt))
-		ladder_amount=move_toward(ladder_amount,1.0 if ladder_deployed else 0.0,dt*1.8)
-	ladder_sections.visible=ladder_amount>.01
-	ladder_sections.scale.z=maxf(.05,ladder_amount*ladder_length)
-	ladder_tip.position=Vector3(0,0,-ladder_amount*ladder_length)
+	var extension:=smoothstep(.30,1.0,ladder_amount)*(ladder_length-LADDER_SECTION_LENGTH)
+	for i in ladder_slides.size(): ladder_slides[i].position.z=-extension*float(i)/2.0
+	ladder_tip.position=Vector3(0,.21,-LADDER_SECTION_LENGTH-extension)
 	# Poll overlaps so an event becoming available while already touching the tip
 	# (for example, after closing dialogue) does not require another button press.
 	if ladder_deployed and ladder_amount>.92 and not ladder_busy:

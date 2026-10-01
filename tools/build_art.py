@@ -92,6 +92,16 @@ for z in range(8):box('LadderRung',(0,1.78,-.07+z*.26),(1.24,.065,.06),silver,.0
 cyl('HoseReel',(1.0,1.15,.58),.26,.1,'384f56','X')
 cyl('HoseReelHub',(1.08,1.15,.58),.1,.04,'d9b879','X')
 text('TruckNumber','04',(0,1.08,2.011),.45,ivory)
+# Export the actual roof ladder separately, hinged at its rear end.
+ladder_parts=[o for o in bpy.context.scene.objects if o.name.startswith(('LadderRail','LadderRung'))]
+bpy.ops.object.select_all(action='DESELECT')
+for o in ladder_parts:o.select_set(True)
+bpy.context.view_layer.objects.active=ladder_parts[0];bpy.ops.object.join()
+ladder=bpy.context.object;ladder.name='RoofLadderSection'
+bpy.context.scene.cursor.location=g((0,1.78,1.85))
+bpy.ops.object.origin_set(type='ORIGIN_CURSOR');ladder.location=(0,0,0)
+bpy.ops.export_scene.gltf(filepath=os.path.join(OUT,'roof_ladder.glb'),export_format='GLB',use_selection=True,export_yup=True)
+bpy.ops.object.delete(use_global=False)
 export('engine_body')
 # Wheel built around the actual X axle. Visible lug nuts make rotation readable.
 cyl('Tire',(0,0,0),.48,.32,dark,'X')
