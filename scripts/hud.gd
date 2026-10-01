@@ -52,6 +52,7 @@ var touch_portrait:=false
 var last_window_size:=Vector2i.ZERO
 var dialogue_layout_width:=-1.0
 var bubble_slot:=-1
+var bubble_detach_blend:=0.0
 const BUBBLE_MOVE_TIME:=.7
 var bubble_position_ready:=false
 var bubble_move_from:=Vector2.ZERO
@@ -179,7 +180,9 @@ void fragment(){
 	_make_syllables()
 
 func begin_dialogue(speaker: String, text: String) -> void:
-	speaker_key=speaker.get_slice("  /",0)
+	var next_speaker:=speaker.get_slice("  /",0)
+	if next_speaker!=speaker_key or not dialogue_panel.visible: bubble_detach_blend=0.0
+	speaker_key=next_speaker
 	dialogue_panel.phone_mode=speaker_key=="DISPATCH"
 	portrait.show()
 	auto_close_delay=6.0 if dialogue_panel.phone_mode else -1.0
@@ -286,43 +289,37 @@ func _position_dialogue(dt: float = 0.0) -> void:
 	var screen: Vector2=game.camera.unproject_position(head)
 	var card:=dialogue_panel.size
 	var view:=get_viewport_rect().size
+	var dock:=dialogue_dock_position()
+	var separation: float=game.truck.global_position.distance_to(actor.global_position)
+	var away:=smoothstep(9.0,17.0,separation)
+	bubble_detach_blend=lerpf(bubble_detach_blend,away,1-exp(-dt/.35))
+	if bubble_detach_blend<.001: bubble_detach_blend=0
+	var margin:=12.0
 	var truck_rect:=truck_screen_rect()
-	# Prefer a nearby balloon, but put the entire card outside the truck silhouette.
-	# Corners provide clear fallback positions when the speaker is behind the truck.
-	var candidates: Array[Vector2]=[
-		screen-Vector2(card.x*.5,card.y+28),
-		screen+Vector2(32,-card.y*.5),
-		screen-Vector2(card.x+32,card.y*.5),
-		screen+Vector2(-card.x*.5,32),
-		Vector2(18,84),Vector2(view.x-card.x-18,84),
-		Vector2(18,view.y-card.y-18),view-card-Vector2(18,18),
-		Vector2(truck_rect.position.x-card.x-8,screen.y-card.y*.5),
-		Vector2(truck_rect.end.x+8,screen.y-card.y*.5),
-		Vector2(screen.x-card.x*.5,truck_rect.position.y-card.y-8),
-		Vector2(screen.x-card.x*.5,truck_rect.end.y+8)]
-	var best_score:=INF
-	var best_position:=Vector2.ZERO
-	var best_slot:=0
-	for i in candidates.size():
-		var margin:=7.0 if minf(view.x,view.y)<480 else 18.0
-		var top:=80.0 if view.x<view.y or touch_mode else margin
-		var lower_reserve:=150.0 if touch_mode and view.x>view.y else margin
-		var at:=candidates[i].clamp(Vector2(margin,top),Vector2(maxf(margin,view.x-card.x-margin),maxf(top,view.y-card.y-lower_reserve)))
-		var rect:=Rect2(at,card)
-		var overlap:=rect.intersection(truck_rect).get_area()
-		var closest:=screen.clamp(rect.position,rect.end)
-		var score:=(1e9+overlap*1000 if overlap>0 else 0.0)+closest.distance_to(screen)
-		if rect.grow(18).has_point(screen): score+=100000
-		# Avoid the water gauge where possible, and don't flicker between equal choices.
-		score+=rect.intersection(Rect2(view.x*.5-180,14,360,65)).get_area()*.04
-		if i==bubble_slot: score-=35
-		if score<best_score:
-			best_score=score
-			best_position=at
-			best_slot=i
-	_move_dialogue(best_position,best_slot,dt)
+	var floating: Vector2=(screen-Vector2(card.x*.5,card.y+28)).clamp(Vector2(margin,80),Vector2(maxf(margin,view.x-card.x-margin),maxf(80,view.y-card.y-margin)))
+	# Stay in the clear band below the vehicle. If an above-head balloon
+	# would cross the truck, use the space beneath the NPC instead.
+	var clear_top:=maxf(80,truck_rect.end.y+16)
+	var lower_limit:=maxf(80,view.y-card.y-margin)
+	if floating.y<clear_top:
+		floating.y=clampf(screen.y+28,minf(clear_top,lower_limit),lower_limit)
+	if Rect2(floating,card).grow(8).has_point(screen):
+		# When there is no vertical room, settle beside the speaker in the
+		# bottom band. The notch must not disappear underneath the card.
+		var side_x:=screen.x-card.x-28 if screen.x>view.x*.5 else screen.x+28
+		floating.x=clampf(side_x,margin,view.x-card.x-margin)
+		if Rect2(floating,card).grow(8).has_point(screen): floating=dock
+	var target:=dock.lerp(floating,bubble_detach_blend)
+	# Keep a single stable dock instead of scoring and switching among many
+	# corners every frame. Detach only through clear screen space.
+	var corridor:=Rect2(dock,card).merge(Rect2(target,card))
+	if corridor.intersects(truck_rect): target=dock
+	_move_dialogue(target,0,dt)
 	dialogue_panel.tail_tip=screen-dialogue_panel.position
 	dialogue_panel.queue_redraw()
+
+func dialogue_dock_position() -> Vector2:
+	return Vector2((size.x-dialogue_panel.size.x)*.5,maxf(80,size.y-dialogue_panel.size.y-44))
 
 func _move_dialogue(target: Vector2, slot: int, dt: float) -> void:
 	if not bubble_position_ready:
@@ -367,7 +364,7 @@ func _process(dt: float) -> void:
 		water_gauge_offset=Vector2(sin(time*48)*3.5,sin(time*61)*1.2)*empty_strength
 	prompt_panel.visible=not prompt_label.text.is_empty() and not game.dialogue_active and not game.paused
 	toast_panel.visible=not toast_label.text.is_empty() and not game.paused and not game.dialogue_active
-	footer.visible=not touch_mode and not game.paused and game.elapsed<28
+	footer.visible=not touch_mode and not game.paused and not game.dialogue_active and game.elapsed<28
 	if dialogue_panel.visible and not game.paused:
 		_position_dialogue(dt)
 		text_clock-=dt

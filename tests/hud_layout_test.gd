@@ -51,7 +51,7 @@ func run() -> void:
 		game.hud.touch_mode=screen.x<1100
 		game.hud.touch_portrait=screen.x<screen.y
 		await frames(3)
-		game.talk("MAYA  /  MAPLE GREEN","Oh, thank goodness you're here! Pippin has decided he's a bird. Could you help him down from that tree?",1)
+		game.talk("MAYA  /  MAPLE GREEN","Oh, thank goodness! Pippin climbed up there and forgot how to be a cat. Extend your ladder with E and drive its tip close to Pippin. He'll hop on and climb down. Gently, please!",1)
 		var hud: FireHUD=game.hud
 		check(" ".join(hud.dialogue_pages)==hud.dialogue_text,"Complete message preserves every word: "+str(screen))
 		check(hud.font.get_multiline_string_size(hud.full_text,HORIZONTAL_ALIGNMENT_LEFT,hud.dialogue_label.size.x,hud.dialogue_font_size).y>=hud.font.get_height(hud.dialogue_font_size)*2.9,"Dialogue uses at least three available text rows")
@@ -77,7 +77,11 @@ func run() -> void:
 			var rect:=Rect2(panel.position,panel.size)
 			var truck: Rect2=game.hud.truck_screen_rect()
 			var context:="%s / approach %d" % [screen,step]
+			check(panel.position.distance_to(game.hud.dialogue_dock_position())<.2,"Nearby speech stays in its bottom dock: "+context)
 			check(not rect.intersects(truck),"Truck clear: "+context+" overlap "+str(rect.intersection(truck)))
+			if game.hud.size.y<650:
+				var gauge_scale:=minf(1,(game.hud.size.x-148)/344) if game.hud.touch_mode else 1.0
+				check(truck.position.y>=45+25*gauge_scale+8,"Truck below top gauge: "+context)
 			check(game.hud.get_viewport_rect().encloses(rect),"Card within screen: "+context)
 			var head: Vector2=game.camera.unproject_position(game.dialogue_actor.position+Vector3.UP*2.85)
 			check((panel.position+panel.tail_tip).distance_to(head)<1,"Tail follows speaker: "+context)

@@ -476,24 +476,24 @@ func _process(dt: float) -> void:
 		hud.detail_label.text="Extinguish the barbecue  ·  %d%%\n" % (fire_progress*100) + ("Keep it there!" if fire_feedback>.1 else "Aim near the flames · Shift to brace.")
 
 func _talk_camera_size() -> float:
-	if not dialogue_active or not is_instance_valid(dialogue_actor) or hud.size.x>=hud.size.y: return TALK_CAMERA_SIZE
-	# Very short portrait game views need enough room for the whole message,
-	# the gauge, and the complete vehicle. Taller screens retain the close shot.
+	if not dialogue_active or not is_instance_valid(dialogue_actor) or hud.size.y>=650: return TALK_CAMERA_SIZE
+	# Short game views need room between the top gauge and the bottom message
+	# for the complete vehicle. Taller views retain the close shot.
 	var padding:=8.0 if hud.size.y<450 else 14.0
 	var extent:=(hud.truck_screen_rect().size.y-padding*2)*camera.size/hud.size.y
-	var available:=maxf(60,hud.size.y-hud.dialogue_panel.size.y-104)
+	var available:=maxf(24,hud.dialogue_dock_position().y-104-padding*2)
 	return maxf(TALK_CAMERA_SIZE,extent*hud.size.y/available)
 
 func _conversation_pan_target() -> float:
-	if not dialogue_active or not is_instance_valid(dialogue_actor) or hud.size.x>=hud.size.y: return 0.0
-	# Leave a clear band for a complete mobile speech bubble while retaining
-	# the truck beneath it. Measure using the unshifted projection.
+	if not dialogue_active or not is_instance_valid(dialogue_actor): return 0.0
+	# Reserve the bottom conversation dock. Move the view gently so the truck
+	# remains above it instead of shuffling the card around the vehicle.
 	var rect:=hud.truck_screen_rect()
 	var p:=truck.get_global_transform_interpolated().origin
 	var pixels_per_unit:=absf(camera.unproject_position(p+camera.global_basis.y).y-camera.unproject_position(p).y)
-	var unshifted_top:=rect.position.y-camera.v_offset*pixels_per_unit
-	var reserved:=88.0 if hud.size.y<450 else 96.0
-	var shift:=maxf(0,hud.dialogue_panel.size.y+reserved-unshifted_top)
+	var unshifted_bottom:=rect.end.y-camera.v_offset*pixels_per_unit
+	var dock_top:=hud.dialogue_dock_position().y
+	var shift:=minf(0,dock_top-16-unshifted_bottom)
 	return shift/maxf(.01,pixels_per_unit)
 
 func _assisted_water_target(origin: Vector3, requested: Vector3) -> Variant:
