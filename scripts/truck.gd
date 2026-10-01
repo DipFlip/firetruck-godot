@@ -38,6 +38,8 @@ var wheel_steers: Array[Node3D] = []
 var wheel_rest_positions: Array[Vector3] = []
 var front_axles: Array[bool] = []
 var steering := 0.0
+var brake_engagement:=0.0
+var brake_holding:=false
 var previous_velocity := Vector3.ZERO
 var suspension_velocity := 0.0
 var suspension_offset := 0.0
@@ -255,6 +257,8 @@ func reset_truck() -> void:
 	heading = 0
 	rotation.y=0
 	charge=0
+	brake_engagement=0
+	brake_holding=false
 	suspension_offset=0
 	suspension_velocity=0
 	jump_pitch=0
@@ -287,6 +291,12 @@ func _physics_process(dt: float) -> void:
 	# supports are separated. Account for that geometry when detecting contact.
 	support_height=(.8+absf(ground_normal.dot(global_basis.z))*1.1)/maxf(.4,ground_normal.y)
 	grounded = ground_distance<=support_height+.3
+	var braking:=enabled and Input.is_action_pressed("brake")
+	brake_engagement=lerpf(brake_engagement,1.0 if braking else 0.0,1-exp(-10*dt))
+	var planar:=Vector3(linear_velocity.x,0,linear_velocity.z)
+	# Sliding brakes and stationary bracing need different responses. Once
+	# stopped, tire grip absorbs horizontal hose recoil without locking gravity.
+	brake_holding=braking and grounded and planar.length()<.35
 	var input := drive_input()
 	var desired := Vector3.ZERO
 	if camera:
@@ -304,20 +314,25 @@ func _physics_process(dt: float) -> void:
 		var facing := Vector3(-sin(heading),0,-cos(heading))
 		var speed := linear_velocity.dot(facing)
 		var throttle := clampf((top_speed-speed)/5,0,1)
-		apply_central_force(facing*acceleration*mass*throttle*(1.0 if grounded else 0.28))
+		apply_central_force(facing*acceleration*mass*throttle*(1.0 if grounded else 0.28)*(0.0 if brake_holding else 1-brake_engagement))
 	else:
 		steering=lerpf(steering,0.0,1-exp(-7*dt))
 	# Modest sideways grip leaves room for recoil and playful slides.
 	# Soft drag keeps sustained rearward spraying playful without runaway speed.
-	var planar:=Vector3(linear_velocity.x,0,linear_velocity.z)
 	if planar.length()>top_speed*1.55:
 		apply_central_force(-planar.normalized()*(planar.length()-top_speed*1.55)*mass*5)
 	var lateral := Vector3(cos(heading),0,-sin(heading))
 	apply_central_force(-lateral*linear_velocity.dot(lateral)*mass*(2.2 if input.length()>0 else 0.7))
 	if input.length()<0.1 and grounded:
 		apply_central_force(-Vector3(linear_velocity.x,0,linear_velocity.z)*mass*1.5)
-	if (enabled and Input.is_action_pressed("brake")) or not enabled:
-		apply_central_force(-Vector3(linear_velocity.x,0,linear_velocity.z)*mass*(22 if grounded else 8))
+	if brake_holding:
+		apply_central_force(-planar*mass/maxf(dt,.001))
+	elif braking:
+		# Limit deceleration instead of multiplying driving speed by a huge
+		# damping factor. Pressure eases in so momentum carries a short slide.
+		apply_central_force(-planar.normalized()*minf(planar.length()/maxf(dt,.001),26)*mass*brake_engagement*(1.0 if grounded else .25))
+	elif not enabled:
+		apply_central_force(-planar*mass*(22 if grounded else 8))
 	if jump_blocked_until_release and not Input.is_action_pressed("jump"):
 		jump_blocked_until_release=false
 		charge=0
@@ -357,7 +372,11 @@ func _physics_process(dt: float) -> void:
 		_emit_empty_sputter()
 	if spraying:
 		water = maxf(0,water-dt*5.5)
-		apply_central_force(-spray_direction*recoil_acceleration*mass)
+		var recoil: Vector3=-spray_direction*recoil_acceleration*mass
+		if brake_holding:
+			recoil.x=0
+			recoil.z=0
+		apply_central_force(recoil)
 		emission_clock += dt
 		while emission_clock > 0.018:
 			emission_clock -= 0.018
