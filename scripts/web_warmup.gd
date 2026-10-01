@@ -47,6 +47,24 @@ func run() -> void:
 		proxy.position=Vector3((i%4-1.5)*2,2,float(i/4)*2)
 		if i>=7: proxy.transparency=.5
 		if proxy.material_override is ShaderMaterial: TownProps.effect_opacity(proxy,.6)
+	# Warm the instanced, vertex-coloured broken-hydrant water path too.
+	# A visible sample avoids a first-impact shader hitch with the jets hidden.
+	for effect in game.interactions.ground_effects:
+		if not effect.water: continue
+		var sample:=MultiMesh.new()
+		sample.transform_format=MultiMesh.TRANSFORM_3D
+		sample.use_colors=true
+		sample.mesh=effect.water.multimesh.mesh
+		sample.instance_count=1
+		sample.set_instance_transform(0,Transform3D(Basis.IDENTITY.scaled(Vector3.ONE*.4),Vector3.ZERO))
+		sample.set_instance_color(0,FireEngine.WATER_COLORS[0])
+		var proxy:=MultiMeshInstance3D.new()
+		proxy.multimesh=sample
+		proxy.material_override=effect.water.material_override
+		proxy.cast_shadow=effect.water.cast_shadow
+		proxies.add_child(proxy)
+		proxy.position=Vector3(0,3,0)
+		break
 	var views: Array[Vector3]=[Vector3.ZERO,Vector3(-36,0,-36),Vector3(36,0,-36),Vector3(-36,0,36),Vector3(36,0,36),TownLayout.FIRE,TownLayout.POOL,Vector3.ZERO]
 	for i in views.size():
 		camera.size=165 if i==0 else (55 if i<5 else 26)
@@ -54,7 +72,7 @@ func run() -> void:
 		camera.look_at(views[i])
 		proxies.position=views[i]
 		for proxy in proxies.get_children():
-			if proxy.mesh is QuadMesh: proxy.look_at(camera.global_position)
+			if proxy is MeshInstance3D and proxy.mesh is QuadMesh: proxy.look_at(camera.global_position)
 		await _draw_frames(3)
 		rendered_views+=1
 		if OS.has_feature("web"): JavaScriptBridge.eval("window.firetruckWarmup(%f)" % (float(i+1)/views.size()))

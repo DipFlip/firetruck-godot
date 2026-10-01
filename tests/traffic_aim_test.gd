@@ -74,10 +74,17 @@ func run() -> void:
 	check(stranded.node.position.distance_to(Vector3(50,0,52))>15 and stranded.speed>2,"A car stranded off its route fades back to a clear lane and drives again")
 	cage.queue_free()
 	var moving:=true
+	var min_tire_clearance:=INF
 	for i in 6:
 		await frames(600)
-		for car in game.life.cars: moving=moving and car.speed>2
+		for car in game.life.cars:
+			moving=moving and car.speed>2
+			for wheel in car.wheels:
+				var query:=PhysicsRayQueryParameters3D.create(wheel.global_position+Vector3.UP*.4,wheel.global_position+Vector3.DOWN,9,[car.node.get_rid(),game.truck.get_rid()])
+				var road:=game.get_world_3d().direct_space_state.intersect_ray(query)
+				if road: min_tire_clearance=minf(min_tire_clearance,wheel.global_position.y-.34-road.position.y)
 	check(moving,"All three cars keep circulating through repeated corners for a minute")
+	check(min_tire_clearance>=-.005 and min_tire_clearance<.08,"Town car tires clear the roads and ramps without floating above them")
 	game.life.set_physics_process(false)
 	for car in game.life.cars: car.node.freeze=true
 	game.barbecue_call_delay=-1

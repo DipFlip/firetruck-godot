@@ -95,21 +95,27 @@ func _car(path: Array, color: Color, index: int) -> void:
 	collision.shape=shape
 	collision.position.y=.725
 	body.add_child(collision)
-	TownProps.box(body,Vector3(0,.65,0),Vector3(1.7,.62,3.0),color)
-	TownProps.box(body,Vector3(0,1.18,.1),Vector3(1.4,.75,1.65),color)
-	TownProps.box(body,Vector3(0,1.22,-.75),Vector3(1.25,.46,.07),Color("577884"))
-	TownProps.box(body,Vector3(0,1.22,.94),Vector3(1.25,.4,.06),Color("577884"))
+	# The box settles about 1 cm into contact; lift the complete art slightly
+	# so 34 cm tires sit on the road rather than cutting through it.
+	var art:=Node3D.new()
+	art.name="CarArt"
+	body.add_child(art)
+	art.position.y=.045
+	TownProps.box(art,Vector3(0,.65,0),Vector3(1.7,.62,3.0),color)
+	TownProps.box(art,Vector3(0,1.18,.1),Vector3(1.4,.75,1.65),color)
+	TownProps.box(art,Vector3(0,1.22,-.75),Vector3(1.25,.46,.07),Color("577884"))
+	TownProps.box(art,Vector3(0,1.22,.94),Vector3(1.25,.4,.06),Color("577884"))
 	for side in [-1,1]:
-		TownProps.box(body,Vector3(side*.713,1.22,.1),Vector3(.035,.42,1.36),Color("577884"))
-		TownProps.box(body,Vector3(side*.715,1.22,.1),Vector3(.04,.5,.08),color)
-		TownProps.box(body,Vector3(side*.54,.7,-1.5),Vector3(.38,.2,.07),Color("fff0c5"))
-		TownProps.box(body,Vector3(side*.55,.7,1.5),Vector3(.28,.15,.07),Color("b15d4f"))
-	TownProps.box(body,Vector3(0,.46,-1.53),Vector3(1.4,.13,.13),Color("cfceb7"))
+		TownProps.box(art,Vector3(side*.713,1.22,.1),Vector3(.035,.42,1.36),Color("577884"))
+		TownProps.box(art,Vector3(side*.715,1.22,.1),Vector3(.04,.5,.08),color)
+		TownProps.box(art,Vector3(side*.54,.7,-1.5),Vector3(.38,.2,.07),Color("fff0c5"))
+		TownProps.box(art,Vector3(side*.55,.7,1.5),Vector3(.28,.15,.07),Color("b15d4f"))
+	TownProps.box(art,Vector3(0,.46,-1.53),Vector3(1.4,.13,.13),Color("cfceb7"))
 	var wheels: Array[Node3D]=[]
 	for side in [-1,1]:
 		for z in [-.95,.98]:
 			var wheel:=Node3D.new()
-			body.add_child(wheel)
+			art.add_child(wheel)
 			wheel.position=Vector3(side*.82,.32,z)
 			var tire:=TownProps.cylinder(wheel,Vector3.ZERO,.34,.19,Color("435152"))
 			tire.rotation.z=PI/2
@@ -174,7 +180,17 @@ func _physics_process(dt: float) -> void:
 			body.apply_central_force(force.limit_length(body.mass*8))
 			var error:=wrapf(atan2(-direction.x,-direction.z)-body.rotation.y,-PI,PI)
 			body.apply_torque(Vector3.UP*(error*7-body.angular_velocity.y*3))
-		for wheel in car.wheels: wheel.rotation.x-=car.speed*dt/.34
+		for wheel in car.wheels:
+			wheel.rotation.x-=car.speed*dt/.34
+			# Raised intersection paint/paving is query-only, so also keep the
+			# visible tires above it without changing the car's rigid collider.
+			wheel.position.y=.32
+			var center: Vector3=wheel.global_position
+			var support:=PhysicsRayQueryParameters3D.create(center+Vector3.UP*.5,center+Vector3.DOWN,9,[body.get_rid(),game.truck.get_rid()])
+			var road:=get_world_3d().direct_space_state.intersect_ray(support)
+			if road and road.normal.y>.5:
+				var clearance: Vector3=wheel.get_parent().to_local(Vector3(center.x,road.position.y+.355,center.z))
+				wheel.position.y=maxf(.32,clearance.y)
 	for walker in walkers:
 		var person: Node3D=walker.node
 		var target: Vector3=walker.path[walker.next]
