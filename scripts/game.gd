@@ -341,7 +341,7 @@ func interact() -> void:
 
 func _nearest_npc() -> int:
 	var index:=-1
-	var nearest:=7.0
+	var nearest:=9.0
 	for i in town.people.size():
 		var distance:=truck.global_position.distance_to(town.people[i].global_position)
 		if distance<nearest:
@@ -373,8 +373,8 @@ func _proximity_talk() -> void:
 	var positions := [TownLayout.MAYA,TownLayout.LEO,TownLayout.JUNE,TownLayout.OLIVER]
 	for i in positions.size():
 		var distance: float=truck.global_position.distance_to(positions[i])
-		if distance>8: proximity_latches.erase(i)
-		if distance>5.8 or proximity_latches.has(i) or dialogue_active or rescue_running: continue
+		if distance>10.5: proximity_latches.erase(i)
+		if distance>8.0 or proximity_latches.has(i) or dialogue_active or rescue_running: continue
 		_talk_to_npc(i)
 
 func _talk_to_npc(i: int, manual: bool=false) -> bool:
@@ -460,8 +460,8 @@ func _process(dt: float) -> void:
 		if truck.water<truck.tank_capacity and distance<refill_distance:
 			refill_source=interactions.hydrant_props[i]
 			refill_distance=distance
-	if refill_source: truck.water=minf(truck.tank_capacity,truck.water+dt*25)
 	refill_hose.update(refill_source,dt)
+	if refill_hose.active: truck.water=minf(truck.tank_capacity,truck.water+dt*25)
 	var prompt:=""
 	# The hint is a control reminder after Maya's briefing, not a status feed.
 	if stage==1 and rescued and not cat_rescued and not dialogue_active and not rescue_running and not truck.ladder_deployed and truck.global_position.distance_to(objective())<12:

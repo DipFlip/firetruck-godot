@@ -70,6 +70,18 @@ func run() -> void:
 	game.truck.water=20
 	await frames(12)
 	var hose: RefillHose=game.refill_hose
+	var visible_segments:=0
+	for segment in hose.segments:
+		if segment.visible: visible_segments+=1
+	check(hose.visible and not hose.active and game.truck.water==20 and visible_segments>0 and visible_segments<hose.segments.size(),"The hose grows from the truck before water starts refilling")
+	check(hose.tip.distance_to(hose.points[16])<hose.points[0].distance_to(hose.points[16]),"The extending coupling starts near the rear socket instead of at the hydrant")
+	pause()
+	var extension: float=hose.extension
+	await frames(20)
+	check(hose.extension==extension,"Pause freezes hose deployment")
+	pause()
+	game.truck.freeze=true
+	await frames(45)
 	check(hose.active and hose.visible and hose.hydrant==hydrant and game.truck.water>20,"Automatic hydrant refilling displays the connecting hose")
 	check(hose.points[0].distance_to(hydrant.global_position)<1 and game.truck.to_local(hose.points[16]).z>2,"The hose connects the hydrant outlet to the back of the truck")
 	var continuous:=true
@@ -89,11 +101,28 @@ func run() -> void:
 	check(hose.time==flow_time and hydrant.meshes[0].transform.is_equal_approx(pulse_pose),"Pause freezes water travelling through the refill hose and the hydrant pulse")
 	pause()
 	game.truck.freeze=true
+	game.truck.position=Vector3(-3,.85,20)
+	game.truck.reset_physics_interpolation()
+	await frames(2)
+	var departing_water: float=game.truck.water
+	var tip_distance: float=hose.tip.distance_to(hose.points[16])
+	check(hose.visible and not hose.active and hose.extension>0 and hose.extension<1,"Leaving a hydrant reels the visible hose back in instead of removing it")
+	await frames(10)
+	check(hose.tip.distance_to(hose.points[16])<tip_distance and game.truck.water==departing_water,"The coupling retracts toward the moving truck and refilling stops immediately")
+	await frames(30)
+	check(not hose.visible and hose.extension==0,"The hose disappears only after it is completely inside the truck")
+	game.truck.position=Vector3(-3,.85,12)
+	game.truck.reset_physics_interpolation()
+	await frames(55)
+	check(hose.active,"Returning to the hydrant deploys and reconnects the hose")
+	game.truck.water=99.9
+	await frames(3)
+	check(game.truck.water==100 and hose.visible and not hose.active and hose.extension>0,"A full tank triggers visible hose retraction")
 	await frames(240)
 	check(game.truck.water==100 and not hose.active and not hose.visible and hydrant.meshes[0].transform.is_equal_approx(original),"A full tank disconnects the hose and restores the hydrant's normal shape")
 	check(not game.hud.prompt_label.text.to_lower().contains("tank") and not game.hud.prompt_label.text.to_lower().contains("refilling"),"Tank status uses the gauge without full, empty or refill popups")
 	game.truck.water=20
-	await frames(5)
+	await frames(55)
 	hydrant.knock(Vector3(10,0,0))
 	await frames(2)
 	var stopped_water: float=game.truck.water

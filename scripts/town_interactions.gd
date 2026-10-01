@@ -5,6 +5,7 @@ var game: Node3D
 var props: Array[BreakableProp] = []
 var hydrant_props: Array[BreakableProp] = []
 var npc_guards: Array[StaticBody3D] = []
+var cat_guard: StaticBody3D
 var ground_effects: Array[PropGroundEffects] = []
 
 func _ready() -> void:
@@ -47,19 +48,43 @@ func _ready() -> void:
 	for p in [Vector3(8,0,10),Vector3(-8,0,-15),Vector3(29,0,23),Vector3(9,0,-26)]:
 		add_prop("planter",p,_parts(game.atmosphere,p+Vector3.UP*.8,Vector3(.55,.81,.55)),Vector3(.9,1.5,.9),Vector3.UP*.75,2.8,.3,.5)
 	for person in game.town.people:
-		var guard:=StaticBody3D.new()
-		guard.name="NeighbourPersonalSpace"
-		guard.collision_layer=16
-		guard.collision_mask=3
-		add_child(guard)
-		guard.global_position=person.global_position+Vector3.UP*1.15
+		npc_guards.append(_visibility_guard("NeighbourPersonalSpace",person.global_position))
+	cat_guard=_visibility_guard("CatRescuePersonalSpace",Vector3(game.cat_home.x,0,game.cat_home.z),2.4)
+	_update_guards()
+
+func _visibility_guard(label: String, origin: Vector3, front_reach: float=4.2) -> StaticBody3D:
+	var guard:=StaticBody3D.new()
+	guard.name=label
+	guard.collision_layer=16
+	guard.collision_mask=3
+	add_child(guard)
+	guard.global_position=origin
+	# Overlapping upright capsules form a rounded footprint with extra room
+	# on the camera side. The ladder and hose ignore this collision layer.
+	var capsule:=CapsuleShape3D.new()
+	capsule.radius=1.15
+	# Bury the rounded lower cap so this boundary cannot act as a ramp for
+	# the truck's spherical supports. The upper cap stays above jump height.
+	capsule.height=7.0
+	for forward in [0.0,front_reach*.5,front_reach]:
 		var collision:=CollisionShape3D.new()
-		var capsule:=CapsuleShape3D.new()
-		capsule.radius=.68
-		capsule.height=2.7
 		collision.shape=capsule
+		collision.position=Vector3(0,2.5,forward)
 		guard.add_child(collision)
-		npc_guards.append(guard)
+	return guard
+
+func _physics_process(_dt: float) -> void:
+	if game.paused: return
+	_update_guards()
+
+func _update_guards() -> void:
+	var toward_camera: Vector3=game.camera.global_basis.z
+	var angle:=atan2(toward_camera.x,toward_camera.z)
+	for guard in npc_guards: guard.rotation.y=angle
+	cat_guard.rotation.y=angle
+	# The rescue freezes the truck while the cat is on the ladder. Release the
+	# tree's approach zone once the cat boards, keeping the ladder tip reachable.
+	cat_guard.collision_layer=0 if game.rescue_running or game.cat_rescued else 16
 
 func _ground_effect(prop: BreakableProp) -> void:
 	var effect:=PropGroundEffects.new()
