@@ -5,6 +5,8 @@ The current art pass uses neutral daylight, brighter colour grading, Forward+ (M
 
 ## Play
 
+A six-second opening tour shows Biscuit splashing, the stalled Northline locomotive, and the station before handing over control. **Space, Enter, a click, or a tap** skips it. Dispatch starts after the tour, and the truck’s starting area is kept clear of traffic and walkers.
+
 - **WASD:** camera-relative driving. The chassis turns toward the pressed direction.
 - **Mouse + left click:** aim and spray the roof cannon. **Arrow keys** also aim and spray.
 - **Shift:** brake / brace against hose recoil.
@@ -17,7 +19,9 @@ The current art pass uses neutral daylight, brighter colour grading, Forward+ (M
 - **R:** recover at the station without resetting jobs.
 - **Esc:** pause and view controls.
 
-Accept Captain Robin's call, follow the gold arrow to Maya, talk to her, then extend the ladder with E and drive its tip close to Pippin. No second button press is needed. Maya thanks you after the rescue, leaving a quiet moment to explore. Twenty seconds later, dispatch rings about Leo's barbecue if you haven't discovered it yourself. Talking to Leo, spraying the fire, or stopping within eight metres of the fire for 1.25 seconds cancels that one-time call; a brief drive past does not. The barbecue can also be extinguished before rescuing Pippin. If another neighbour is speaking when the call is due, the phone rings while waiting for the conversation to finish. Optional jobs: wash Biscuit by Willow Cottage on the west side and fill Oliver's pool behind Rose Cottage in the south. Pink map dots mark these jobs; neither receives a dispatch call. Progress is currently single-session and resets on restart.
+Accept Captain Robin's call, follow the gold arrow to Maya, talk to her, then extend the ladder with E and drive its tip close to Pippin. No second button press is needed. Maya thanks you after the rescue, leaving a quiet moment to explore. Twenty seconds later, dispatch rings about Leo's barbecue if you haven't discovered it yourself. Talking to Leo, spraying the fire, or stopping within eight metres of the fire for 1.25 seconds cancels that one-time call; a brief drive past does not. The barbecue can also be extinguished before rescuing Pippin. If another neighbour is speaking when the call is due, the phone rings while waiting for the conversation to finish. Optional jobs: wash Biscuit by Willow Cottage on the west side and fill Oliver's pool behind Rose Cottage in the south. Pink map dots mark these jobs; neither receives a dispatch call. Biscuit’s puddle stays beside Willow Cottage after the intro and shrinks away when sprayed. You can also wash any town car: one second’s worth of water produces sparkles and a friendly honk. Car aim assistance leads moving traffic, ignores the receiving car’s own collider, and keeps other obstacles solid; short gaps between hits preserve washing progress.
+
+A third job is at the northern railway. Talk to Rowan, line up behind the stalled engine’s west bumper, and try pushing east. Driving alone cannot overcome the train’s resistance. Keep driving into it while spraying **west, away from the train**: the cannon’s real recoil adds the force needed to push-start it. Rowan boards, steam puffs start, and Northline makes periodic trips back and forth along the tracks, pausing at each end. The gold arrow points to the rear bumper after talking to Rowan. Progress is currently single-session and resets on restart.
 
 ## Web and mobile touch
 
@@ -140,6 +144,8 @@ Tuning checks compare actual full-charge jump heights, camera zoom and recovery,
 
 `tests/showcase.mp4` is the earlier 26-second art-pass recording of the running engine, including dialogue, physics-driven driving, ladder rescue, and firefighting. The showcase script deliberately cuts to the barbecue to keep the review short. Still previews are `tests/dialogue-preview.png` and `tests/action-preview.png`.
 
-Current scope remains one town, two story missions, and two optional jobs. There is no save system or gamepad support yet; mobile browser touch controls are included. Traffic follows predefined neighbourhood loops with obstacle yielding. The JavaScript prototype remains unchanged.
+Current scope remains one town, three story missions, and two optional jobs. There is no save system or gamepad support yet; mobile browser touch controls are included. Traffic follows predefined neighbourhood loops with obstacle yielding. The JavaScript prototype remains unchanged.
 
 `tests/conversations_life_test.gd` covers Space/click/touch conversations, remaining visible after driving away, complete text on small screens, ground-bird takeoff/return, all cars reacting after sustained spray, actual hose-to-car collisions, and completion without banners. Pool progress is shown only by the rising 3D water. Reward chimes use stream playback and fade to silence at the end.
+
+`tests/town_additions_test.gd` checks clear spawns, intro timing and skip, persistent washable puddles, real truck-to-train pushes without and with water recoil, driver boarding, steam, and rail turnarounds. `tests/car_wash_assist_test.gd` checks loose and moving-car targeting, real hose washing, one-second water accumulation across brief gaps, and wall occlusion.

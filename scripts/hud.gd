@@ -188,15 +188,16 @@ func begin_dialogue(speaker: String, text: String) -> void:
 	auto_close_delay=6.0 if dialogue_panel.phone_mode else -1.0
 	var names: Dictionary={"DISPATCH":"Captain Robin","MAYA":"Maya","LEO":"Leo","JUNE":"June","OLIVER":"Oliver"}
 	speaker_label.text=names.get(speaker_key,speaker_key.capitalize())
-	var cells: Dictionary={"DISPATCH":Vector2i(0,0),"MAYA":Vector2i(1,0),"LEO":Vector2i(0,1),"JUNE":Vector2i(1,1)}
+	var cells: Dictionary={"DISPATCH":Vector2i(0,0),"MAYA":Vector2i(1,0),"LEO":Vector2i(0,1),"JUNE":Vector2i(1,1),"ROWAN":Vector2i(0,1)}
 	var cell: Vector2i=cells.get(speaker_key,Vector2i.ZERO)
 	var atlas:=AtlasTexture.new()
 	atlas.atlas=portrait_atlas
 	var half:=portrait_atlas.get_size()/2
 	atlas.region=Rect2(Vector2(cell)*half,half)
-	portrait.texture=preload("res://assets/portraits/oliver.png") if speaker_key=="OLIVER" else atlas
-	portrait.material.set_shader_parameter("region_start",Vector2.ZERO if speaker_key=="OLIVER" else Vector2(cell)*.5)
-	portrait.material.set_shader_parameter("region_size",Vector2.ONE if speaker_key=="OLIVER" else Vector2.ONE*.5)
+	var single:=speaker_key in ["OLIVER","ROWAN"]
+	portrait.texture=preload("res://assets/portraits/rowan.png") if speaker_key=="ROWAN" else preload("res://assets/portraits/oliver.png") if speaker_key=="OLIVER" else atlas
+	portrait.material.set_shader_parameter("region_start",Vector2.ZERO if single else Vector2(cell)*.5)
+	portrait.material.set_shader_parameter("region_size",Vector2.ONE if single else Vector2.ONE*.5)
 	portrait.material.set_shader_parameter("bob",Vector2.ZERO)
 	dialogue_text=text
 	page_index=0
@@ -362,9 +363,10 @@ func _process(dt: float) -> void:
 		var empty_strength:=sin(PI*clampf(water_empty_time/.45,0,1))
 		water_gauge_scale=1+.025*water_activity*(.5+.5*sin(time*TAU*2.1))+.065*empty_strength
 		water_gauge_offset=Vector2(sin(time*48)*3.5,sin(time*61)*1.2)*empty_strength
-	prompt_panel.visible=not prompt_label.text.is_empty() and not game.dialogue_active and not game.paused
-	toast_panel.visible=not toast_label.text.is_empty() and not game.paused and not game.dialogue_active
-	footer.visible=not touch_mode and not game.paused and not game.dialogue_active and game.elapsed<28
+	var cinematic: bool=game.intro!=null and game.intro.active
+	prompt_panel.visible=not cinematic and not prompt_label.text.is_empty() and not game.dialogue_active and not game.paused
+	toast_panel.visible=not cinematic and not toast_label.text.is_empty() and not game.paused and not game.dialogue_active
+	footer.visible=not cinematic and not touch_mode and not game.paused and not game.dialogue_active and game.elapsed<28
 	if dialogue_panel.visible and not game.paused:
 		_position_dialogue(dt)
 		text_clock-=dt
@@ -431,6 +433,7 @@ func _make_syllables() -> void:
 		syllables.append(wav)
 
 func _draw() -> void:
+	if game and game.intro and game.intro.active: return
 	if not game or not game.truck: return
 	_draw_water()
 	if not game.paused:
@@ -441,7 +444,7 @@ func _draw() -> void:
 			draw_circle(phone_center,29,INK)
 			draw_circle(phone_center,25,PAPER)
 			SpeechFrame.draw_phone(self,phone_center,.75,time,game.phone_ringing() or char_count<full_text.length())
-		if game.stage>0 and game.stage<4 and game.truck.global_position.distance_to(game.objective())>9:
+		if game.navigation_active() and game.truck.global_position.distance_to(game.objective())>9:
 			_draw_navigation()
 		var target: Vector2=game.camera.unproject_position(game.truck.aim_point)
 		draw_arc(target,8,0,TAU,32,Color(PAPER,.85),1.8,true)
@@ -530,11 +533,17 @@ func _draw_map() -> void:
 		var at: Vector2=center+Vector2(h.x,h.z).rotated(.5)*s
 		draw_circle(at,3.5*s,INK)
 		draw_circle(at,2*s,Color("80e0ed"))
-	if game.stage>0 and game.stage<4:
+	if game.navigation_active():
 		var at: Vector2=center+Vector2(game.objective().x,game.objective().z).rotated(.5)*s
 		draw_circle(at,(7+sin(time*3))*s,Color(ORANGE,.25))
 		draw_circle(at,4.5*s,ORANGE)
 	for job in [TownLayout.DOG,TownLayout.POOL]: draw_circle(center+Vector2(job.x,job.z).rotated(.5)*s,3*s,Color("a17099"))
+	if game.railway:
+		var rail_a:=center+Vector2(-68,NorthlineRailway.TRACK_Z).rotated(.5)*s
+		var rail_b:=center+Vector2(68,NorthlineRailway.TRACK_Z).rotated(.5)*s
+		draw_line(rail_a,rail_b,INK,2*s,true)
+		var train: Vector3=game.railway.engine.position
+		draw_circle(center+Vector2(train.x,train.z).rotated(.5)*s,4*s,ORANGE)
 	if game.ramps:
 		for ramp in game.ramps.ramps:
 			var at: Vector2=center+Vector2(ramp.position.x,ramp.position.z).rotated(.5)*s

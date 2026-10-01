@@ -98,19 +98,19 @@ func run() -> void:
 	check(bird.mode=="ground" and bird.node.position.distance_to(bird.home)<.05,"Birds return to the ground after the truck leaves")
 	for car in game.life.cars: car.node.freeze=true
 	game.life.set_physics_process(false)
-	# A full second of water is insufficient; uninterrupted spray reaches the
+	# Half a second of water is insufficient; a full second reaches the
 	# threshold once, and continued spray cannot repeat the honk immediately.
 	for car in game.life.cars:
-		for i in 60:
-			game._water_hit(car.node.to_global(Vector3(.8,.9,0)),.0036)
+		for i in 35:
+			game._water_hit(car.node.to_global(Vector3(.8,.9,0)),.018)
 			game.life._physics_process(1.0/60)
 		check(car.honk_count==0,"Car does not honk prematurely")
-		for i in 40:
-			game._water_hit(car.node.to_global(Vector3(.8,.9,0)),.0036)
+		for i in 30:
+			game._water_hit(car.node.to_global(Vector3(.8,.9,0)),.018)
 			game.life._physics_process(1.0/60)
-		check(car.honk_count==1 and not game.rewards.sparkles.is_empty(),"Each town car honks and sparkles after about 1.5 seconds of water")
+		check(car.honk_count==1 and not game.rewards.sparkles.is_empty(),"Each town car honks and sparkles after about one second of water")
 		for i in 60:
-			game._water_hit(car.node.to_global(Vector3(.8,.9,0)),.0036)
+			game._water_hit(car.node.to_global(Vector3(.8,.9,0)),.018)
 			game.life._physics_process(1.0/60)
 		check(car.honk_count==1,"Continuous spray has a cooldown instead of honking every frame")
 	var washed: Dictionary=game.life.cars[0]

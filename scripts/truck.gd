@@ -535,7 +535,7 @@ func _flight_error(offset: Vector3, inherited_velocity: Vector3, time: float) ->
 func shot_direction(origin: Vector3, target: Vector3) -> Vector3:
 	return solve_shot(origin,target).get("direction",Vector3.ZERO)
 
-func shot_is_clear(origin: Vector3, target: Vector3) -> bool:
+func shot_is_clear(origin: Vector3, target: Vector3, receiver: RID=RID()) -> bool:
 	var shot:=solve_shot(origin,target,linear_velocity)
 	if shot.is_empty(): return false
 	var start: Vector3=origin+shot.direction*1.1
@@ -543,7 +543,9 @@ func shot_is_clear(origin: Vector3, target: Vector3) -> bool:
 	for step in range(1,17):
 		var t: float=shot.time*step/16.0
 		var point: Vector3=start+shot.velocity*t+Vector3.DOWN*.5*WATER_GRAVITY*t*t
-		var query:=PhysicsRayQueryParameters3D.create(previous,point,3,[get_rid()])
+		var excluded: Array[RID]=[get_rid()]
+		if receiver.is_valid(): excluded.append(receiver)
+		var query:=PhysicsRayQueryParameters3D.create(previous,point,3,excluded)
 		if get_world_3d().direct_space_state.intersect_ray(query): return false
 		previous=point
 	return true

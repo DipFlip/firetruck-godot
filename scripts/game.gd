@@ -70,6 +70,9 @@ var web_controls: WebControls
 var loading:=false
 var batched_decorations:=0
 var conversation_pan:=0.0
+var railway: NorthlineRailway
+var dog_puddle: DogPuddle
+var intro: TownIntro
 
 func _ready() -> void:
 	# Frame-driven scenery and camera are not physics-interpolated a second time.
@@ -127,6 +130,7 @@ func _ready() -> void:
 	life=TownLife.new()
 	life.game=self
 	add_child(life)
+	life.clear_start_area()
 	gardens=TownGardens.new()
 	gardens.game=self
 	add_child(gardens)
@@ -148,6 +152,15 @@ func _ready() -> void:
 	refill_hose=RefillHose.new()
 	refill_hose.game=self
 	add_child(refill_hose)
+	railway=NorthlineRailway.new()
+	railway.game=self
+	add_child(railway)
+	dog_puddle=DogPuddle.new()
+	dog_puddle.game=self
+	add_child(dog_puddle)
+	intro=TownIntro.new()
+	intro.game=self
+	add_child(intro)
 	batched_decorations=TownProps.batch_decorations(atmosphere)
 	web_controls=WebControls.new()
 	web_controls.game=self
@@ -158,6 +171,8 @@ func _ready() -> void:
 		warmup.game=self
 		add_child(warmup)
 		warmup.call_deferred("run")
+	elif DisplayServer.get_name()!="headless" and not OS.get_cmdline_args().has("--script"):
+		intro.call_deferred("start")
 
 func _setup_input() -> void:
 	var bindings := {"left":KEY_A,"right":KEY_D,"forward":KEY_W,"back":KEY_S,"jump":KEY_SPACE,"brake":KEY_SHIFT,"interact":KEY_E,"continue":KEY_ENTER,"recover":KEY_R,"pause":KEY_ESCAPE,"aim_left":KEY_LEFT,"aim_right":KEY_RIGHT,"aim_up":KEY_UP,"aim_down":KEY_DOWN,"map":KEY_TAB,"music":KEY_M}
@@ -208,15 +223,20 @@ func _setup_light() -> void:
 	add_child(world)
 
 func objective() -> Vector3:
+	if railway and railway.briefed and not railway.started: return railway.engine.position+Vector3(-4.5,0,0)
 	if stage<=1: return TownLayout.MAYA
 	if stage==2: return TownLayout.LEO
 	return TownLayout.FIRE
+
+func navigation_active() -> bool:
+	return stage>0 and stage<4 or railway!=null and railway.briefed and not railway.started
 
 func talk(speaker: String, words: String, next: int) -> void:
 	dialogue_active=true
 	dialogue_next=next
 	var index: int={"MAYA":0,"LEO":1,"JUNE":2,"OLIVER":3}.get(speaker.get_slice("  /",0),-1)
 	dialogue_actor=town.people[index] if index>=0 else null
+	if speaker.begins_with("ROWAN") and railway: dialogue_actor=railway.driver
 	dialogue_seen_in_view=false
 	dialogue_out_of_view_time=0
 	if dialogue_actor: camera_subject=dialogue_actor
@@ -244,6 +264,7 @@ func _set_conversation_camera(active: bool) -> void:
 	camera_transition_time=0.0
 
 func phone_ringing() -> bool:
+	if intro and intro.active: return false
 	return call_timer>0 or barbecue_ring_timer>=0
 
 func _discover_barbecue() -> void:
@@ -296,6 +317,11 @@ func _update_dispatch(dt: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if loading: return
 	if event is InputEventKey and event.echo: return
+	if intro and intro.active:
+		if event.is_action_pressed("jump") or event.is_action_pressed("continue") or (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed):
+			intro.finish()
+			get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("pause"):
 		paused=not paused
 		hud.pause_panel.visible=paused
@@ -342,12 +368,20 @@ func interact() -> void:
 func _nearest_npc() -> int:
 	var index:=-1
 	var nearest:=9.0
-	for i in town.people.size():
-		var distance:=truck.global_position.distance_to(town.people[i].global_position)
+	var actors:=_npc_actors()
+	for i in actors.size():
+		if not actors[i].visible: continue
+		var distance:=truck.global_position.distance_to(actors[i].global_position)
 		if distance<nearest:
 			nearest=distance
 			index=i
 	return index
+
+func _npc_actors() -> Array[Node3D]:
+	var actors: Array[Node3D]=[]
+	actors.append_array(town.people)
+	if railway and not railway.boarded: actors.append(railway.driver)
+	return actors
 
 func npc_screen_rect(actor: Node3D) -> Rect2:
 	var bounds:=Rect2(camera.unproject_position(actor.global_position),Vector2.ZERO)
@@ -357,15 +391,16 @@ func npc_screen_rect(actor: Node3D) -> Rect2:
 	return bounds
 
 func npc_in_view(actor: Node3D) -> bool:
-	return not camera.is_position_behind(actor.global_position+Vector3.UP) and hud.get_viewport_rect().intersects(npc_screen_rect(actor))
+	return actor.is_visible_in_tree() and not camera.is_position_behind(actor.global_position+Vector3.UP) and hud.get_viewport_rect().intersects(npc_screen_rect(actor))
 
 func _pointer_talk(point: Vector2) -> bool:
 	if dialogue_active and Rect2(hud.dialogue_panel.position,hud.dialogue_panel.size).has_point(point):
 		interact()
 		return true
-	for i in town.people.size():
-		if not npc_in_view(town.people[i]) or not npc_screen_rect(town.people[i]).grow(10).has_point(point): continue
-		if dialogue_active and dialogue_actor==town.people[i]: interact(); return true
+	var actors:=_npc_actors()
+	for i in actors.size():
+		if not npc_in_view(actors[i]) or not npc_screen_rect(actors[i]).grow(10).has_point(point): continue
+		if dialogue_active and dialogue_actor==actors[i]: interact(); return true
 		return _talk_to_npc(i,true)
 	return false
 
@@ -376,8 +411,11 @@ func _proximity_talk() -> void:
 		if distance>10.5: proximity_latches.erase(i)
 		if distance>8.0 or proximity_latches.has(i) or dialogue_active or rescue_running: continue
 		_talk_to_npc(i)
+	if railway and not railway.boarded and not dialogue_active and not rescue_running and truck.position.distance_to(railway.driver.position)<8:
+		railway.talk_to_driver()
 
 func _talk_to_npc(i: int, manual: bool=false) -> bool:
+	if i==4: return railway.talk_to_driver(manual)
 	if paused or rescue_running or rewards.waiting_for(["MAYA","LEO","JUNE","OLIVER"][i]): return false
 	match i:
 		0:
@@ -408,6 +446,9 @@ func _process(dt: float) -> void:
 	if not is_instance_valid(truck): return
 	_audio_update(dt)
 	if paused: return
+	if intro and intro.active:
+		intro.update(dt)
+		return
 	elapsed+=dt
 	fire_feedback=maxf(0,fire_feedback-dt*2.2)
 	town.water_response=fire_feedback
@@ -445,7 +486,7 @@ func _process(dt: float) -> void:
 	if toast_time>0:
 		toast_time-=dt
 		if toast_time<=0: hud.toast_label.text=""
-	marker.visible=stage>0 and stage<4
+	marker.visible=navigation_active()
 	job_label.visible=false
 	marker.position=objective()+Vector3.UP*0.12
 	marker.scale=Vector3.ONE*(1+sin(elapsed*3)*0.06)
@@ -510,6 +551,16 @@ func _assisted_water_target(origin: Vector3, requested: Vector3) -> Variant:
 		var cursor:=Vector3(requested.x,center.y,requested.z).clamp(low,high)
 		var near:=Vector3(origin.x,center.y,origin.z).clamp(low,high)
 		for point in [cursor,center,near]: targets.append({"point":point,"radius":5.4})
+	if dog_puddle and dog_puddle.clean<1:
+		targets.append({"point":TownLayout.DOG+Vector3(1.1,.10,.6),"radius":2.0})
+	for car in life.cars:
+		if car.recovery>=0 or car.node.position.distance_to(origin)>FireEngine.AIM_RANGE+3: continue
+		var point: Vector3=car.node.global_position+Vector3.UP*.95
+		# A predicted landing point must not make a hidden car targetable through a wall.
+		if not truck.shot_is_clear(origin,point,car.node.get_rid()): continue
+		var shot:=truck.solve_shot(origin,point,truck.linear_velocity)
+		point+=car.node.linear_velocity*float(shot.get("time",.35))
+		targets.append({"point":point,"radius":3.8,"receiver":car.node.get_rid()})
 	var best: Variant=null
 	var best_score:=INF
 	for target in targets:
@@ -523,7 +574,7 @@ func _assisted_water_target(origin: Vector3, requested: Vector3) -> Variant:
 		if error>target.radius: continue
 		var cursor_error:=Vector2(point.x-requested.x,point.z-requested.z).length()
 		var score:=error+cursor_error*.12
-		if score>=best_score or not truck.shot_is_clear(origin,point): continue
+		if score>=best_score or not truck.shot_is_clear(origin,point,target.get("receiver",RID())): continue
 		best_score=score
 		best=point
 	return best
@@ -531,6 +582,7 @@ func _assisted_water_target(origin: Vector3, requested: Vector3) -> Variant:
 func _water_hit(point: Vector3, amount: float) -> bool:
 	if paused: return false
 	var consumed := life.water_hit(point,amount)
+	if dog_puddle: consumed=dog_puddle.water_hit(point,amount) or consumed
 	if fire_progress<1 and point.distance_to(TownLayout.FIRE+Vector3.UP*1.8)<1.8:
 		_discover_barbecue()
 		consumed = true

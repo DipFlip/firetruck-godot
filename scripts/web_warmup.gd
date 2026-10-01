@@ -29,6 +29,8 @@ func run() -> void:
 		game.truck.pool[0],game.truck.splash_pool[0],game.truck.ring_pool[0],
 		game.truck.effects.dust_pool[0],game.truck.effects.track_pool[0],
 		game.atmosphere.steam_pool[0],game.rewards.star_pool[0]]
+	sources.append(game.railway.smoke[0].mesh)
+	sources.append(game.dog_puddle.surfaces[1])
 	# Include the transparent fade path used when a tree/prop is knocked loose.
 	for prop in game.interactions.props:
 		if prop.kind=="tree":
@@ -72,7 +74,7 @@ func run() -> void:
 		proxies.add_child(proxy)
 		proxy.position=Vector3(0,3,0)
 		break
-	var views: Array[Vector3]=[Vector3.ZERO,Vector3(-36,0,-36),Vector3(36,0,-36),Vector3(-36,0,36),Vector3(36,0,36),TownLayout.FIRE,TownLayout.POOL,Vector3.ZERO]
+	var views: Array[Vector3]=[Vector3.ZERO,Vector3(-36,0,-36),Vector3(36,0,-36),Vector3(-36,0,36),Vector3(36,0,36),TownLayout.FIRE,TownLayout.POOL,TownLayout.DOG,game.railway.engine.position,Vector3.ZERO]
 	for i in views.size():
 		camera.size=165 if i==0 else (55 if i<5 else 26)
 		camera.position=views[i]+game.camera_offset
@@ -87,7 +89,7 @@ func run() -> void:
 	camera.transform=saved_transform
 	camera.size=saved_size
 	# Populate the portrait/font shader paths before the first incoming call.
-	for speaker in ["DISPATCH","MAYA","LEO","JUNE","OLIVER"]:
+	for speaker in ["DISPATCH","MAYA","LEO","JUNE","OLIVER","ROWAN"]:
 		game.hud.begin_dialogue(speaker,"ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789.,!? ' · ›")
 		game.hud.dialogue_panel.modulate.a=1
 		game.hud.dialogue_label.visible_characters=-1
@@ -100,5 +102,6 @@ func run() -> void:
 	game.audio.stream_paused=false
 	game.loading=false
 	tree.paused=false
+	game.intro.start()
 	if OS.has_feature("web"): JavaScriptBridge.eval("window.firetruckReady()")
 	queue_free()

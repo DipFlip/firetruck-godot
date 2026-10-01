@@ -14,11 +14,11 @@ func _ready() -> void:
 	physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_ON
 	honk_stream=_make_honk()
 	# Lanes circulate around separate blocks, leaving the centre of junctions clear.
-	_car([Vector3(1.8,0,12),Vector3(1.8,0,34.2),Vector3(34.2,0,34.2),Vector3(34.2,0,1.8),Vector3(1.8,0,1.8)],Color("e5bd72"),0)
+	_car([Vector3(1.8,0,28),Vector3(1.8,0,34.2),Vector3(34.2,0,34.2),Vector3(34.2,0,1.8),Vector3(1.8,0,1.8)],Color("e5bd72"),0)
 	_car([Vector3(-34.2,0,-15),Vector3(-34.2,0,-1.8),Vector3(-1.8,0,-1.8),Vector3(-1.8,0,-34.2),Vector3(-34.2,0,-34.2)],Color("91afb4"),1)
 	_car([Vector3(1.8,0,-12),Vector3(1.8,0,-1.8),Vector3(34.2,0,-1.8),Vector3(34.2,0,-34.2),Vector3(1.8,0,-34.2)],Color("c78e83"),2)
 	var paths: Array[Array]=[
-		[Vector3(5.0,.16,8),Vector3(5.0,.16,31),Vector3(30.7,.16,31),Vector3(30.7,.16,5),Vector3(5.0,.16,5)],
+		[Vector3(5.0,.16,22),Vector3(5.0,.16,31),Vector3(30.7,.16,31),Vector3(30.7,.16,5),Vector3(5.0,.16,5)],
 		[Vector3(-5,.16,-9),Vector3(-5,.16,-31),Vector3(-31,.16,-31),Vector3(-31,.16,-5),Vector3(-5,.16,-5)],
 		[Vector3(41,.16,-8),Vector3(41,.16,-31),Vector3(58,.16,-31),Vector3(58,.16,-5),Vector3(41,.16,-5)],
 		[Vector3(-5,.16,24),Vector3(-5,.16,5),Vector3(-31,.16,5),Vector3(-31,.16,31),Vector3(-5,.16,31)],
@@ -182,15 +182,14 @@ func _physics_process(dt: float) -> void:
 		var body: RigidBody3D=car.node
 		car.wet_age+=dt
 		car.wash_cooldown=maxf(0,car.wash_cooldown-dt)
-		if car.wet_age<.16:
-			car.wash_time+=dt
-			if car.wash_time>=1.5 and car.wash_cooldown<=0:
+		if car.wet_age<2.5:
+			if car.wash_time>=1.0 and car.wash_cooldown<=0:
 				car.wash_time=0.0
 				car.wash_cooldown=8.0
 				car.honk_count+=1
 				if DisplayServer.get_name()!="headless": car.honk.play()
 				game.rewards.sparkle_burst(body.global_position+Vector3.UP*1.25,12,1.4)
-		else: car.wash_time=0.0
+		else: car.wash_time=maxf(0,car.wash_time-dt*.5)
 		if _recover_traffic(car,dt): continue
 		var target: Vector3=car.path[car.next]+Vector3.UP*.12
 		var direction:=target-body.position
@@ -369,13 +368,37 @@ func _forage_bird(bird: Dictionary, dt: float) -> void:
 	node.position.y=bird.ground_y+bob
 	_pose_bird(bird,bird.open,peck,step,time*19+bird.phase)
 
-func water_hit(point: Vector3, _amount: float) -> bool:
+func water_hit(point: Vector3, amount: float) -> bool:
 	for car in cars:
 		var local: Vector3=car.node.to_local(point)
 		if absf(local.x)<=1.0 and absf(local.z)<=1.7 and local.y>=.25 and local.y<1.8:
 			car.wet_age=0.0
+			# Five 0.0036-unit pellets every 0.018 seconds: one unit per second.
+			# Count actual water, so a brief aiming gap doesn't erase the wash.
+			if car.wash_cooldown<=0: car.wash_time+=amount
 			return true
 	return false
+
+func clear_start_area() -> void:
+	var start:=Vector3(0,0,12)
+	for car in cars:
+		if Vector2(car.node.position.x-start.x,car.node.position.z-start.z).length()>=11: continue
+		for i in car.path.size():
+			var spot: Vector3=car.path[i]
+			if spot.distance_to(start)<13: continue
+			car.node.position=spot+Vector3.UP*.12
+			car.node.linear_velocity=Vector3.ZERO
+			car.next=(i+1)%car.path.size()
+			car.node.reset_physics_interpolation()
+			break
+	for walker in walkers:
+		if walker.node.position.distance_to(start)>=11: continue
+		for i in walker.path.size():
+			if walker.path[i].distance_to(start)<13: continue
+			walker.node.position=walker.path[i]
+			walker.next=(i+1)%walker.path.size()
+			walker.node.reset_physics_interpolation()
+			break
 
 func _make_honk() -> AudioStreamWAV:
 	var wav:=AudioStreamWAV.new()

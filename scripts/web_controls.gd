@@ -28,7 +28,7 @@ func _physics_process(_dt: float) -> void:
 			for actor in game.town.people:
 				var screen: Vector2=game.camera.unproject_position(actor.global_position+Vector3.UP*1.3)
 				neighbours.append({"x":screen.x,"y":screen.y,"visible":game.npc_in_view(actor)})
-			state.telemetry=JSON.stringify({"neighbours":neighbours,"speaker":game.hud.speaker_key,"truck_position":[game.truck.position.x,game.truck.position.z],"dialogue_revealed":game.hud.char_count,"dialogue_font":game.hud.dialogue_font_size,"dialogue_rect":[game.hud.dialogue_panel.position.x,game.hud.dialogue_panel.position.y,game.hud.dialogue_panel.size.x,game.hud.dialogue_panel.size.y],"logical_view":[game.hud.size.x,game.hud.size.y],"speed":game.truck.linear_velocity.length(),"water":game.truck.water,"ladder":game.truck.ladder_deployed,"charge":game.truck.charge,"height":game.truck.position.y,"paused":game.paused,"talking":game.dialogue_active,"fps":Engine.get_frames_per_second(),"loading":game.loading,"draw_calls":Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),"objects":Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),"dialogue_lines":game.hud.dialogue_label.get_line_count(),"dialogue_text":game.hud.full_text,"pages":game.hud.dialogue_pages.size(),"batched":game.batched_decorations})
+			state.telemetry=JSON.stringify({"neighbours":neighbours,"speaker":game.hud.speaker_key,"truck_position":[game.truck.position.x,game.truck.position.z],"dialogue_revealed":game.hud.char_count,"dialogue_font":game.hud.dialogue_font_size,"dialogue_rect":[game.hud.dialogue_panel.position.x,game.hud.dialogue_panel.position.y,game.hud.dialogue_panel.size.x,game.hud.dialogue_panel.size.y],"logical_view":[game.hud.size.x,game.hud.size.y],"speed":game.truck.linear_velocity.length(),"water":game.truck.water,"ladder":game.truck.ladder_deployed,"charge":game.truck.charge,"height":game.truck.position.y,"paused":game.paused,"talking":game.dialogue_active,"fps":Engine.get_frames_per_second(),"loading":game.loading,"draw_calls":Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),"objects":Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),"dialogue_lines":game.hud.dialogue_label.get_line_count(),"dialogue_text":game.hud.full_text,"pages":game.hud.dialogue_pages.size(),"batched":game.batched_decorations,"intro":game.intro.active,"intro_shot":game.intro.shot,"train_started":game.railway.started,"train_boarded":game.railway.boarded,"train_position":[game.railway.engine.position.x,game.railway.engine.position.z]})
 	game.hud.touch_mode=bool(state.enabled)
 	game.hud.touch_portrait=bool(state.portrait)
 	var view:=Vector2(float(state.width),float(state.height))
@@ -49,7 +49,7 @@ func _physics_process(_dt: float) -> void:
 		map_clock=0
 		var p: Vector3=game.truck.position
 		var objective: Vector3=game.objective()
-		JavaScriptBridge.eval("window.firetruckMap(%f,%f,%f,%d,%f,%f)" % [p.x,p.z,game.truck.heading,game.stage,objective.x,objective.z])
+		JavaScriptBridge.eval("window.firetruckMap(%f,%f,%f,%d,%f,%f,%f,%f,%s)" % [p.x,p.z,game.truck.heading,game.stage,objective.x,objective.z,game.railway.engine.position.x,game.railway.engine.position.z,"true" if game.navigation_active() else "false"])
 	if int(state.cancel)!=int(sequences.get("cancel",0)):
 		sequences.cancel=int(state.cancel)
 		game.truck.charge=0

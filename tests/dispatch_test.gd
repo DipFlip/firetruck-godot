@@ -36,6 +36,8 @@ func pause() -> void:
 	event.pressed=true
 	game._unhandled_input(event)
 func run() -> void:
+	# The exact desktop camera size is not the adaptive 75px headless window.
+	root.size=Vector2i(1280,800)
 	game=load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	game.truck.use_automation=true

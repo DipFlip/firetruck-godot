@@ -8,6 +8,10 @@
     {
       "file": "oliver.png",
       "prompt": "Use case: stylized-concept. Original square dialogue portrait for a cozy miniature-town firefighting game. Bust portrait of Oliver, a cheerful young adult male neighbour with light warm skin, short wavy sandy blond hair, hazel eyes, a few freckles, a terracotta-orange polo shirt with a cream collar, amused easy smile. Original appealing rounded 3D clay / painted animated-film character style, large expressive dark eyes, soft detailed hair, restrained beautiful material textures, warm diffuse light. Face forward, slight three-quarter tilt, head large, shoulders included, generous clear margin around hair, pale warm cream solid background. Consistent high-end cozy game portrait, no frame, no text, no UI, no watermark."
+    },
+    {
+      "file": "rowan.png",
+      "prompt": "Use case: stylized-concept. Asset type: single square dialogue portrait for the cozy Firedriver 3D town game. Create ONE new character, Rowan, a friendly middle-aged railway driver. Warm light tan skin, short chestnut hair, kindly big brown eyes, a small neat moustache, dark teal railway driver's cap with a simple brass button, blue work jacket over a pale shirt. Match the soft, expressive, richly rendered storybook 3D character style, head proportions, warm cream background, and lighting of the reference portrait sheet. The reference is STYLE ONLY; this is a new distinct character, not any person from that sheet. Composition: head and upper shoulders centered, looking slightly toward viewer, smiling with a relieved helpful expression. Leave a little room around the cap so a circular UI crop includes it. Single portrait fills the image, no grid, no circle frame, no text, no watermarks."
     }
   ]
 }
