@@ -4,11 +4,12 @@ extends Node3D
 var ramps: Array[StaticBody3D]=[]
 
 func _ready() -> void:
-	# Clear outer lanes, away from homes, mission yards and traffic loops.
-	_make_ramp(Vector3(-51,.06,-36),PI/2)
-	_make_ramp(Vector3(36,.06,51),0)
-	_make_ramp(Vector3(-36,.06,52),PI)
-	_make_ramp(Vector3(52,.06,36),-PI/2)
+	# Mid-block streets bring the jumps into the neighbourhood.
+	# Ramps on traffic routes face the direction those cars travel.
+	_make_ramp(Vector3(-18,-.02,0),-PI/2)
+	_make_ramp(Vector3(-36,-.02,17),0)
+	_make_ramp(Vector3(-18,-.02,36),PI/2)
+	_make_ramp(Vector3(36,-.02,16),0)
 
 func _make_ramp(at: Vector3, yaw: float) -> void:
 	var body:=StaticBody3D.new()
@@ -17,8 +18,9 @@ func _make_ramp(at: Vector3, yaw: float) -> void:
 	body.position=at
 	body.rotation.y=yaw
 	ramps.append(body)
-	# A true convex wedge: zero-height approach at +Z, a 1.35 m lip at -Z.
-	var points:=PackedVector3Array([Vector3(-1.8,0,3.8),Vector3(1.8,0,3.8),Vector3(-1.8,0,-3.8),Vector3(1.8,0,-3.8),Vector3(-1.8,1.35,-3.8),Vector3(1.8,1.35,-3.8)])
+	# A true convex wedge: submerged approach at +Z, a 1.41 m world-space lip at -Z.
+	# The entry meets the road continuously, including box-shaped town cars.
+	var points:=PackedVector3Array([Vector3(-3.6,0,3.8),Vector3(3.6,0,3.8),Vector3(-3.6,0,-3.8),Vector3(3.6,0,-3.8),Vector3(-3.6,1.43,-3.8),Vector3(3.6,1.43,-3.8)])
 	var collision:=CollisionShape3D.new()
 	var hull:=ConvexPolygonShape3D.new()
 	hull.points=points
@@ -31,19 +33,25 @@ func _make_ramp(at: Vector3, yaw: float) -> void:
 		for index in tri: surface.add_vertex(points[index])
 	surface.generate_normals()
 	mesh.mesh=surface.commit()
-	mesh.material_override=TownProps.material(Color("577b87"))
-	mesh.material_override.cull_mode=BaseMaterial3D.CULL_DISABLED
+	var asphalt:=ShaderMaterial.new()
+	var shader:=Shader.new()
+	shader.code=preload("res://shaders/ground.gdshader").code.replace("render_mode diffuse_burley;","render_mode diffuse_burley, cull_disabled;")
+	asphalt.shader=shader
+	asphalt.set_shader_parameter("base_color",Color("788780"))
+	asphalt.set_shader_parameter("grain_scale",18.0)
+	asphalt.set_shader_parameter("variation",.045)
+	mesh.material_override=asphalt
 	body.add_child(mesh)
-	# Painted mint edge strips and coral launch marks share the deck's slope.
+	# Road paint shares the deck's slope, with unobtrusive warm lane markings.
 	var deck:=Node3D.new()
 	body.add_child(deck)
-	deck.position=Vector3(0,.69,0)
-	deck.rotation.x=atan2(1.35,7.6)
-	for side in [-1,1]: TownProps.box(deck,Vector3(side*1.63,.02,0),Vector3(.14,.025,7.6),Color("ccf3e9"))
+	deck.position=Vector3(0,.73,0)
+	deck.rotation.x=atan2(1.43,7.6)
+	for side in [-1,1]: TownProps.box(deck,Vector3(side*3.43,.02,0),Vector3(.14,.025,7.6),Color("e5e7d9"))
 	for z in [-2.7,-1.5,-.3]:
 		for side in [-1,1]:
-			var stripe:=TownProps.box(deck,Vector3(side*.4,.03,z),Vector3(.16,.03,1.05),Color("f18a76"))
+			var stripe:=TownProps.box(deck,Vector3(side*.65,.03,z),Vector3(.16,.03,1.05),Color("e0c98b"))
 			stripe.rotation.y=side*-.7
 	for side in [-1,1]:
-		TownProps.cylinder(body,Vector3(side*2.15,.22,-3.8),.19,.44,Color("ed816b"),.07)
+		TownProps.cylinder(body,Vector3(side*3.85,.22,-3.8),.19,.44,Color("ed816b"),.07)
 

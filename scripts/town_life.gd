@@ -155,7 +155,11 @@ func _physics_process(dt: float) -> void:
 		var yield_now:=false
 		var to_truck: Vector3=game.truck.global_position-body.position
 		if to_truck.length()<7 and to_truck.normalized().dot(direction)>.25: yield_now=true
-		var query:=PhysicsRayQueryParameters3D.create(body.position+Vector3.UP*.7,body.position+Vector3.UP*.7+direction*4,3,[body.get_rid()])
+		# Sloped street decks are drivable ground, not stopped traffic. Keep their
+		# physical contacts, but omit them from the forward obstacle sensor.
+		var obstacles_exclude: Array[RID]=[body.get_rid()]
+		for ramp in game.ramps.ramps: obstacles_exclude.append(ramp.get_rid())
+		var query:=PhysicsRayQueryParameters3D.create(body.position+Vector3.UP*.7,body.position+Vector3.UP*.7+direction*4,3,obstacles_exclude)
 		if get_world_3d().direct_space_state.intersect_ray(query): yield_now=true
 		var relative: Vector3=game.truck.linear_velocity-body.linear_velocity
 		if to_truck.length()<4.2 and relative.length()>1.5 and relative.dot(-to_truck)>0:

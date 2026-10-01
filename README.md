@@ -95,7 +95,7 @@ To add a prop, call `TownInteractions.add_prop()` with its visual parts, origina
 
 `scripts/drive_surfaces.gd` registers shallow visible paving on query-only physics layer 4. Tire contact and skid marks query these actual surfaces instead of estimating road height from street coordinates. The physical supports remain smooth over shallow decorative steps. Tracks align with surface normals and keep their five-second fade.
 
-`scripts/town_ramps.gd` adds four matching mesh-and-convex-collider wedges on clear outer streets: west Maple Lane, both southern approaches, and the east end of the southern road. Mint edges and coral chevrons mark the sloped deck; small coral marks identify ramps on the map. Drive onto the low end at speed to leave the lip naturally. There is no ramp jump impulse or scripted launch. The body and axle pose follow the slope.
+`scripts/town_ramps.gd` adds four matching mesh-and-convex-collider wedges on streets inside the neighbourhood. Their 7.2 m decks use the street asphalt shader, white edges and warm yellow chevrons; small coral marks identify ramps on the map. The old wooden street platform is removed. Forty woodland trees are planted in irregular groves and open lawns, with clearance for roads, house gardens and mission areas; `TownLayout.woodland_positions()` preserves that planting in future scene rebuilds. Drive onto the low end at speed to leave the lip naturally. There is no ramp jump impulse or scripted launch. The body and axle pose follow the slope.
 
 ## Driving and water
 

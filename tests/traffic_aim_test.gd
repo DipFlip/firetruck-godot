@@ -69,7 +69,9 @@ func run() -> void:
 	stranded.stalled=0
 	stranded.coast=0
 	await frames(1080)
-	check(stranded.node.position.distance_to(Vector3(50,0,52))>15 and stranded.speed>2.5,"A car stranded off its route fades back to a clear lane and drives again")
+	# The relocated ramps change arrival timing; a recovered car may be turning.
+	# Use the same moving-speed floor as the repeated-corner circulation check.
+	check(stranded.node.position.distance_to(Vector3(50,0,52))>15 and stranded.speed>2,"A car stranded off its route fades back to a clear lane and drives again")
 	cage.queue_free()
 	var moving:=true
 	for i in 6:

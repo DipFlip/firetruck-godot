@@ -1162,12 +1162,6 @@ rings = 12
 radial_segments = 20
 rings = 12
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6efje"]
-albedo_color = Color(0.7647059, 0.5764706, 0.40784314, 1)
-roughness = 0.82
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_4e75i"]
-
 [node name="MapleBay" type="Node3D" unique_id=690990079 node_paths=PackedStringArray("cat", "dog", "pool_water", "flames", "people")]
 script = ExtResource("1_yu548")
 hydrants = Array[Vector3]([Vector3(-6, 0, 12), Vector3(6, 0, -29), Vector3(30, 0, 6), Vector3(-30, 0, 30), Vector3(41, 0, -12), Vector3(7, 0, 55), Vector3(-41, 0, -9)])
@@ -3249,7 +3243,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_m85ki")
 
 [node name="@Node3D@428" type="Node3D" parent="." unique_id=354359877]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 69, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 54.2177391, 0, -68.4128189)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@428" unique_id=1297529265 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-0.47061446, 0, 1.638779, 0, 1.7050146, 0, -1.638779, 0, -0.47061446, 0, 0, 0)
@@ -3261,7 +3255,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_relln")
 
 [node name="@Node3D@431" type="Node3D" parent="." unique_id=1569973929]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 68.1505, 0, 10.793978)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -66.7793808, 0, -57.6874237)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@431" unique_id=1355999959 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-0.040061265, 0, 1.6152887, 0, 1.6157854, 0, -1.6152887, 0, -0.040061265, 0, 0, 0)
@@ -3273,7 +3267,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_f1kgd")
 
 [node name="@Node3D@434" type="Node3D" parent="." unique_id=1165107534]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65.6229, 0, 21.322172)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.73279285, 0, -62.400444)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@434" unique_id=1202200213 instance=ExtResource("6_mjntx")]
 transform = Transform3D(0.8125162, 0, 0.90158635, 0, 1.2136889, 0, -0.90158635, 0, 0.8125162, 0, 0, 0)
@@ -3285,7 +3279,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_02gr4")
 
 [node name="@Node3D@437" type="Node3D" parent="." unique_id=852956279]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61.47945, 0, 31.325344)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 54.0062103, 0, 10.9585247)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@437" unique_id=1571874884 instance=ExtResource("6_mjntx")]
 transform = Transform3D(1.5547212, 0, -0.6678368, 0, 1.6920887, 0, 0.6678368, 0, 1.5547212, 0, 0, 0)
@@ -3297,7 +3291,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_gp8ka")
 
 [node name="@Node3D@440" type="Node3D" parent="." unique_id=1668743335]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.822174, 0, 40.557182)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -56.3590508, 0, 66.2627563)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@440" unique_id=1835474277 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-0.72610444, 0, -1.2332966, 0, 1.4311702, 0, 1.2332966, 0, -0.72610444, 0, 0, 0)
@@ -3309,7 +3303,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_wxcs2")
 
 [node name="@Node3D@443" type="Node3D" parent="." unique_id=1432587867]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48.790367, 0, 48.790367)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.861372, 0, -55.0110855)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@443" unique_id=834675473 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-0.74516404, 0, 1.3641989, 0, 1.5544479, 0, -1.3641989, 0, -0.74516404, 0, 0, 0)
@@ -3321,7 +3315,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_cds8o")
 
 [node name="@Node3D@446" type="Node3D" parent="." unique_id=471836847]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40.557182, 0, 55.822174)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -65.0413589, 0, 10.5474453)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@446" unique_id=1162653687 instance=ExtResource("6_mjntx")]
 transform = Transform3D(1.0652843, 0, -0.4494112, 0, 1.1562011, 0, 0.4494112, 0, 1.0652843, 0, 0, 0)
@@ -3333,7 +3327,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_jg4ls")
 
 [node name="@Node3D@449" type="Node3D" parent="." unique_id=1478663127]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.325344, 0, 61.47945)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -62.8646317, 0, -67.766655)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@449" unique_id=1759102546 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-1.6579063, 0, 0.045064572, 0, 1.6585186, 0, -0.045064572, 0, -1.6579063, 0, 0, 0)
@@ -3345,7 +3339,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_hm4w6")
 
 [node name="@Node3D@452" type="Node3D" parent="." unique_id=403685530]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.322172, 0, 65.6229)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.5392723, 0, -55.518074)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@452" unique_id=799427918 instance=ExtResource("6_mjntx")]
 transform = Transform3D(1.3168124, 0, 0.15005854, 0, 1.3253348, 0, -0.15005854, 0, 1.3168124, 0, 0, 0)
@@ -3357,7 +3351,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_s2phv")
 
 [node name="@Node3D@455" type="Node3D" parent="." unique_id=1483922194]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.793978, 0, 68.1505)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60.8861008, 0, 68.2175369)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@455" unique_id=1340021801 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-1.1082114, 0, -0.10738815, 0, 1.1134024, 0, 0.10738815, 0, -1.1082114, 0, 0, 0)
@@ -3369,7 +3363,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_2a440")
 
 [node name="@Node3D@458" type="Node3D" parent="." unique_id=1672705517]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.2250313e-15, 0, 69)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50.0619011, 0, 54.918457)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@458" unique_id=704619551 instance=ExtResource("6_mjntx")]
 transform = Transform3D(1.7780168, 0, 2.2536531e-15, 0, 1.7780168, 0, -2.2536531e-15, 0, 1.7780168, 0, 0, 0)
@@ -3381,7 +3375,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_dciht")
 
 [node name="@Node3D@461" type="Node3D" parent="." unique_id=614416315]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.793978, 0, 68.1505)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 69.5437469, 0, 50.6247177)
 
 [node name="tree_1" type="Node3D" parent="@Node3D@461" unique_id=1800738375 instance=ExtResource("7_8ha5r")]
 transform = Transform3D(-1.5750276, 0, 0.15262368, 0, 1.5824051, 0, -0.15262368, 0, -1.5750276, 0, 0, 0)
@@ -3393,7 +3387,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_hyx8r")
 
 [node name="@Node3D@464" type="Node3D" parent="." unique_id=1410730879]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.322172, 0, 65.6229)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -66.9401932, 0, 55.6657104)
 
 [node name="tree_1" type="Node3D" parent="@Node3D@464" unique_id=1536923375 instance=ExtResource("7_8ha5r")]
 transform = Transform3D(1.4274042, 0, -0.16266112, 0, 1.4366423, 0, 0.16266112, 0, 1.4274042, 0, 0, 0)
@@ -3405,7 +3399,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_hjk0j")
 
 [node name="@Node3D@467" type="Node3D" parent="." unique_id=1315176251]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -31.325344, 0, 61.47945)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 67.1379395, 0, 59.2363281)
 
 [node name="tree_1" type="Node3D" parent="@Node3D@467" unique_id=1734925688 instance=ExtResource("7_8ha5r")]
 transform = Transform3D(-1.1937025, 0, -0.03244676, 0, 1.1941433, 0, 0.03244676, 0, -1.1937025, 0, 0, 0)
@@ -3417,7 +3411,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_d3jhv")
 
 [node name="@Node3D@470" type="Node3D" parent="." unique_id=55208307]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40.557182, 0, 55.822174)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 59.7904472, 0, -58.4238853)
 
 [node name="tree_1" type="Node3D" parent="@Node3D@470" unique_id=252289837 instance=ExtResource("7_8ha5r")]
 transform = Transform3D(1.480352, 0, 0.6245158, 0, 1.6066929, 0, -0.6245158, 0, 1.480352, 0, 0, 0)
@@ -3429,7 +3423,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_6dr61")
 
 [node name="@Node3D@473" type="Node3D" parent="." unique_id=1716056704]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -48.790367, 0, 48.790367)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -61.7588768, 0, 71.4504929)
 
 [node name="tree_1" type="Node3D" parent="@Node3D@473" unique_id=2095380047 instance=ExtResource("7_8ha5r")]
 transform = Transform3D(-0.745637, 0, -1.3650649, 0, 1.5554346, 0, 1.3650649, 0, -0.745637, 0, 0, 0)
@@ -3441,7 +3435,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_qk1rs")
 
 [node name="@Node3D@476" type="Node3D" parent="." unique_id=430322873]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55.822174, 0, 40.557182)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -73.0465317, 0, -53.7409019)
 
 [node name="tree_1" type="Node3D" parent="@Node3D@476" unique_id=1352744595 instance=ExtResource("7_8ha5r")]
 transform = Transform3D(-0.7511322, 0, 1.2758065, 0, 1.4805006, 0, -1.2758065, 0, -0.7511322, 0, 0, 0)
@@ -3453,7 +3447,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_itgj7")
 
 [node name="@Node3D@479" type="Node3D" parent="." unique_id=1583781475]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -61.47945, 0, 31.325344)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -51.3722458, 0, -67.8393173)
 
 [node name="tree_1" type="Node3D" parent="@Node3D@479" unique_id=94992420 instance=ExtResource("7_8ha5r")]
 transform = Transform3D(1.6243123, 0, 0.6977299, 0, 1.7678285, 0, -0.6977299, 0, 1.6243123, 0, 0, 0)
@@ -3465,7 +3459,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_xya5m")
 
 [node name="@Node3D@482" type="Node3D" parent="." unique_id=2121660290]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -65.6229, 0, 21.322172)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -73.330368, 0, -24.0462379)
 
 [node name="tree_1" type="Node3D" parent="@Node3D@482" unique_id=1950047958 instance=ExtResource("7_8ha5r")]
 transform = Transform3D(1.024928, 0, -1.1372833, 0, 1.530977, 0, 1.1372833, 0, 1.024928, 0, 0, 0)
@@ -3477,7 +3471,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_lavvg")
 
 [node name="@Node3D@485" type="Node3D" parent="." unique_id=1823055165]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -68.1505, 0, 10.793978)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.1465912, 0, -66.8047409)
 
 [node name="tree_1" type="Node3D" parent="@Node3D@485" unique_id=655436444 instance=ExtResource("7_8ha5r")]
 transform = Transform3D(-0.0276349, 0, -1.114252, 0, 1.1145946, 0, 1.114252, 0, -0.0276349, 0, 0, 0)
@@ -3489,7 +3483,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_pmpca")
 
 [node name="@Node3D@488" type="Node3D" parent="." unique_id=761895120]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -69, 0, 8.4500625e-15)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 63.7282219, 0, -70.5962143)
 
 [node name="tree_1" type="Node3D" parent="@Node3D@488" unique_id=1539578197 instance=ExtResource("7_8ha5r")]
 transform = Transform3D(-0.41267294, 0, -1.4370145, 0, 1.4950951, 0, 1.4370145, 0, -0.41267294, 0, 0, 0)
@@ -3501,7 +3495,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_xwbs6")
 
 [node name="@Node3D@491" type="Node3D" parent="." unique_id=1054312494]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -68.1505, 0, -10.793978)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -60.8815804, 0, 61.5507088)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@491" unique_id=108065933 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-0.03973304, 0, -1.6020546, 0, 1.6025472, 0, 1.6020546, 0, -0.03973304, 0, 0, 0)
@@ -3513,7 +3507,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_v25rl")
 
 [node name="@Node3D@494" type="Node3D" parent="." unique_id=1170012532]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -65.6229, 0, -21.322172)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 62.3486519, 0, -9.05970573)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@494" unique_id=684245209 instance=ExtResource("6_mjntx")]
 transform = Transform3D(0.87028605, 0, -0.9656891, 0, 1.2999821, 0, 0.9656891, 0, 0.87028605, 0, 0, 0)
@@ -3525,7 +3519,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_tbes1")
 
 [node name="@Node3D@497" type="Node3D" parent="." unique_id=12432851]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -61.47945, 0, -31.325344)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 56.8751564, 0, 53.6768608)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@497" unique_id=863014040 instance=ExtResource("6_mjntx")]
 transform = Transform3D(1.4658178, 0, 0.629648, 0, 1.5953302, 0, -0.629648, 0, 1.4658178, 0, 0, 0)
@@ -3537,7 +3531,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_rxh7u")
 
 [node name="@Node3D@500" type="Node3D" parent="." unique_id=24117741]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55.822174, 0, -40.557182)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -59.2414474, 0, -47.8310509)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@500" unique_id=1421361700 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-0.7581095, 0, 1.2876576, 0, 1.494253, 0, -1.2876576, 0, -0.7581095, 0, 0, 0)
@@ -3549,7 +3543,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_ewt2m")
 
 [node name="@Node3D@503" type="Node3D" parent="." unique_id=70289381]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -48.790367, 0, -48.790367)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 63.4830627, 0, 50.4229431)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@503" unique_id=1276356652 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-0.84285897, 0, -1.5430527, 0, 1.7582443, 0, 1.5430527, 0, -0.84285897, 0, 0, 0)
@@ -3561,7 +3555,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_67ant")
 
 [node name="@Node3D@506" type="Node3D" parent="." unique_id=1919862939]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -40.557182, 0, -55.822174)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -69.0630569, 0, -65.4343643)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@506" unique_id=1977462850 instance=ExtResource("6_mjntx")]
 transform = Transform3D(1.3649088, 0, 0.5758138, 0, 1.4813972, 0, -0.5758138, 0, 1.3649088, 0, 0, 0)
@@ -3573,7 +3567,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_o0tnq")
 
 [node name="@Node3D@509" type="Node3D" parent="." unique_id=616411024]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -31.325344, 0, -61.47945)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.85819054, 0, -52.7791901)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@509" unique_id=1695164416 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-1.2744553, 0, -0.034641754, 0, 1.274926, 0, 0.034641754, 0, -1.2744553, 0, 0, 0)
@@ -3585,7 +3579,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_whxne")
 
 [node name="@Node3D@512" type="Node3D" parent="." unique_id=809195156]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -21.322172, 0, -65.6229)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 63.7957611, 0, 17.8843994)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@512" unique_id=1467310473 instance=ExtResource("6_mjntx")]
 transform = Transform3D(1.6692584, 0, -0.19022185, 0, 1.6800618, 0, 0.19022185, 0, 1.6692584, 0, 0, 0)
@@ -3597,7 +3591,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_fwctt")
 
 [node name="@Node3D@515" type="Node3D" parent="." unique_id=1774313895]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.793978, 0, -68.1505)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -58.1335526, 0, 9.3706665)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@515" unique_id=2008269847 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-1.4731916, 0, 0.14275555, 0, 1.4800922, 0, -0.14275555, 0, -1.4731916, 0, 0, 0)
@@ -3609,7 +3603,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_no2ig")
 
 [node name="@Node3D@518" type="Node3D" parent="." unique_id=1265047514]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2675094e-14, 0, -69)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70.4555511, 0, 70.8062973)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@518" unique_id=1560625214 instance=ExtResource("6_mjntx")]
 transform = Transform3D(1.7507796, 0, -6.657389e-15, 0, 1.7507796, 0, 6.657389e-15, 0, 1.7507796, 0, 0, 0)
@@ -3621,7 +3615,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_r2q6n")
 
 [node name="@Node3D@521" type="Node3D" parent="." unique_id=1985811459]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.793978, 0, -68.1505)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 73.7291718, 0, 62.0353928)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@521" unique_id=1655703394 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-1.3616438, 0, -0.13194633, 0, 1.3680218, 0, 0.13194633, 0, -1.3616438, 0, 0, 0)
@@ -3633,7 +3627,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_rr63i")
 
 [node name="@Node3D@524" type="Node3D" parent="." unique_id=753657285]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21.322172, 0, -65.6229)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 68.3323975, 0, -44.0175056)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@524" unique_id=817342494 instance=ExtResource("6_mjntx")]
 transform = Transform3D(1.4902269, 0, 0.16982014, 0, 1.4998716, 0, -0.16982014, 0, 1.4902269, 0, 0, 0)
@@ -3645,7 +3639,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_6ih05")
 
 [node name="@Node3D@527" type="Node3D" parent="." unique_id=598381131]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.325344, 0, -61.47945)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -72.3083344, 0, 64.9778061)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@527" unique_id=780737691 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-1.72123, 0, 0.046785817, 0, 1.7218658, 0, -0.046785817, 0, -1.72123, 0, 0, 0)
@@ -3657,7 +3651,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_b8jln")
 
 [node name="@Node3D@530" type="Node3D" parent="." unique_id=1200681093]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40.557182, 0, -55.822174)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70.2628174, 0, -71.4622269)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@530" unique_id=2138677446 instance=ExtResource("6_mjntx")]
 transform = Transform3D(1.4169786, 0, -0.5977804, 0, 1.5379108, 0, 0.5977804, 0, 1.4169786, 0, 0, 0)
@@ -3669,7 +3663,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_6fg6s")
 
 [node name="@Node3D@533" type="Node3D" parent="." unique_id=1109375573]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 48.790367, 0, -48.790367)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22.8648739, 0, -63.6857948)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@533" unique_id=384073340 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-0.67681134, 0, 1.2390633, 0, 1.411861, 0, -1.2390633, 0, -0.67681134, 0, 0, 0)
@@ -3681,7 +3675,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_gt1cd")
 
 [node name="@Node3D@536" type="Node3D" parent="." unique_id=110033607]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.822174, 0, -40.557182)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -57.8431396, 0, 52.1475334)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@536" unique_id=1671676780 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-0.68209344, 0, -1.1585435, 0, 1.3444234, 0, 1.1585435, 0, -0.68209344, 0, 0, 0)
@@ -3693,7 +3687,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_j7036")
 
 [node name="@Node3D@539" type="Node3D" parent="." unique_id=1095881433]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 61.47945, 0, -31.325344)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12.665678, 0, -48.7511292)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@539" unique_id=512385878 instance=ExtResource("6_mjntx")]
 transform = Transform3D(1.4819983, 0, -0.63659835, 0, 1.6129403, 0, 0.63659835, 0, 1.4819983, 0, 0, 0)
@@ -3705,7 +3699,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_iscqj")
 
 [node name="@Node3D@542" type="Node3D" parent="." unique_id=159498804]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65.6229, 0, -21.322172)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -26.2506523, 0, 17.9102898)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@542" unique_id=455575835 instance=ExtResource("6_mjntx")]
 transform = Transform3D(0.9472719, 0, 1.0511143, 0, 1.414979, 0, -1.0511143, 0, 0.9472719, 0, 0, 0)
@@ -3717,7 +3711,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("BoxShape3D_4tetp")
 
 [node name="@Node3D@545" type="Node3D" parent="." unique_id=2035491413]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 68.1505, 0, -10.793978)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.2130966, 0, -47.136116)
 
 [node name="tree_0" type="Node3D" parent="@Node3D@545" unique_id=2016764956 instance=ExtResource("6_mjntx")]
 transform = Transform3D(-0.034943637, 0, 1.4089437, 0, 1.4093769, 0, -1.4089437, 0, -0.034943637, 0, 0, 0)
@@ -4267,13 +4261,3 @@ mesh = SubResource("SphereMesh_8hsag")
 transform = Transform3D(0.5, 0, 0, 0, 0.45, 0, 0, 0, 0.5, 45.061207, 0.2, 29.330713)
 material_override = SubResource("StandardMaterial3D_wvvhw")
 mesh = SubResource("SphereMesh_2vd8t")
-
-[node name="@MeshInstance3D@656" type="MeshInstance3D" parent="." unique_id=926839440]
-transform = Transform3D(5, 0, 0, 0, 0.34606987, 1.046067, 0, -0.052303348, 6.9213977, -20, 0.6, 34)
-material_override = SubResource("StandardMaterial3D_6efje")
-mesh = SubResource("ArrayMesh_q7q22")
-
-[node name="@StaticBody3D@658" type="StaticBody3D" parent="@MeshInstance3D@656" unique_id=1291843087]
-
-[node name="@CollisionShape3D@657" type="CollisionShape3D" parent="@MeshInstance3D@656/@StaticBody3D@658" unique_id=1759381698]
-shape = SubResource("BoxShape3D_4e75i")

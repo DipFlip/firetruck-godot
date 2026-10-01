@@ -76,10 +76,9 @@ func _ready() -> void:
 		TownProps.box(self,pos+Vector3(0,0.65,0),Vector3(0.9,0.23,0.25),Color("dd6950"))
 	for pos in [Vector3(-26,0,9),Vector3(-27,0,-10),Vector3(9,0,23),Vector3(27,0,13),Vector3(-10,0,26),Vector3(56,0,-8),Vector3(-49,0,30),Vector3(9,0,46),Vector3(48,0,46),Vector3(-48,0,47)]:
 		TownProps.tree(self,pos,randf_range(0.85,1.4))
-	# Tree belt frames the town without oversized grass mounds.
-	for i in range(40):
-		var angle := TAU*i/40.0
-		var p := Vector3(cos(angle)*69,0,sin(angle)*69)
+	# Irregular groves and isolated trees occupy clear lawn, with open roads,
+	# front paths and mission gardens preserved.
+	for p in TownLayout.woodland_positions():
 		TownProps.tree(self,p,randf_range(1.1,1.8))
 	for x in [-7,7,29,-29]:
 		for z in [-28,10,29]:
@@ -100,9 +99,6 @@ func _ready() -> void:
 		for k in range(7):
 			var p: Vector3 = garden+Vector3(randf_range(-3.5,3.5),0.2,randf_range(-1.7,1.7))
 			TownProps.ball(self,p,Vector3(0.5,0.45,0.5),Color("e7ba7c") if k%2 else Color("c58286"))
-	# A low training ramp makes charged hops and aerial recoil discoverable.
-	var ramp := TownProps.box(self,Vector3(-20,0.6,34),Vector3(5,0.35,7),Color("c39368"),true)
-	ramp.rotation.x=-0.15
 
 func _animal(pos: Vector3, color: Color, is_cat: bool) -> Node3D:
 	var root := Node3D.new()
