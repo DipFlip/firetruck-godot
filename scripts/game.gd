@@ -385,7 +385,7 @@ func _talk_to_npc(i: int, manual: bool=false) -> bool:
 				if not manual: return false
 				talk("MAYA  /  MAPLE GREEN","Thank you again! Pippin's staying on the ground today.",stage)
 			elif stage==1 and (not rescued or manual):
-				talk("MAYA  /  MAPLE GREEN","Oh, thank goodness! Pippin climbed up there and forgot how to be a cat. Extend your ladder with E and drive its tip close to Pippin. He'll hop on and climb down. Gently, please!",1)
+				talk("MAYA  /  MAPLE GREEN","Oh, thank goodness! Pippin climbed up there and forgot how to be a cat. "+_ladder_instruction()+". Drive its tip close to Pippin. He'll hop on and climb down. Gently, please!",1)
 				rescued=true
 			else: return false
 		1:
@@ -463,17 +463,16 @@ func _process(dt: float) -> void:
 	if refill_source: truck.water=minf(truck.tank_capacity,truck.water+dt*25)
 	refill_hose.update(refill_source,dt)
 	var prompt:=""
-	if not dialogue_active:
-		var distance:=truck.global_position.distance_to(objective())
-		if rescue_running: prompt="Pippin is climbing down..."
-		elif stage==1 and distance<12:
-			prompt="Bring the ladder tip close to Pippin" if truck.ladder_deployed else "E  ·  Extend ladder, then approach Pippin"
-		elif stage==3 and distance<19: prompt="On target · Cooling the fire!" if fire_feedback>.1 else "Hold click to spray   ·   Shift to brace"
-		if prompt=="" and not dog_done and truck.global_position.distance_to(TownLayout.JUNE+Vector3.UP)<6: prompt="BISCUIT  /  %d%% clean" % (dog_progress*100)
+	# The hint is a control reminder after Maya's briefing, not a status feed.
+	if stage==1 and rescued and not cat_rescued and not dialogue_active and not rescue_running and not truck.ladder_deployed and truck.global_position.distance_to(objective())<12:
+		prompt=_ladder_instruction()
 	hud.prompt_label.text=prompt
 	if stage==3:
 		hud.heading_label.text="ON TARGET  /  COOLING" if fire_feedback>.1 else "02  /  HOSE AT THE READY"
 		hud.detail_label.text="Extinguish the barbecue  ·  %d%%\n" % (fire_progress*100) + ("Keep it there!" if fire_feedback>.1 else "Aim near the flames · Shift to brace.")
+
+func _ladder_instruction() -> String:
+	return "Press 'ladder' to extend ladder" if hud.touch_mode else "Press E to extend the ladder"
 
 func _talk_camera_size() -> float:
 	if not dialogue_active or not is_instance_valid(dialogue_actor) or hud.size.y>=650: return TALK_CAMERA_SIZE

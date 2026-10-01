@@ -38,14 +38,31 @@ func run() -> void:
 	game.camera_focus=game.truck.position
 	game.proximity_latches[0]=true
 	await frames(3)
+	check(game.hud.prompt_label.text.is_empty() and not game.hud.prompt_panel.visible,"No ladder hint before speaking to Maya, even beside the cat mission")
 	press_space()
 	check(game.dialogue_active and game.dialogue_actor==game.town.people[0] and game.truck.charge==0,"Space starts a nearby NPC conversation without winding up a jump")
+	await frames(3)
+	check(not game.hud.prompt_panel.visible,"Ladder hint stays hidden while Maya is talking")
 	var message: String=game.hud.dialogue_text
 	check(game.hud.full_text==message and game.hud.dialogue_pages.size()==1,"The entire instruction is one message")
 	click(game.hud.dialogue_panel.position+game.hud.dialogue_panel.size*.5)
 	check(game.dialogue_active and game.hud.char_count==message.length(),"Clicking the bubble reveals all words")
 	click(game.hud.dialogue_panel.position+game.hud.dialogue_panel.size*.5,true)
 	check(not game.dialogue_active,"A second tap finishes the whole message without a leftover word")
+	await frames(3)
+	check(game.hud.prompt_label.text=="Press E to extend the ladder" and game.hud.prompt_panel.visible,"After Maya's briefing the desktop hint only explains how to extend the ladder")
+	game.hud.touch_mode=true
+	await frames(3)
+	check(game.hud.prompt_label.text=="Press 'ladder' to extend ladder","Touch hint names the ladder button instead of a keyboard key")
+	game.hud.touch_mode=false
+	game.truck.extend_ladder()
+	await frames(3)
+	check(game.hud.prompt_label.text.is_empty(),"An extended ladder needs no extra approach/status hint")
+	game.truck.retract_ladder()
+	game.rescue_running=true
+	await frames(3)
+	check(game.hud.prompt_label.text.is_empty(),"Cat climbing animation does not use the hint area for updates")
+	game.rescue_running=false
 	await frames(65)
 	var actor: Node3D=game.town.people[0]
 	var at: Vector2=game.camera.unproject_position(actor.global_position+Vector3.UP*1.3)
@@ -116,6 +133,17 @@ func run() -> void:
 	game._water_hit(TownLayout.FIRE+Vector3.UP*1.8,20)
 	game._water_hit(TownLayout.DOG+Vector3.UP*.7,20)
 	game._water_hit(TownLayout.POOL+Vector3.UP*game.town.pool_water.position.y,20)
+	game.stage=3
+	game.fire_feedback=1
+	game.truck.position=TownLayout.FIRE+Vector3(0,1,3)
+	game._process(0)
+	check(game.hud.prompt_label.text.is_empty(),"Fire cooling feedback does not become a hint banner")
+	game.stage=4
+	game.dog_done=false
+	game.truck.position=TownLayout.JUNE+Vector3(0,1,3)
+	game.proximity_latches[2]=true
+	game._process(0)
+	check(game.hud.prompt_label.text.is_empty(),"Dog wash percentage does not become a hint banner")
 	check(game.hud.toast_label.text.is_empty(),"Mission completion uses sparkles and thanks without a banner")
 	check(game.rewards.sound.stream.data.decode_s16(game.rewards.sound.stream.data.size()-2)==0,"Reward chime ends in silence without an abrupt cutoff")
 	game.queue_free()

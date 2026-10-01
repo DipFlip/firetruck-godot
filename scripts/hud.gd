@@ -394,6 +394,8 @@ func _layout_viewport() -> void:
 		get_window().content_scale_aspect=Window.CONTENT_SCALE_ASPECT_EXPAND
 	if touch_mode:
 		pause_help.text="LEFT STICK     Drive\nRIGHT STICK     Aim and spray\n\nHold JUMP, then release     A springy hop\nTALK     Reveal / continue a conversation\nLADDER     Extend / retract\n\nPark by a hydrant to refill.\nTap a neighbour or their speech bubble.\n\nTap the pause button to return to town."
+	prompt_panel.size.x=minf(540,size.x-32)
+	prompt_label.size.x=prompt_panel.size.x-32
 	prompt_panel.position=Vector2((size.x-prompt_panel.size.x)*.5,size.y-93)
 	toast_panel.position=Vector2((size.x-toast_panel.size.x)*.5,85 if touch_mode else 109)
 	footer.position=Vector2((size.x-footer.size.x)*.5,size.y-35)
