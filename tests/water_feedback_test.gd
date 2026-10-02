@@ -61,6 +61,25 @@ func run() -> void:
 	await frames(90)
 	check(absf(game.hud.water_gauge_scale-1)<.001 and game.hud.water_gauge_offset.length()<.001,"The gauge returns to its resting pose after the attempt")
 	var hydrant: BreakableProp=game.interactions.hydrant_props[0]
+	var hose: RefillHose=game.refill_hose
+	game.truck.freeze=true
+	game.truck.position=hydrant.global_position+Vector3(6.5,.85,0)
+	game.truck.heading=PI/2
+	game.truck.reset_physics_interpolation()
+	game.truck.water=20
+	await frames(65)
+	check(hose.active and hose.hydrant==hydrant and game.truck.water>20,"Refilling starts within the enlarged radius from the truck centre")
+	check(hose.points[16].distance_to(hydrant.global_position)>6.75,"The rear hose socket can be outside the activation radius while refilling")
+	game.truck.heading=-PI/2
+	await frames(8)
+	check(hose.active and hose.hydrant==hydrant,"Turning in place keeps the centre-based refill connection")
+	game.truck.position=hydrant.global_position+Vector3(-7,.85,0)
+	game.truck.heading=PI/2
+	game.truck.reset_physics_interpolation()
+	var outside_water: float=game.truck.water
+	await frames(12)
+	check(not hose.active and game.truck.water==outside_water and hose.points[16].distance_to(hydrant.global_position)<6.75,"Refilling stops when the centre leaves range even if the rear socket is still inside")
+	await frames(45)
 	var original:=hydrant.meshes[0].transform
 	game.truck.position=Vector3(-3,.85,12)
 	game.truck.linear_velocity=Vector3.ZERO
@@ -69,7 +88,6 @@ func run() -> void:
 	game.truck.freeze=true
 	game.truck.water=20
 	await frames(12)
-	var hose: RefillHose=game.refill_hose
 	var visible_segments:=0
 	for segment in hose.segments:
 		if segment.visible: visible_segments+=1

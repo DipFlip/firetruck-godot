@@ -33,6 +33,7 @@ var barbecue_call_delay := -1.0
 var barbecue_ring_timer := -1.0
 var barbecue_call_sent := false
 const BARBECUE_CALL_DELAY := 20.0
+const HYDRANT_REFILL_RADIUS:=6.75
 var marker: MeshInstance3D
 var job_label: Label3D
 var camera_offset:=Vector3(16,23,29)
@@ -511,11 +512,13 @@ func _process(dt: float) -> void:
 	job_label.position=objective()+Vector3.UP*(4.3+sin(elapsed*2)*0.15)
 	_proximity_talk()
 	var refill_source: BreakableProp=null
-	var refill_distance:=4.5
+	var refill_distance:=HYDRANT_REFILL_RADIUS
+	# Activation uses the rigid body centre; the rear socket is visual only.
+	var refill_center:=truck.global_position
 	for i in town.hydrants.size():
 		var h:=town.hydrants[i]
 		if interactions.hydrant_props[i].loose: continue
-		var distance:=truck.global_position.distance_to(h)
+		var distance:=refill_center.distance_to(h)
 		if truck.water<truck.tank_capacity and distance<refill_distance:
 			refill_source=interactions.hydrant_props[i]
 			refill_distance=distance
