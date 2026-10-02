@@ -678,9 +678,9 @@ func _setup_audio() -> void:
 	audio.play()
 	playback=audio.get_stream_playback()
 	music=AudioStreamPlayer.new()
-	var song: AudioStreamWAV=load("res://assets/audio/maple_morning.wav")
-	song.loop_mode=AudioStreamWAV.LOOP_FORWARD
-	song.loop_end=song.data.size()/2
+	music.playback_type=AudioServer.PLAYBACK_TYPE_STREAM
+	var song: AudioStreamMP3=load("res://assets/audio/song.mp3")
+	song.loop=true
 	music.stream=song
 	music.volume_db=-25
 	add_child(music)
