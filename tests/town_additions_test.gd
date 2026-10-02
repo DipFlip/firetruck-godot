@@ -22,7 +22,7 @@ func run() -> void:
 	check(game.intro.active and game.truck.freeze and game.call_timer==1.5 and game.intro.shot==0 and game.camera.size>140,"Intro freezes driving and dispatch while showing almost the whole town")
 	var splashing:=false
 	for drop in game.dog_puddle.drops: splashing=splashing or drop.age<.6
-	check(game.intro.caption.visible_characters>0 and game.intro.caption.visible_characters<=game.intro.caption.text.length(),"Town intro lettering is revealed over the live view")
+	check(game.intro.overlay.get_child_count()==1 and game.intro.overlay.get_child(0)==game.intro.shade,"The intro views have no caption or hint text")
 	await frames(90)
 	for drop in game.dog_puddle.drops: splashing=splashing or drop.age<.6
 	check(splashing,"The dog splashes real visible droplets in its puddle")

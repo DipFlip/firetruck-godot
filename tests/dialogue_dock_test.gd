@@ -53,6 +53,15 @@ func run() -> void:
 	check(panel.position==paused_position and not panel.visible,"Pause freezes and hides the conversation balloon")
 	game.paused=false
 	game.end_dialogue()
+	var exit_size: float=game.camera.size
+	var max_exit_size:=exit_size
+	var max_zoom_step:=0.0
+	for i in 75:
+		var previous_size: float=game.camera.size
+		await frames(1)
+		max_exit_size=maxf(max_exit_size,game.camera.size)
+		max_zoom_step=maxf(max_zoom_step,absf(game.camera.size-previous_size))
+	check(max_exit_size<=maxf(25.8,exit_size)+.25 and max_zoom_step<.8,"Ending Maya’s conversation eases back to driving without a runaway zoom")
 	root.size=Vector2i(390,564)
 	hud.touch_mode=true
 	hud.touch_portrait=true

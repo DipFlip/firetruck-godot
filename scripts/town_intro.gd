@@ -7,8 +7,6 @@ var active:=false
 var clock:=0.0
 var shot:=0
 var overlay: Control
-var caption: Label
-var skip: Label
 var shade: ColorRect
 
 func _ready() -> void:
@@ -16,14 +14,6 @@ func _ready() -> void:
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	game.hud.add_child(overlay)
-	caption=game.hud.words(overlay,Rect2(),"",42,FireHUD.PAPER,true)
-	caption.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	caption.add_theme_color_override("font_outline_color",FireHUD.INK)
-	caption.add_theme_constant_override("outline_size",5)
-	caption.add_theme_color_override("font_shadow_color",Color("29475480"))
-	caption.add_theme_constant_override("shadow_offset_y",3)
-	skip=game.hud.words(overlay,Rect2(),"",14,FireHUD.PAPER,true)
-	skip.hide()
 	shade=ColorRect.new()
 	shade.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	shade.color=Color("203d48")
@@ -57,25 +47,17 @@ func update(dt: float) -> void:
 			offset=Vector3(90,130,145).lerp(Vector3(80,125,145),smoothstep(0,1,t))
 			var aspect: float=game.hud.size.x/maxf(1,game.hud.size.y)
 			game.camera.size=maxf(155,225/aspect)-smoothstep(0,1,t)*5
-			caption.text="Maple Bay"
 		1:
 			focus=TownLayout.DOG+Vector3.UP*.7
 			offset=Vector3(8,7,10).lerp(Vector3(10,7,8),smoothstep(0,1,t))
 			game.camera.size=10.5
-			caption.text="Morning, Biscuit!"
 		2:
 			focus=game.railway.engine.position+Vector3(0,1.3,0)
 			offset=Vector3(14,10,16).lerp(Vector3(12,10,18),smoothstep(0,1,t))
 			game.camera.size=19
-			caption.text="Northline needs a nudge"
 	game.camera.position=focus+offset
 	game.camera.look_at(focus)
 	game.camera.v_offset=0
-	var caption_font:=clampi(int(game.hud.size.x*.045),26,56) if shot==0 else clampi(int(game.hud.size.x*.032),22,38)
-	caption.add_theme_font_size_override("font_size",caption_font)
-	caption.position=Vector2(12,game.hud.size.y*.78+8*(1-smoothstep(0,.3,t)))
-	caption.size=Vector2(game.hud.size.x-24,caption_font*1.8)
-	caption.visible_characters=mini(caption.text.length(),maxi(0,int((t*2-.20)*22)))
 	shade.color.a=maxf(1-smoothstep(0,.10,t),smoothstep(.90,1,t)) if shot<2 else 1-smoothstep(0,.10,t)
 
 func finish() -> void:

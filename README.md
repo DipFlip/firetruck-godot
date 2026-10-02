@@ -5,7 +5,7 @@ The current art pass uses neutral daylight, brighter colour grading, Forward+ (M
 
 ## Play
 
-A six-second opening tour begins with almost the whole town, then shows Biscuit splashing and the stalled Northline locomotive before handing over control. Titles reveal letter by letter directly over the scene. **Space, Enter, a click, or a tap** skips it. Dispatch starts after the tour, and the truck’s starting area is kept clear of traffic and walkers.
+A six-second opening tour begins with almost the whole town, then shows Biscuit splashing and the stalled Northline locomotive before handing over control. The views contain no captions. **Space, Enter, a click, or a tap** skips it. Dispatch starts after the tour, and the truck’s starting area is kept clear of traffic and walkers.
 
 - **WASD:** camera-relative driving. The chassis turns toward the pressed direction.
 - **Mouse + left click:** aim and spray the roof cannon. **Arrow keys** also aim and spray.

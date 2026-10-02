@@ -6,6 +6,7 @@ const PAPER := Color("eff8fc")
 const MUTED := Color("688a9b")
 const TEAL := Color("51b5cc")
 const ORANGE := Color("ec806c")
+const TEXT_SPEED := 1.5
 var game: Node3D
 # Mission labels remain hidden data sinks for mission/debug tooling.
 var mission_label: Label
@@ -304,9 +305,12 @@ func truck_screen_rect() -> Rect2:
 	return bounds.grow(8 if size.x<size.y and size.y<450 else 14)
 
 func conversation_subject_rect() -> Rect2:
-	if not is_instance_valid(game.dialogue_actor): return Rect2()
-	var rect: Rect2=game.npc_screen_rect(game.dialogue_actor).grow(5)
-	if game.dialogue_actor==game.town.people[0] and not game.cat_rescued:
+	# Keep framing the same person while the camera eases out after speech.
+	# Merging an empty rectangle here included the screen origin in the frame.
+	var actor: Node3D=game.dialogue_actor if is_instance_valid(game.dialogue_actor) else game.camera_subject
+	if not is_instance_valid(actor): return truck_screen_rect()
+	var rect: Rect2=game.npc_screen_rect(actor).grow(5)
+	if actor==game.town.people[0] and not game.cat_rescued:
 		var cat: Node3D=game.town.cat
 		for x in [-.7,.7]:
 			for y in [0,1.3]:
@@ -415,12 +419,13 @@ func _process(dt: float) -> void:
 	if dialogue_panel.visible and not game.paused:
 		_position_dialogue(dt)
 		text_clock-=dt
-		if char_count<full_text.length() and text_clock<=0:
+		while char_count<full_text.length() and text_clock<=0:
 			var ch:=full_text[char_count]
 			char_count+=1
 			dialogue_label.visible_characters=char_count
-			text_clock=.026 if ch not in ".!? ," else .09
-			if ch in ".!?": text_clock=.22
+			var delay:=.026 if ch not in ".!? ," else .09
+			if ch in ".!?": delay=.22
+			text_clock+=delay/TEXT_SPEED
 			if char_count%2==0 and ch!=" ": _speak()
 		var talking:=char_count<full_text.length()
 		portrait.material.set_shader_parameter("bob",Vector2(sin(time*8)*.004,sin(time*10)*.008) if talking else Vector2.ZERO)
