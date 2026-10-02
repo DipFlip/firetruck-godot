@@ -59,6 +59,10 @@ var droplets: Array[Dictionary] = []
 var pool: Array[MeshInstance3D] = []
 var splashes: Array[Dictionary] = []
 var splash_pool: Array[MeshInstance3D] = []
+var water_batch: WaterDrawBatch
+var drop_index:=0
+var splash_index:=0
+var water_materials: Array[Material]=[]
 var spray_direction := Vector3.FORWARD
 var aim_point := Vector3.ZERO
 var spraying := false
@@ -145,18 +149,29 @@ func _ready() -> void:
 	TownProps.cylinder(cannon,Vector3.ZERO,0.3,0.3,Color("fff0c9"))
 	TownProps.box(cannon,Vector3(0,0,-0.55),Vector3(0.24,0.24,1.1),Color("577584"))
 	TownProps.box(cannon,Vector3(0,0,-1.05),Vector3(0.36,0.35,0.24),Color("a6eef0"))
+	var water_mesh:=SphereMesh.new()
+	water_mesh.radial_segments=12
+	water_mesh.rings=6
+	for color in WATER_COLORS: water_materials.append(TownProps.material(color))
 	for i in range(480):
 		var drop := TownProps.ball(get_parent(),Vector3.ZERO,Vector3.ONE*0.2,WATER_COLORS[i%WATER_COLORS.size()])
+		drop.mesh=water_mesh
+		drop.layers=0
 		drop.physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_ON
 		drop.visible = false
 		drop.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		pool.append(drop)
 	for i in range(120):
 		var splash := TownProps.ball(get_parent(),Vector3.ZERO,Vector3.ONE,WATER_COLORS[2+i%3])
+		splash.mesh=water_mesh
+		splash.layers=0
 		splash.physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_ON
 		splash.visible=false
 		splash.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		splash_pool.append(splash)
+	water_batch=WaterDrawBatch.new()
+	water_batch.truck=self
+	get_parent().add_child(water_batch)
 	var ripple_plane:=PlaneMesh.new()
 	for i in 32:
 		var ring:=MeshInstance3D.new()
@@ -583,12 +598,15 @@ func _emit_drop() -> void:
 		_spawn_drop(relative.normalized(),linear_velocity+relative,randf_range(.35,.55),0.0,true)
 
 func _spawn_drop(direction: Vector3, velocity: Vector3, lifetime: float, amount: float, stray: bool, size_multiplier: float=1.0) -> void:
-	for mesh in pool:
+	for offset in pool.size():
+		var slot: int=(drop_index+offset)%pool.size()
+		var mesh:=pool[slot]
 		if mesh.visible: continue
+		drop_index=(slot+1)%pool.size()
 		mesh.visible=true
 		var width:=randf_range(.055,.085) if stray else randf_range(.115,.14)
 		mesh.scale=Vector3(width,width,randf_range(.10,.17) if stray else randf_range(.27,.37))*size_multiplier
-		mesh.material_override=TownProps.material(WATER_COLORS[randi()%WATER_COLORS.size()])
+		mesh.material_override=water_materials[randi()%water_materials.size()]
 		mesh.global_position=cannon.global_position+direction*1.1
 		mesh.look_at(mesh.global_position+velocity,Vector3.FORWARD if absf(velocity.normalized().y)>.98 else Vector3.UP)
 		mesh.reset_physics_interpolation()
@@ -639,8 +657,11 @@ func _splash(point: Vector3, normal: Vector3=Vector3.UP, surface: bool=true) -> 
 	if tangent.length()<.1: tangent=normal.cross(Vector3.FORWARD).normalized()
 	var across:=normal.cross(tangent).normalized()
 	for i in 7:
-		for mesh in splash_pool:
+		for offset in splash_pool.size():
+			var slot: int=(splash_index+offset)%splash_pool.size()
+			var mesh:=splash_pool[slot]
 			if mesh.visible: continue
+			splash_index=(slot+1)%splash_pool.size()
 			var angle:=TAU*i/7+randf_range(-.25,.25)
 			mesh.visible=true
 			mesh.global_position=point+normal*.06

@@ -62,15 +62,27 @@ func _ready() -> void:
 	_batch(stem,stems,[],Color("3b9858"))
 
 func _batch(mesh: Mesh, transforms: Array[Transform3D], colors: Array[Color], color: Color) -> void:
+	# A town-wide MultiMesh cannot cull individual flower beds. Give each
+	# neighbourhood its own bounds so off-screen gardens leave the GPU.
+	var cells: Dictionary={}
+	for i in transforms.size():
+		var p:=transforms[i].origin
+		var cell:=Vector2i(floori(p.x/16),floori(p.z/16))
+		if not cells.has(cell): cells[cell]=[]
+		cells[cell].append(i)
+	for indices in cells.values(): _batch_cell(mesh,transforms,colors,color,indices)
+
+func _batch_cell(mesh: Mesh, transforms: Array[Transform3D], colors: Array[Color], color: Color, indices: Array) -> void:
 	var batch:=MultiMeshInstance3D.new()
 	var instances:=MultiMesh.new()
 	instances.transform_format=MultiMesh.TRANSFORM_3D
 	instances.use_colors=true
 	instances.mesh=mesh
-	instances.instance_count=transforms.size()
-	for i in transforms.size():
-		instances.set_instance_transform(i,transforms[i])
-		instances.set_instance_color(i,colors[i] if not colors.is_empty() else color)
+	instances.instance_count=indices.size()
+	for i in indices.size():
+		var source: int=indices[i]
+		instances.set_instance_transform(i,transforms[source])
+		instances.set_instance_color(i,colors[source] if not colors.is_empty() else color)
 	batch.multimesh=instances
 	var material:=StandardMaterial3D.new()
 	material.vertex_color_use_as_albedo=true
@@ -96,6 +108,7 @@ func _process(dt: float) -> void:
 	if game.paused: return
 	time+=dt
 	for b in butterflies:
+		if not TownProps.near_view(game.camera,b.center+Vector3.UP,3): continue
 		var t: float=time*.65+b.phase
 		b.node.position=b.center+Vector3(cos(t)*1.15,1.0+sin(t*1.7)*.35,sin(t*1.3)*.8)
 		b.node.rotation.y=-t

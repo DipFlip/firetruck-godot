@@ -6,7 +6,10 @@ extends RigidBody3D
 var game: Node3D
 var kind := "prop"
 var radius := .5
-var home: Transform3D
+var home: Transform3D:
+	set(value):
+		home=value
+		_cache_sweep()
 var meshes: Array[GeometryInstance3D] = []
 var loose := false
 var age := 0.0
@@ -14,6 +17,10 @@ var appearing := false
 var protected_cat_tree := false
 var spawn_shape: Shape3D
 var spawn_offset := Vector3.ZERO
+var sweep_inverse:=Transform3D.IDENTITY
+var sweep_basis_inverse:=Basis.IDENTITY
+var sweep_half:=Vector3.ZERO
+var sweep_radius:=0.0
 
 func _ready() -> void:
 	freeze=true
@@ -33,6 +40,13 @@ func _ready() -> void:
 func finish_setup() -> void:
 	home=global_transform
 	_collect_meshes(self)
+
+func _cache_sweep() -> void:
+	if not spawn_shape: return
+	sweep_inverse=home.affine_inverse()
+	sweep_basis_inverse=home.basis.inverse()
+	sweep_half=(spawn_shape as BoxShape3D).size*.5+Vector3(.84,0,.84)
+	sweep_radius=Vector2(sweep_half.x,sweep_half.z).length()+1.1
 
 func _collect_meshes(node: Node) -> void:
 	if node is GeometryInstance3D: meshes.append(node)
@@ -60,7 +74,7 @@ func _physics_process(dt: float) -> void:
 	if loose:
 		if freeze and age<respawn_seconds: freeze=false
 		age+=dt
-		_opacity(clampf((respawn_seconds-age)/2,0,1))
+		if age>respawn_seconds-2: _opacity(clampf((respawn_seconds-age)/2,0,1))
 		if age>=respawn_seconds:
 			freeze=true
 			collision_layer=0
@@ -86,13 +100,15 @@ func _physics_process(dt: float) -> void:
 	var direction:=Vector3(velocity.x,0,velocity.z)
 	var speed:=direction.length()
 	if speed<impact_speed: return
+	var delta:=Vector2(game.truck.global_position.x-home.origin.x,game.truck.global_position.z-home.origin.z)
+	if delta.length_squared()>pow(sweep_radius+speed*dt+.10,2): return
 	direction/=speed
 	for z in [-1.1,1.1]:
 		var start: Vector3=game.truck.global_position+game.truck.global_basis*Vector3(0,0,z)
 		if start.y>global_position.y+2.1 or start.y<global_position.y-.3: continue
-		var local_start:=home.affine_inverse()*start-spawn_offset
-		var local_direction:=home.basis.inverse()*direction
-		var half: Vector3=(spawn_shape as BoxShape3D).size*.5+Vector3(.84,0,.84)
+		var local_start:=sweep_inverse*start-spawn_offset
+		var local_direction:=sweep_basis_inverse*direction
+		var half:=sweep_half
 		var entry:=-INF
 		var leave:=INF
 		var normal_speed:=speed

@@ -5,6 +5,7 @@ GODOT_BIN="${GODOT_BIN:-/Applications/Godot.app/Contents/MacOS/Godot}"
 if [[ ! -x "$GODOT_BIN" ]]; then GODOT_BIN="$(command -v godot)"; fi
 mkdir -p builds/web
 "$GODOT_BIN" --headless --editor --import --quit
+"$GODOT_BIN" --headless --path . --script tools/bake_scenery.gd
 "$GODOT_BIN" --headless --export-release Web builds/web/index.html
 cp assets/fonts/Nunito.ttf builds/web/Nunito.ttf
 cp assets/fonts/OFL-Nunito.txt builds/web/OFL-Nunito.txt

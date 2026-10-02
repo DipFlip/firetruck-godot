@@ -1,0 +1,87 @@
+{
+  "renderer": "gl_compatibility",
+  "resolution": [
+    1280,
+    800
+  ],
+  "results": [
+    {
+      "draw_calls": 1344.0,
+      "frame_ms_p50": 3.891,
+      "frame_ms_p95": 4.704,
+      "frames": 758,
+      "physics_ms": 0.611,
+      "primitives": 767406.0,
+      "scene": "station",
+      "truck_position": [
+        0.0,
+        12.0
+      ]
+    },
+    {
+      "draw_calls": 1246.0,
+      "frame_ms_p50": 3.609,
+      "frame_ms_p95": 4.355,
+      "frames": 810,
+      "physics_ms": 0.556,
+      "primitives": 757410.0,
+      "scene": "cat",
+      "truck_position": [
+        12.0,
+        -1.0
+      ]
+    },
+    {
+      "draw_calls": 1273.0,
+      "frame_ms_p50": 4.137,
+      "frame_ms_p95": 5.667,
+      "frames": 677,
+      "physics_ms": 1.075,
+      "primitives": 768146.0,
+      "scene": "barbecue",
+      "truck_position": [
+        42.0,
+        -14.0
+      ]
+    },
+    {
+      "draw_calls": 774.0,
+      "frame_ms_p50": 3.281,
+      "frame_ms_p95": 4.426,
+      "frames": 868,
+      "physics_ms": 0.978,
+      "primitives": 490240.0,
+      "scene": "pool",
+      "truck_position": [
+        14.0,
+        61.0
+      ]
+    },
+    {
+      "draw_calls": 496.0,
+      "frame_ms_p50": 2.557,
+      "frame_ms_p95": 3.469,
+      "frames": 1123,
+      "physics_ms": 0.509,
+      "primitives": 170876.0,
+      "scene": "train",
+      "truck_position": [
+        -22.0,
+        -63.0
+      ]
+    },
+    {
+      "draw_calls": 932.0,
+      "frame_ms_p50": 3.912,
+      "frame_ms_p95": 5.081,
+      "frames": 743,
+      "physics_ms": 0.677,
+      "primitives": 587676.0,
+      "scene": "driving",
+      "truck_position": [
+        -3.70705604553223,
+        -0.365750938653946
+      ]
+    }
+  ]
+}

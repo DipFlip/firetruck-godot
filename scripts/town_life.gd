@@ -221,6 +221,7 @@ func _physics_process(dt: float) -> void:
 			body.apply_central_force(force.limit_length(body.mass*8))
 			var error:=wrapf(atan2(-direction.x,-direction.z)-body.rotation.y,-PI,PI)
 			body.apply_torque(Vector3.UP*(error*7-body.angular_velocity.y*3))
+		if not TownProps.near_view(game.camera,body.position,4): continue
 		for wheel in car.wheels:
 			wheel.rotation.x-=car.speed*dt/.34
 			# Raised intersection paint/paving is query-only, so also keep the
@@ -272,7 +273,7 @@ func _physics_process(dt: float) -> void:
 		var p: Vector3=bird.center+Vector3(cos(a)*bird.radius,sin(time*.7+bird.phase)*1.2,sin(a)*bird.radius*.65)
 		bird.node.position=p
 		bird.node.rotation.y=atan2(sin(a),-cos(a)*.65)
-		_pose_bird(bird,1,0,0,time*13+bird.phase)
+		if TownProps.near_view(game.camera,p,2): _pose_bird(bird,1,0,0,time*13+bird.phase)
 	_update_ground_birds(dt)
 
 func _update_ground_birds(dt: float) -> void:
@@ -304,7 +305,7 @@ func _update_ground_birds(dt: float) -> void:
 		else:
 			var folding: bool=bird.mode=="land" and bird.age>2.05
 			bird.open=move_toward(bird.open,0.0 if folding else 1.0,dt*5)
-			_pose_bird(bird,bird.open,0,0,time*19+bird.phase)
+			if TownProps.near_view(game.camera,node.position,2) or node.position.distance_to(truck)<18: _pose_bird(bird,bird.open,0,0,time*19+bird.phase)
 			if bird.mode=="flee":
 				var t: float=clampf(bird.age/2.1,0,1)
 				node.position=bird.from.lerp(bird.escape,smoothstep(.30,1,t))
@@ -374,10 +375,13 @@ func _forage_bird(bird: Dictionary, dt: float) -> void:
 			bird.forage="walk"
 		bird.forage_age=0.0
 	node.position.y=bird.ground_y+bob
-	_pose_bird(bird,bird.open,peck,step,time*19+bird.phase)
+	if TownProps.near_view(game.camera,node.position,2) or node.position.distance_to(game.truck.position)<18: _pose_bird(bird,bird.open,peck,step,time*19+bird.phase)
 
 func water_hit(point: Vector3, amount: float) -> bool:
 	for car in cars:
+		# Most pellets are nowhere near traffic. Avoid three inverse transforms
+		# per pellet before testing the unchanged, oriented wash hitbox.
+		if car.node.global_position.distance_squared_to(point)>9: continue
 		var local: Vector3=car.node.to_local(point)
 		if absf(local.x)<=1.0 and absf(local.z)<=1.7 and local.y>=.25 and local.y<1.8:
 			car.wet_age=0.0

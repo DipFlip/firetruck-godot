@@ -39,6 +39,11 @@ func run() -> void:
 	life._keep_pool_clear(pedestrian)
 	check(life._pool_safe(pedestrian.position),"Pedestrian dodges are kept away from the pool rim")
 	var bird: Dictionary=life.ground_birds[0]
+	# Inspect the pecking pose with the bird in view, while the truck stays
+	# far enough away to leave it undisturbed. Off-screen poses are now culled.
+	game.set_process(false)
+	game.camera.position=bird.home+game.camera_offset
+	game.camera.look_at(bird.home)
 	var origin: Vector3=bird.node.position
 	var wandered:=0.0
 	var beak_high: float=(bird.head.global_transform*Vector3(0,.005,-.175)).y

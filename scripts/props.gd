@@ -6,9 +6,12 @@ static var rounded_mesh: Mesh
 static var sphere_mesh: SphereMesh
 static var cylinder_meshes: Dictionary = {}
 static var effect_shaders: Dictionary = {}
+static var bake_scenery:=false
 
 static func model(path: String, parent: Node3D) -> Node3D:
-	var node: Node3D=load(path).instantiate()
+	var optimized: String="res://assets/scenery/"+path.get_file().get_basename()+".scn"
+	var source_path:=optimized if path.get_file().begins_with("tree_") and ResourceLoader.exists(optimized) else path
+	var node: Node3D=load(source_path).instantiate()
 	parent.add_child(node)
 	return node
 
@@ -209,3 +212,175 @@ static func batch_decorations(root: Node3D) -> int:
 			meshes[i].queue_free()
 			count+=1
 	return count
+
+# Bake fixed geometry into small material groups. Original nodes remain as
+# collision/query references; actors and shader-driven geometry are excluded.
+static func merge_fixed_geometry(root: Node3D, excluded: Array[Node3D], cache_name: String="") -> int:
+	var meshes: Array[MeshInstance3D]=[]
+	_collect_fixed(root,excluded,meshes)
+	if cache_name.is_empty(): cache_name=root.get_script().resource_path.get_file().get_basename()
+	var cache_path: String="res://assets/scenery/"+cache_name+".scn"
+	var signature: Array=[]
+	for node in meshes:
+		var palette: Array=[]
+		for surface in node.mesh.get_surface_count():
+			var paint: Material=node.get_active_material(surface)
+			palette.append([paint.albedo_color,paint.roughness,paint.metallic,paint.transparency] if paint is StandardMaterial3D else paint.resource_path if paint else "")
+		signature.append([node.mesh.resource_path,str(node.mesh.get_aabb()),str(palette),node.cast_shadow,str(root.global_transform.affine_inverse()*node.global_transform)])
+	var fingerprint:=var_to_bytes(signature).hex_encode().sha256_text()
+	if not bake_scenery and ResourceLoader.exists(cache_path):
+		var cached: Node3D=load(cache_path).instantiate()
+		if cached.get_meta("fingerprint","")==fingerprint:
+			root.add_child(cached)
+			var indices: Array=cached.get_meta("sources",[])
+			for index in indices:
+				meshes[index].layers=0
+				meshes[index].cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			return indices.size()
+		cached.free()
+	var batches: Array[MeshInstance3D]=[]
+	var groups: Dictionary={}
+	var converted: Dictionary={}
+	var tinted: Dictionary={}
+	var material_keys: Dictionary={}
+	var tinted_materials: Dictionary={}
+	var inverse:=root.global_transform.affine_inverse()
+	for node in meshes:
+		var source: ArrayMesh
+		if node.mesh is ArrayMesh: source=node.mesh
+		elif node.mesh is PrimitiveMesh:
+			if not converted.has(node.mesh):
+				var array_mesh:=ArrayMesh.new()
+				array_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,node.mesh.surface_get_arrays(0))
+				converted[node.mesh]=array_mesh
+			source=converted[node.mesh]
+		else: continue
+		var transform:=inverse*node.global_transform
+		var p:=transform.origin
+		var cell:=Vector2i(floori(p.x/16),floori(p.z/16))
+		for surface in node.mesh.get_surface_count():
+			var material: Material=node.material_override
+			if not material: material=node.get_surface_override_material(surface)
+			if not material: material=node.mesh.surface_get_material(surface)
+			if not material is StandardMaterial3D: continue
+			if source.surface_get_primitive_type(surface)!=Mesh.PRIMITIVE_TRIANGLES: continue
+			var surface_mesh:=source
+			var surface_index:=surface
+			# Bake opaque, untextured palette colours into vertices. Materials
+			# that differ only in paint colour can then share one draw call.
+			if material.albedo_texture==null and not material.vertex_color_use_as_albedo and material.transparency==BaseMaterial3D.TRANSPARENCY_DISABLED and material.albedo_color.a==1:
+				var tint_key:="%s/%s/%s" % [source.get_rid(),surface,material.albedo_color]
+				if not tinted.has(tint_key):
+					var arrays:=source.surface_get_arrays(surface)
+					var colors:=PackedColorArray()
+					colors.resize(arrays[Mesh.ARRAY_VERTEX].size())
+					colors.fill(material.albedo_color)
+					arrays[Mesh.ARRAY_COLOR]=colors
+					var colored:=ArrayMesh.new()
+					colored.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
+					tinted[tint_key]=colored
+				if not tinted_materials.has(material):
+					var painted:=material.duplicate() as StandardMaterial3D
+					painted.albedo_color=Color.WHITE
+					painted.vertex_color_use_as_albedo=true
+					painted.vertex_color_is_srgb=true
+					tinted_materials[material]=painted
+				surface_mesh=tinted[tint_key]
+				surface_index=0
+				material=tinted_materials[material]
+			if not material_keys.has(material): material_keys[material]=_material_signature(material)
+			var key:="%s/%s/%s/%s" % [material_keys[material],surface_mesh.surface_get_format(surface_index),node.cast_shadow,cell]
+			if not groups.has(key): groups[key]={"material":material,"shadow":node.cast_shadow,"parts":[]}
+			groups[key].parts.append({"node":node,"mesh":surface_mesh,"surface":surface_index,"original_surface":surface,"transform":transform})
+	var merged: Dictionary={}
+	var eligible: Dictionary={}
+	for group in groups.values():
+		for part in group.parts: eligible[part.node]=eligible.get(part.node,0)+1
+	for group in groups.values():
+		var parts: Array=group.parts.filter(func(part: Dictionary): return eligible.get(part.node,0)==part.node.mesh.get_surface_count())
+		if parts.is_empty(): continue
+		var builder:=SurfaceTool.new()
+		builder.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for part in parts: _append_transformed(builder,part.mesh,part.surface,part.transform)
+		builder.set_material(group.material)
+		var batch:=MeshInstance3D.new()
+		batch.name="FixedSceneryBatch"
+		var importer:=ImporterMesh.new()
+		importer.add_surface(Mesh.PRIMITIVE_TRIANGLES,builder.commit_to_arrays(),[],{},group.material)
+		importer.generate_lods(60,25,[])
+		batch.mesh=importer.get_mesh()
+		batch.cast_shadow=group.shadow
+		root.add_child(batch)
+		batches.append(batch)
+		for part in parts:
+			if not merged.has(part.node): merged[part.node]=[]
+			merged[part.node].append(part.original_surface)
+	# Only suppress an original once all its surfaces have a replacement.
+	for node in merged:
+		if merged[node].size()==node.mesh.get_surface_count():
+			node.layers=0
+			node.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if bake_scenery:
+		DirAccess.make_dir_recursive_absolute("res://assets/scenery")
+		var baked:=Node3D.new()
+		baked.name="BakedScenery"
+		baked.set_meta("fingerprint",fingerprint)
+		var indices: Array=[]
+		for node in merged: indices.append(meshes.find(node))
+		baked.set_meta("sources",indices)
+		for batch in batches:
+			var copy:=batch.duplicate()
+			baked.add_child(copy)
+			copy.owner=baked
+		var scene:=PackedScene.new()
+		scene.pack(baked)
+		var error:=ResourceSaver.save(scene,cache_path,ResourceSaver.FLAG_COMPRESS)
+		assert(error==OK,"Could not bake scenery: "+cache_path)
+		baked.free()
+	return merged.size()
+
+# SurfaceTool.append_from applies the same basis to normals as positions.
+# Thin paving and nonuniform building parts need inverse-transpose normals.
+static func _append_transformed(builder: SurfaceTool, mesh: ArrayMesh, surface: int, transform: Transform3D) -> void:
+	var arrays:=mesh.surface_get_arrays(surface)
+	var vertices: PackedVector3Array=arrays[Mesh.ARRAY_VERTEX]
+	var normals: PackedVector3Array=arrays[Mesh.ARRAY_NORMAL]
+	var normal_basis:=transform.basis.inverse().transposed()
+	for i in vertices.size(): vertices[i]=transform*vertices[i]
+	for i in normals.size(): normals[i]=(normal_basis*normals[i]).normalized()
+	arrays[Mesh.ARRAY_VERTEX]=vertices
+	arrays[Mesh.ARRAY_NORMAL]=normals
+	if arrays[Mesh.ARRAY_TANGENT]!=null:
+		var tangents: PackedFloat32Array=arrays[Mesh.ARRAY_TANGENT]
+		for i in range(0,tangents.size(),4):
+			var tangent: Vector3=(transform.basis*Vector3(tangents[i],tangents[i+1],tangents[i+2])).normalized()
+			tangents[i]=tangent.x
+			tangents[i+1]=tangent.y
+			tangents[i+2]=tangent.z
+		arrays[Mesh.ARRAY_TANGENT]=tangents
+	var transformed:=ArrayMesh.new()
+	transformed.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
+	builder.append_from(transformed,0,Transform3D.IDENTITY)
+
+static func _material_signature(material: StandardMaterial3D) -> String:
+	var values: Array=[]
+	for property in material.get_property_list():
+		var key: String=property.name
+		if (property.usage&PROPERTY_USAGE_STORAGE)==0 or key.begins_with("resource_") or key.begins_with("metadata/"): continue
+		var value=material.get(key)
+		values.append([key,value.get_instance_id() if value is Resource else value])
+	return JSON.stringify(values)
+
+static func near_view(camera: Camera3D, point: Vector3, radius: float=3.0) -> bool:
+	if not camera or camera.is_position_behind(point): return false
+	var view:=camera.get_viewport().get_visible_rect()
+	var padding:=radius*view.size.y/maxf(1,camera.size)+32
+	return view.grow(padding).has_point(camera.unproject_position(point))
+
+static func _collect_fixed(node: Node3D, excluded: Array[Node3D], meshes: Array[MeshInstance3D]) -> void:
+	for child in node.get_children():
+		if not child is Node3D or child in excluded: continue
+		if child is CollisionObject3D or child is MultiMeshInstance3D: continue
+		if child is MeshInstance3D and child.visible and child.layers!=0 and not child.mesh is QuadMesh:
+			meshes.append(child)
+		_collect_fixed(child,excluded,meshes)

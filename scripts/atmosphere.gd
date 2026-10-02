@@ -58,7 +58,7 @@ func _ready() -> void:
 	TownProps.cylinder(self,center+Vector3.UP*.9,.32,1.5,Color("dacbad"))
 	TownProps.cylinder(self,center+Vector3.UP*1.64,.84,.22,Color("d3c4a4"))
 	for i in range(36):
-		var d:=TownProps.ball(self,Vector3.ZERO,Vector3.ONE*.09,Color("bce0d2"))
+		var d:=TownProps.ball(self,center+Vector3.UP*1.72,Vector3.ONE*.09,Color("bce0d2"))
 		d.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		fountain_drops.append(d)
 	# A station forecourt, hose practice markings, and little street props.
@@ -135,7 +135,7 @@ func _process(dt: float) -> void:
 		puff.mesh.look_at(game.camera.global_position)
 		TownProps.effect_opacity(puff.mesh,minf(1,(1.15-puff.life)*8)*maxf(0,puff.life)*.58)
 		if puff.life<=0: puff.mesh.visible=false; steam.remove_at(i)
-	for i in fountain_drops.size():
+	for i in (fountain_drops.size() if TownProps.near_view(game.camera,Vector3(-23,1,-10),4) else 0):
 		var t:=fmod(time*.8+float(i%6)/6,1.0)
 		var a:=float(i/6)*TAU/6
 		fountain_drops[i].position=Vector3(-23+cos(a)*t*1.6,1.72+1.2*t-2.2*t*t,-10+sin(a)*t*1.6)

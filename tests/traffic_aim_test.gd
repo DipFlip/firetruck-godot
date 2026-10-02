@@ -73,6 +73,12 @@ func run() -> void:
 	# Use the same moving-speed floor as the repeated-corner circulation check.
 	check(stranded.node.position.distance_to(Vector3(50,0,52))>15 and stranded.speed>2,"A car stranded off its route fades back to a clear lane and drives again")
 	cage.queue_free()
+	# Keep every route visible during the visual tire-clearance check.
+	# Traffic still simulates off-screen, but wheel raycasts only run in view.
+	game.set_process(false)
+	game.camera.position=Vector3(0,140,160)
+	game.camera.look_at(Vector3.ZERO)
+	game.camera.size=200
 	var moving:=true
 	var min_tire_clearance:=INF
 	for i in 6:
@@ -85,6 +91,7 @@ func run() -> void:
 				if road: min_tire_clearance=minf(min_tire_clearance,wheel.global_position.y-.34-road.position.y)
 	check(moving,"All three cars keep circulating through repeated corners for a minute")
 	check(min_tire_clearance>=-.005 and min_tire_clearance<.08,"Town car tires clear the roads and ramps without floating above them")
+	game.set_process(true)
 	game.life.set_physics_process(false)
 	for car in game.life.cars: car.node.freeze=true
 	game.barbecue_call_delay=-1

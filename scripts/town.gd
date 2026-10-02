@@ -119,11 +119,20 @@ func _gather_foliage() -> void:
 	for child in get_children():
 		if child.get_child_count()>0:
 			var first: Node=child.get_child(0)
-			if first is Node3D and first.scene_file_path.contains("tree_"): foliage.append(first)
+			if first is Node3D and first.scene_file_path.contains("tree_"):
+				var optimized: String="res://assets/scenery/"+first.scene_file_path.get_file().get_basename()+".scn"
+				if first.scene_file_path!=optimized and ResourceLoader.exists(optimized):
+					var replacement: Node3D=load(optimized).instantiate()
+					child.add_child(replacement)
+					replacement.transform=first.transform
+					first.free()
+					first=replacement
+				foliage.append(first)
 
 func _process(dt: float) -> void:
 	time+=dt
 	for i in foliage.size():
+		if truck and not TownProps.near_view(truck.camera,foliage[i].global_position+Vector3.UP*3,6): continue
 		foliage[i].rotation.z=sin(time*0.8+i*1.6)*0.009
 		foliage[i].rotation.x=cos(time*0.6+i)*0.006
 	for i in flames.size():
@@ -131,6 +140,7 @@ func _process(dt: float) -> void:
 		flames[i].scale=Vector3(0.6,1.3+sin(time*8+i)*0.5,0.6)*maxf(0.05,fire_amount)*(1.0-water_response*.2)
 	for i in people.size():
 		var person:=people[i]
+		if truck and not TownProps.near_view(truck.camera,person.global_position+Vector3.UP,3): continue
 		person.scale.y=1+sin(time*2+i)*0.009
 		var eyes: Node3D=person.get_node_or_null("Eyes")
 		if eyes: eyes.scale.y=0.1 if fmod(time+i*0.8,4.3)<0.13 else 1.0

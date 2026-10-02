@@ -1,0 +1,98 @@
+{
+  "before": {
+    "idle": {
+      "label": "idle",
+      "frames": 302,
+      "frameMsMedian": 16.69999999999709,
+      "drawCallsMedian": 1061,
+      "elapsed": 5.032537999999477,
+      "taskSeconds": 2.997924,
+      "scriptSeconds": 2.895178,
+      "telemetry": {
+        "camera_size": 25.7999992370605,
+        "fps": 60,
+        "logical_view": [
+          459,
+          664
+        ],
+        "truck_position": [
+          0,
+          12
+        ],
+        "water": 100
+      }
+    },
+    "spray": {
+      "label": "spray",
+      "frames": 302,
+      "frameMsMedian": 16.69999999999709,
+      "drawCallsMedian": 1274,
+      "elapsed": 5.037867999999435,
+      "taskSeconds": 4.664618,
+      "scriptSeconds": 4.599191,
+      "telemetry": {
+        "camera_size": 25.7999992370605,
+        "fps": 60,
+        "logical_view": [
+          459,
+          664
+        ],
+        "truck_position": [
+          0,
+          12
+        ],
+        "water": 64.7999999999993
+      }
+    }
+  },
+  "after": {
+    "idle": {
+      "label": "idle",
+      "frames": 302,
+      "frameMsMedian": 16.69999999999709,
+      "drawCallsMedian": 809,
+      "elapsed": 5.047116999994614,
+      "taskSeconds": 2.6021099999999997,
+      "scriptSeconds": 2.51824,
+      "telemetry": {
+        "camera_size": 25.7999992370605,
+        "fps": 60,
+        "logical_view": [
+          459,
+          664
+        ],
+        "merged_scenery": 243,
+        "scenery_cached": true,
+        "truck_position": [
+          0,
+          12
+        ],
+        "water": 100
+      }
+    },
+    "spray": {
+      "label": "spray",
+      "frames": 293,
+      "frameMsMedian": 16.69999999999709,
+      "drawCallsMedian": 782,
+      "elapsed": 5.020390999998199,
+      "taskSeconds": 4.097294,
+      "scriptSeconds": 4.0484089999999995,
+      "telemetry": {
+        "camera_size": 25.7999992370605,
+        "fps": 60,
+        "logical_view": [
+          459,
+          664
+        ],
+        "merged_scenery": 243,
+        "scenery_cached": true,
+        "truck_position": [
+          0,
+          12
+        ],
+        "water": 65.2583333333326
+      }
+    }
+  }
+}

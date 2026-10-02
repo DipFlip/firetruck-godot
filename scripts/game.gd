@@ -73,6 +73,7 @@ var refill_hose: RefillHose
 var web_controls: WebControls
 var loading:=false
 var batched_decorations:=0
+var merged_scenery:=0
 var conversation_pan:=0.0
 var railway: NorthlineRailway
 var dog_puddle: DogPuddle
@@ -167,6 +168,12 @@ func _ready() -> void:
 	intro.game=self
 	add_child(intro)
 	batched_decorations=TownProps.batch_decorations(atmosphere)
+	var animated: Array[Node3D]=[town.cat,town.dog,town.pool_water]
+	animated.append_array(town.people)
+	animated.append_array(town.flames)
+	animated.append_array(atmosphere.fountain_drops)
+	animated.append_array(atmosphere.embers)
+	merged_scenery=TownProps.merge_fixed_geometry(town,animated)+TownProps.merge_fixed_geometry(atmosphere,animated)
 	web_controls=WebControls.new()
 	web_controls.game=self
 	add_child(web_controls)
@@ -624,6 +631,7 @@ func _water_hit(point: Vector3, amount: float) -> bool:
 		dog_progress=minf(1,dog_progress+amount*0.60)
 		if dog_progress>=1:
 			dog_done=true
+			if stage==4: _update_mission()
 			for child in town.dog.get_children():
 				if child is MeshInstance3D: child.material_override=TownProps.material(Color("e9c58b"))
 			rewards.celebrate("dog",TownLayout.DOG+Vector3.UP*.5,"JUNE","Look at that shiny coat! Thank you — Biscuit's ready for cuddles again.")
@@ -634,8 +642,8 @@ func _water_hit(point: Vector3, amount: float) -> bool:
 		truck._splash(Vector3(point.x,town.pool_water.position.y,point.z),Vector3.UP,true)
 		if pool_progress>=1:
 			pool_done=true
+			if stage==4: _update_mission()
 			rewards.celebrate("pool",TownLayout.POOL+Vector3.UP*.15,"OLIVER","It's perfect! Thank you for saving our pool party. You're always welcome for a swim!")
-	if stage==4: _update_mission()
 	return consumed
 
 func _update_mission() -> void:

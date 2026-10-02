@@ -6,7 +6,9 @@ var samples: Array[Vector3]=[]
 var raw_samples: Array[Vector3]=[]
 func _initialize() -> void: call_deferred("run")
 func frames(n: int) -> void:
-	for i in n: await physics_frame
+	for i in n:
+		for j in 5: game.proximity_latches[j]=true
+		await physics_frame
 func check(ok: bool, words: String) -> void:
 	print(("PASS: " if ok else "FAIL: ")+words)
 	if not ok: failures+=1
@@ -23,6 +25,7 @@ func run() -> void:
 	game.truck.automated_drive=Vector2(.875,-.484)
 	await frames(65)
 	for i in 48:
+		for j in 5: game.proximity_latches[j]=true
 		await process_frame
 		samples.append(game.truck.get_global_transform_interpolated().origin)
 		raw_samples.append(game.truck.global_position)
