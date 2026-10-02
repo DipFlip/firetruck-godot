@@ -8,6 +8,7 @@ signal empty_spray
 
 var hit_receiver: Callable
 var drive_guide: Callable
+var train_push_z:=NAN
 var aim_assist: Callable
 var assisted := false
 const WATER_SPEED := 22.0 # Nozzle speed relative to the moving truck.
@@ -252,6 +253,8 @@ func _update_ladder(dt: float) -> void:
 				if area.try_activate(self): break
 
 func reset_truck() -> void:
+	train_push_z=NAN
+	axis_lock_linear_z=false
 	global_position = Vector3(0,1.0,12)
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
@@ -280,6 +283,17 @@ func drive_input() -> Vector2:
 	if not enabled: return Vector2.ZERO
 	if use_automation: return automated_drive
 	return touch_drive if touch_drive.length()>.01 else Input.get_vector("left","right","forward","back")
+
+func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+	if is_nan(train_push_z): return
+	# Constrain only sideways motion. Forward contact forces, hose recoil,
+	# vertical suspension and gravity stay with the physics solver.
+	var pose:=state.transform
+	pose.origin.z=lerpf(pose.origin.z,train_push_z,1-exp(-14*state.step))
+	state.transform=pose
+	var velocity:=state.linear_velocity
+	velocity.z=0
+	state.linear_velocity=velocity
 
 func _physics_process(dt: float) -> void:
 	elapsed += dt

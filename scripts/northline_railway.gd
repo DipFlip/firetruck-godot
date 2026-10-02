@@ -177,21 +177,32 @@ func talk_to_driver(manual: bool=false) -> bool:
 
 func guide_push(desired: Vector3, dt: float) -> Vector3:
 	push_release_time=maxf(0,push_release_time-dt)
-	if started or game.paused: push_locked=false; return desired
+	if started: _release_push(); return desired
+	if game.paused: return desired
 	var truck: FireEngine=game.truck
 	var local:=truck.position-engine.position
-	var behind:=local.x< -4.0 and local.x> -8.0 and absf(local.z)<2.2 and truck.grounded
+	var behind:=local.x< -4.0 and local.x> -9.0 and absf(local.z)<3.0 and truck.grounded
 	# Input is camera-relative at the controls, but the lock uses the actual
 	# requested world direction. A deliberate right-angle turn releases it.
 	if push_locked and desired.length()>.1 and desired.x<=.00001:
-		push_locked=false
+		_release_push()
 		push_release_time=.6
-	if not behind: push_locked=false
-	if not push_locked and behind and push_release_time==0 and desired.x>.1 and engine.get_colliding_bodies().has(truck): push_locked=true
+	# A brief contact gap or suspension hop must not release the hold.
+	# Recovery/teleporting elsewhere clears it without pulling the truck back.
+	if push_locked and (is_nan(truck.train_push_z) or local.length()>12 or local.x> -3): _release_push()
+	if not push_locked and behind and push_release_time==0 and desired.length()>.1 and desired.x>.00001 and engine.get_colliding_bodies().has(truck):
+		push_locked=true
+		truck.axis_lock_linear_z=true
 	if not push_locked: return desired
-	var correction:=clampf(-local.z*5-truck.linear_velocity.z*3,-5,5)
-	truck.apply_central_force(Vector3(0,0,correction*truck.mass))
+	truck.train_push_z=engine.position.z
+	truck.heading=lerp_angle(truck.heading,-PI/2,1-exp(-12*dt))
 	return Vector3.RIGHT*desired.length()
+
+func _release_push() -> void:
+	if not push_locked: return
+	push_locked=false
+	game.truck.train_push_z=NAN
+	game.truck.axis_lock_linear_z=false
 
 func _physics_process(dt: float) -> void:
 	engine.freeze=game.paused
@@ -259,7 +270,7 @@ func _physics_process(dt: float) -> void:
 
 func _start_engine() -> void:
 	started=true
-	push_locked=false
+	_release_push()
 	boarding_time=.001
 	driver_from=driver.position
 	driver_guard.collision_layer=0

@@ -61,37 +61,63 @@ func run() -> void:
 	check(game.hud.prompt_label.text.is_empty(),"The train cannot trigger the cat’s ladder hint")
 	game.stage=4
 	game.end_dialogue()
-	game.truck.position=rail.engine.position+Vector3(-7,.73,0)
-	game.truck.heading=-PI/2
-	game.truck.rotation.y=-PI/2
+	game.truck.position=rail.engine.position+Vector3(-7,.73,1.1)
+	game.truck.heading=-PI/2+.35
+	game.truck.rotation.y=game.truck.heading
 	game.truck.linear_velocity=Vector3.ZERO
 	game.truck.reset_physics_interpolation()
 	game.camera_focus=game.truck.position
 	for i in 240:
 		var ahead: Vector3=-game.camera.global_basis.z
 		ahead.y=0
-		game.truck.automated_drive=Vector2(Vector3.RIGHT.dot(game.camera.global_basis.x),-Vector3.RIGHT.dot(ahead.normalized()))
+		var direction:=Vector3(1,0,.45).normalized()
+		game.truck.automated_drive=Vector2(direction.dot(game.camera.global_basis.x),-direction.dot(ahead.normalized()))
 		await frames(1)
 	check(rail.pushed_once and not rail.started,"Driving into the train alone is too weak to start its engine")
 	check(rail.push_locked,"Actual rear contact gently locks the truck into the push")
-	var guided:=rail.guide_push(Vector3(1,0,1).normalized(),1.0/60)
-	check(rail.push_locked and guided.is_equal_approx(Vector3.RIGHT),"A small steering change keeps pushing straight into the train")
+	check(absf(game.truck.position.z-rail.engine.position.z)<.12 and absf(angle_difference(game.truck.heading,-PI/2))<.08,"An off-centre, crooked approach settles onto the train centreline despite diagonal steering")
+	game.truck.apply_central_impulse(Vector3(0,0,game.truck.mass*5))
+	for i in 45:
+		var ahead: Vector3=-game.camera.global_basis.z
+		ahead.y=0
+		var direction:=Vector3(1,0,.9).normalized()
+		game.truck.automated_drive=Vector2(direction.dot(game.camera.global_basis.x),-direction.dot(ahead.normalized()))
+		await frames(1)
+	check(rail.push_locked and absf(game.truck.position.z-rail.engine.position.z)<.12,"The push hold absorbs sideways impact without letting the truck slide off")
+	game.truck.automated_drive=Vector2.ZERO
+	await frames(30)
+	check(rail.push_locked and game.truck.axis_lock_linear_z and absf(game.truck.position.z-rail.engine.position.z)<.12,"Releasing the controls keeps the truck aligned instead of losing the hold")
+	var guided:=rail.guide_push(Vector3(.01,0,1).normalized(),1.0/60)
+	check(rail.push_locked and guided.is_equal_approx(Vector3.RIGHT),"Steering almost ninety degrees away still keeps pushing straight into the train")
 	guided=rail.guide_push(Vector3.BACK,1.0/60)
 	check(not rail.push_locked and guided==Vector3.BACK,"A deliberate ninety-degree turn releases the push lock")
+	var released_z: float=game.truck.position.z
+	for i in 45:
+		var ahead: Vector3=-game.camera.global_basis.z
+		ahead.y=0
+		game.truck.automated_drive=Vector2(Vector3.BACK.dot(game.camera.global_basis.x),-Vector3.BACK.dot(ahead.normalized()))
+		await frames(1)
+	check(not rail.push_locked and game.truck.position.z>released_z+1,"Ninety-degree steering releases the physical hold so the truck can drive away")
+	game.truck.position=rail.engine.position+Vector3(-7,.73,-1.1)
+	game.truck.heading=-PI/2
+	game.truck.rotation.y=-PI/2
+	game.truck.linear_velocity=Vector3.ZERO
+	game.truck.reset_physics_interpolation()
 	game.end_dialogue()
 	await frames(3)
 	check(rail.hint_sent and game.hud.full_text.contains("backwards"),"After the first push Rowan explains the backwards water recoil")
 	game.truck.automated_spray=true
 	game.truck.automated_aim=game.truck.position+Vector3(-13,-.8,0)
-	for i in 300:
+	for i in 180:
 		if rail.started: break
 		var ahead: Vector3=-game.camera.global_basis.z
 		ahead.y=0
 		game.truck.automated_drive=Vector2(Vector3.RIGHT.dot(game.camera.global_basis.x),-Vector3.RIGHT.dot(ahead.normalized()))
-		game.truck.automated_aim=game.truck.position+Vector3(-13,-.8,0)
+		game.truck.automated_aim=game.truck.position+Vector3(-13,-.8,2)
 		await frames(1)
 	print("Train push measured: x=",rail.engine.position.x," speed=",rail.engine.linear_velocity.x," assist=",rail.assist_time," truck=",game.truck.position)
-	check(rail.started and game.truck.water<100,"Actual contact plus backwards hose recoil push-starts the heavy train")
+	check(rail.started and game.truck.water<100,"An off-centre push plus angled backwards hose recoil starts the train within three seconds")
+	check(not rail.push_locked and not game.truck.axis_lock_linear_z and is_nan(game.truck.train_push_z),"Engine startup releases the hold and restores normal sideways movement")
 	game.truck.automated_spray=false
 	game.truck.automated_drive=Vector2.ZERO
 	game.truck.position=Vector3(0,.85,12)
