@@ -16,6 +16,8 @@ var started:=false
 var boarded:=false
 var briefed:=false
 var pushed_once:=false
+var push_locked:=false
+var push_release_time:=0.0
 var hint_pending:=false
 var hint_sent:=false
 var assist_time:=0.0
@@ -173,6 +175,24 @@ func talk_to_driver(manual: bool=false) -> bool:
 	game.talk("ROWAN  /  NORTHLINE",words,game.stage)
 	return true
 
+func guide_push(desired: Vector3, dt: float) -> Vector3:
+	push_release_time=maxf(0,push_release_time-dt)
+	if started or game.paused: push_locked=false; return desired
+	var truck: FireEngine=game.truck
+	var local:=truck.position-engine.position
+	var behind:=local.x< -4.0 and local.x> -8.0 and absf(local.z)<2.2 and truck.grounded
+	# Input is camera-relative at the controls, but the lock uses the actual
+	# requested world direction. A deliberate right-angle turn releases it.
+	if push_locked and desired.length()>.1 and desired.x<=.00001:
+		push_locked=false
+		push_release_time=.6
+	if not behind: push_locked=false
+	if not push_locked and behind and push_release_time==0 and desired.x>.1 and engine.get_colliding_bodies().has(truck): push_locked=true
+	if not push_locked: return desired
+	var correction:=clampf(-local.z*5-truck.linear_velocity.z*3,-5,5)
+	truck.apply_central_force(Vector3(0,0,correction*truck.mass))
+	return Vector3.RIGHT*desired.length()
+
 func _physics_process(dt: float) -> void:
 	engine.freeze=game.paused
 	sound.stream_paused=game.paused
@@ -239,6 +259,7 @@ func _physics_process(dt: float) -> void:
 
 func _start_engine() -> void:
 	started=true
+	push_locked=false
 	boarding_time=.001
 	driver_from=driver.position
 	driver_guard.collision_layer=0

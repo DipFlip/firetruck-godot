@@ -11,6 +11,7 @@ var time := 0.0
 var truck: Node3D
 var foliage: Array[Node3D]=[]
 var fire_amount := 1.0
+var cat_cuddling:=false
 var water_response := 0.0
 
 func _ready() -> void:
@@ -138,4 +139,8 @@ func _process(dt: float) -> void:
 			person.rotation.y=lerp_angle(person.rotation.y,atan2(-toward.x,-toward.z),dt*2)
 			person.get_node("ArmRight").rotation.z=0.8+sin(time*5+i)*0.25
 		else: person.get_node("ArmRight").rotation.z=0.12
+		if i==0 and cat_cuddling:
+			person.get_node("ArmLeft").rotation=Vector3(1.10,0,-.15)
+			person.get_node("ArmRight").rotation=Vector3(1.80+sin(time*5)*.13,0,.14+sin(time*5)*.08)
+			if cat.get_parent()==person: cat.position.y=.80+sin(time*2)*.015
 	dog.rotation.y = PI+sin(time*2)*0.15

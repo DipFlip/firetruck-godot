@@ -61,6 +61,7 @@ func run() -> void:
 			check(finished==(page==hud.dialogue_pages.size()-1),"Only final page finishes conversation")
 		game.talk("MAYA  /  MAPLE GREEN",hud.dialogue_text,1)
 		game.camera.size=18.8
+		game.conversation_blend=1
 		for step in 12:
 			var angle:=step*TAU/12
 			game.truck.position=TownLayout.MAYA+Vector3(cos(angle)*6,1,sin(angle)*6)
@@ -77,7 +78,7 @@ func run() -> void:
 			var rect:=Rect2(panel.position,panel.size)
 			var truck: Rect2=game.hud.truck_screen_rect()
 			var context:="%s / approach %d" % [screen,step]
-			check(panel.position.distance_to(game.hud.dialogue_dock_position())<.2,"Nearby speech stays in its bottom dock: "+context)
+			check(not rect.intersects(hud.conversation_subject_rect()),"The speech balloon leaves the NPC and tree pet visible: "+context)
 			check(not rect.intersects(truck),"Truck clear: "+context+" overlap "+str(rect.intersection(truck)))
 			if game.hud.size.y<650:
 				var gauge_scale:=minf(1,(game.hud.size.x-148)/344) if game.hud.touch_mode else 1.0

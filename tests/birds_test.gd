@@ -30,6 +30,14 @@ func run() -> void:
 		for feather in bird.feathers:
 			compact=compact and feather.scale.x<.1 and feather.scale.z>.25 and absf(feather.position.x)<.02
 	check(compact,"Ground birds stand on the surface with compact wings along their sides")
+	var pool_clear:=true
+	for walker in life.walkers:
+		for p in walker.path: pool_clear=pool_clear and life._pool_safe(p)
+	check(pool_clear,"Every pedestrian waypoint stays well clear of the pool")
+	var pedestrian: Node3D=life.walkers[4].node
+	pedestrian.position=TownLayout.POOL+Vector3(4,.16,2.5)
+	life._keep_pool_clear(pedestrian)
+	check(life._pool_safe(pedestrian.position),"Pedestrian dodges are kept away from the pool rim")
 	var bird: Dictionary=life.ground_birds[0]
 	var origin: Vector3=bird.node.position
 	var wandered:=0.0
@@ -61,6 +69,10 @@ func run() -> void:
 	check(bird.mode=="flee","Birds take off before the truck reaches the old close-range trigger")
 	await frames(30)
 	check(bird.node.position.y>2 and bird.open>.95,"Takeoff quickly gains height and unfolds the wings")
+	await frames(150)
+	var flight_start: Vector3=bird.node.position
+	await frames(90)
+	check(bird.node.position.distance_to(flight_start)>3 and bird.node.position.y>13,"Fleeing birds keep flying above roofs and canopies instead of hovering inside scenery")
 	game.truck.position=Vector3(-70,1,70)
 	await frames(480)
 	check(bird.mode=="ground" and bird.node.position.distance_to(bird.home)<1.5 and bird.open<.01,"Birds land with folded wings and resume their own foraging patch")

@@ -7,6 +7,7 @@ signal water_hit(point: Vector3, amount: float)
 signal empty_spray
 
 var hit_receiver: Callable
+var drive_guide: Callable
 var aim_assist: Callable
 var assisted := false
 const WATER_SPEED := 22.0 # Nozzle speed relative to the moving truck.
@@ -306,6 +307,7 @@ func _physics_process(dt: float) -> void:
 		var right := camera.global_basis.x
 		right.y = 0
 		desired = (right*input.x-forward*input.y).normalized()*input.length()
+	if drive_guide.is_valid(): desired=drive_guide.call(desired,dt)
 	if desired.length() > 0.1:
 		var target_heading := atan2(-desired.x,-desired.z)
 		var heading_error:=angle_difference(heading,target_heading)

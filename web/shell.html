@@ -12,7 +12,8 @@
 #portrait-map{display:none}#pause{display:none;position:absolute;z-index:5;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));width:42px;height:38px;border:2px solid #9ac5cf;border-radius:12px;background:#294754e8;color:#eff8fc;font-size:18px;font-weight:900}.touch #pause{display:block}.touch.portrait #portrait-map{display:block;position:absolute;left:50%;top:0;width:clamp(104px,34vw,136px);height:clamp(104px,34vw,136px);transform:translateX(-50%);pointer-events:none}.touch.portrait #controls{height:280px;flex-basis:280px}.touch.portrait .stick{bottom:100px}.touch.portrait .action[data-action=jump]{bottom:12px;right:28px}.touch.portrait .action[data-action=ladder]{bottom:12px;left:28px;right:auto}
 @media(max-height:680px) and (orientation:portrait){.touch.portrait #controls{height:238px;flex-basis:238px}.touch.portrait .stick{bottom:90px;width:100px;height:100px}.touch.portrait .stick .knob{left:19px;top:19px}.touch.portrait .stick::before{left:46px;top:8px;height:78px}.touch.portrait .stick::after{top:46px;left:8px;width:78px}.touch.portrait .stick span{top:106px}.touch.portrait #portrait-map{width:108px;height:108px}.touch.portrait .action{height:50px;min-width:50px}.touch.portrait .action[data-action=jump],.touch.portrait .action[data-action=ladder]{bottom:6px}}
 .touch:not(.portrait) .stick{bottom:12px}.touch:not(.portrait) .stick span{top:auto;bottom:8px;font-size:9px;letter-spacing:1px}.touch:not(.portrait) .action[data-action=ladder]{left:178px;right:auto;bottom:28px}
-body.intro .stick,body.intro .action,body.intro #pause,body.intro #portrait-map{visibility:hidden}
+.touch:not(.playing) #controls,.touch:not(.playing) #pause{display:none}
+body.paused .stick,body.paused .action,body.paused #portrait-map,body.intro .stick,body.intro .action,body.intro #pause,body.intro #portrait-map{visibility:hidden}
 </style>
 $GODOT_HEAD_INCLUDE
 </head>
@@ -34,6 +35,8 @@ $GODOT_HEAD_INCLUDE
 'use strict';
 const canvas=document.querySelector('#canvas'),screen=document.querySelector('#screen');
 const state=window.firetruckTouch={enabled:false,portrait:false,driveX:0,driveY:0,aimX:0,aimY:0,jump:false,ladder:0,pause:0,map:0,recover:0,cancel:0,talking:false,testing:new URLSearchParams(location.search).has('qa'),telemetry:"",width:0,height:0};
+window.firetruckPause=paused=>{document.body.classList.toggle("paused",paused);if(paused)clearControls();};
+window.firetruckMainMenu=()=>{clearControls();location.reload();};
 window.firetruckIntro=active=>document.body.classList.toggle('intro',active);
 let started=false,ready=false,engineStarted=false,nativeReady=false;
 const resetters=[];
@@ -74,7 +77,7 @@ function drawMap(){
 }
 const status=document.querySelector('#status'),play=document.querySelector('#play');
 function progress(value){document.querySelector('#progress span').style.width=`${value*100}%`;document.querySelector('#progress').setAttribute('aria-valuenow',Math.round(value*100));}
-function showGame(){if(!engineStarted||!nativeReady)return;ready=true;progress(1);const launch=document.querySelector('#launch');launch.hidden=true;launch.style.display='none';resizeCanvas();drawMap();canvas.focus();}
+function showGame(){if(!engineStarted||!nativeReady)return;ready=true;document.body.classList.add("playing");progress(1);const launch=document.querySelector('#launch');launch.hidden=true;launch.style.display='none';resizeCanvas();drawMap();canvas.focus();}
 window.firetruckWarmup=value=>progress(.75+value*.24);
 window.firetruckReady=()=>{nativeReady=true;showGame();};
 const engine=new Engine($GODOT_CONFIG);

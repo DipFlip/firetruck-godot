@@ -22,7 +22,7 @@ func _ready() -> void:
 		[Vector3(-5,.16,-9),Vector3(-5,.16,-31),Vector3(-31,.16,-31),Vector3(-31,.16,-5),Vector3(-5,.16,-5)],
 		[Vector3(41,.16,-8),Vector3(41,.16,-31),Vector3(58,.16,-31),Vector3(58,.16,-5),Vector3(41,.16,-5)],
 		[Vector3(-5,.16,24),Vector3(-5,.16,5),Vector3(-31,.16,5),Vector3(-31,.16,31),Vector3(-5,.16,31)],
-		[Vector3(5,.16,43),Vector3(5,.16,60),Vector3(30,.16,60),Vector3(30,.16,41),Vector3(5,.16,41)],
+		[Vector3(5,.16,43),Vector3(5,.16,65),Vector3(30,.16,65),Vector3(30,.16,41),Vector3(5,.16,41)],
 		[Vector3(-41,.16,-9),Vector3(-41,.16,-31),Vector3(-59,.16,-31),Vector3(-59,.16,-5),Vector3(-41,.16,-5)]]
 	for i in paths.size():
 		var person:=TownProps.person(self,paths[i][0],[Color("819a83"),Color("d4a17a"),Color("8d9db6"),Color("c59099"),Color("dcbe77"),Color("9b9b7a")][i])
@@ -40,7 +40,7 @@ func _ready() -> void:
 		walkers.append({"node":person,"path":paths[i],"next":1,"speed":.95+i*.06,"phase":i*1.7,"legs":legs,"hop":1.0,"from":person.position,"to":person.position,"cooldown":0.0})
 	for i in 9:
 		var bird:=_bird(i)
-		bird.center=Vector3(-15,8,6) if i<5 else Vector3(43,9,-16)
+		bird.center=Vector3(-15,14.5,6) if i<5 else Vector3(43,14.5,-16)
 		bird.radius=12.0+i*.6
 		birds.append(bird)
 	# Individual foraging patches, rather than paired birds at each stop.
@@ -295,7 +295,10 @@ func _update_ground_birds(dt: float) -> void:
 			var away: Vector3=node.position-truck
 			away.y=0
 			if away.length()<.1: away=Vector3(cos(bird.phase),0,sin(bird.phase))
-			bird.escape=node.position+away.normalized()*14+Vector3.UP*7
+			bird.escape=node.position+away.normalized()*14
+			bird.escape.x=clampf(bird.escape.x,-69,69)
+			bird.escape.z=clampf(bird.escape.z,-69,69)
+			bird.escape.y=15.0
 		if bird.mode=="ground":
 			_forage_bird(bird,dt)
 		else:
@@ -304,16 +307,21 @@ func _update_ground_birds(dt: float) -> void:
 			_pose_bird(bird,bird.open,0,0,time*19+bird.phase)
 			if bird.mode=="flee":
 				var t: float=clampf(bird.age/2.1,0,1)
-				node.position=bird.from.lerp(bird.escape,1-pow(1-t,2))+Vector3.UP*sin(t*PI)*2
+				node.position=bird.from.lerp(bird.escape,smoothstep(.30,1,t))
+				node.position.y=lerpf(bird.from.y,bird.escape.y,smoothstep(0,.65,t))
 				node.rotation.y=lerp_angle(node.rotation.y,atan2(bird.from.x-bird.escape.x,bird.from.z-bird.escape.z),1-exp(-8*dt))
-				if t>=1: node.position+=Vector3(sin(bird.age*2+bird.phase)*.5,sin(bird.age*3)*.25,cos(bird.age*2+bird.phase)*.5)
+				if t>=1:
+					var orbit: float=(bird.age-2.1)*.75
+					node.position=bird.escape+Vector3(sin(orbit)*4,sin(orbit*2)*.7,(1-cos(orbit))*4)
+					node.rotation.y=atan2(-cos(orbit),-sin(orbit))
 				if bird.age>5 and truck.distance_to(bird.home)>15 and ahead.distance_to(bird.home)>12:
 					bird.mode="land"
 					bird.from=node.position
 					bird.age=0.0
 			else:
 				var t: float=clampf(bird.age/2.4,0,1)
-				node.position=bird.from.lerp(bird.home,smoothstep(0,1,t))+Vector3.UP*sin(t*PI)*1.1
+				node.position=bird.from.lerp(bird.home,smoothstep(0,.55,t))
+				node.position.y=lerpf(bird.from.y,bird.home.y,smoothstep(.45,1,t))
 				node.rotation.y=lerp_angle(node.rotation.y,atan2(bird.from.x-bird.home.x,bird.from.z-bird.home.z),1-exp(-6*dt))
 				if t>=1:
 					bird.mode="ground"
@@ -501,6 +509,7 @@ func _threat(point: Vector3) -> Dictionary:
 	return {}
 
 func _keep_clear(person: Node3D) -> void:
+	_keep_pool_clear(person)
 	# A final horizontal separation guard covers sudden steering, boost speeds,
 	# and a vehicle arriving during an existing dodge. People are never obstacles.
 	var vehicles: Array[RigidBody3D]=[game.truck]
@@ -519,6 +528,24 @@ func _keep_clear(person: Node3D) -> void:
 		if distance>=1.7: continue
 		if distance<.01: away=Vector3(-axis.z,0,axis.x)
 		person.global_position+=away.normalized()*(1.7-distance)
+	_keep_pool_clear(person)
+
+func _pool_safe(point: Vector3) -> bool:
+	var delta:=point-TownLayout.POOL
+	return absf(delta.x)>=7.0 or absf(delta.z)>=5.0
+
+func _keep_pool_clear(person: Node3D) -> void:
+	if _pool_safe(person.global_position): return
+	var local:=person.global_position-TownLayout.POOL
+	var candidates: Array[Vector3]=[Vector3(-7.1,local.y,local.z),Vector3(7.1,local.y,local.z),Vector3(local.x,local.y,-5.1),Vector3(local.x,local.y,5.1)]
+	var best:=person.global_position
+	var score:=INF
+	for offset in candidates:
+		var point:=TownLayout.POOL+offset
+		var distance:=point.distance_to(person.global_position)
+		if point.distance_to(game.truck.global_position)<3: distance+=20
+		if distance<score: best=point; score=distance
+	person.global_position=best
 
 func _begin_dodge(walker: Dictionary, danger: Dictionary) -> void:
 	var person: Node3D=walker.node
@@ -531,6 +558,7 @@ func _begin_dodge(walker: Dictionary, danger: Dictionary) -> void:
 	for direction in [side,-side,(side-travel*.6).normalized(),(-side-travel*.6).normalized()]:
 		var destination: Vector3=person.position+direction*3.4
 		destination.y=.16
+		if not _pool_safe(destination): continue
 		var query:=PhysicsRayQueryParameters3D.create(person.position+Vector3.UP*.9,destination+Vector3.UP*.9,17,[game.truck.get_rid()])
 		if get_world_3d().direct_space_state.intersect_ray(query): continue
 		var floor_query:=PhysicsRayQueryParameters3D.create(destination+Vector3.UP,destination+Vector3.DOWN*.3,1)

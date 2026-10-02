@@ -44,7 +44,7 @@ func run() -> void:
 	await frames(110)
 	var panel: SpeechFrame=game.hud.dialogue_panel
 	check(game.dialogue_active and panel.phone_mode and game.hud.portrait.visible and game.hud.speaker_key=="DISPATCH","Initial dispatch retains the operator portrait in its speech bubble")
-	var corner: Vector2=game.hud.get_viewport_rect().size-panel.size-Vector2(26,132)
+	var corner: Vector2=game.hud.get_viewport_rect().size-panel.size-Vector2(26,120)
 	check(panel.position.distance_to(corner)<.1 and game.dialogue_actor==null and (panel.position+panel.tail_tip).distance_to(game.hud._phone_center()-Vector2(0,27))<.1,"Bottom-right dispatch bubble points to the separate phone icon")
 	var parked_card:=panel.position
 	game.truck.automated_drive=Vector2(1,0)

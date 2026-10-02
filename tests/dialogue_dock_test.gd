@@ -14,59 +14,60 @@ func run() -> void:
 	game=load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	game.call_timer=0
-	game.stage=4
+	game.stage=1
 	game.truck.use_automation=true
 	game.truck.freeze=true
 	game.life.set_physics_process(false)
 	for car in game.life.cars: car.node.position=Vector3(400,0,400)
 	var actor: Node3D=game.town.people[0]
-	game.truck.position=actor.position+Vector3(0,1,4)
+	game.truck.position=actor.position+Vector3(0,1,6)
 	game.truck.reset_physics_interpolation()
 	await frames(20)
 	game.talk("MAYA","Oh, thank goodness you're here! Pippin has decided he's a bird. Could you help him down from that tree?",1)
-	await frames(120)
+	await frames(180)
 	var hud: FireHUD=game.hud
 	var panel: SpeechFrame=hud.dialogue_panel
-	var dock:=hud.dialogue_dock_position()
-	check(panel.position.distance_to(dock)<.1 and panel.position.y>hud.size.y*.6,"A nearby conversation docks at the bottom of the screen")
-	var tail:=panel.position+panel.tail_tip
-	var stable:=true
-	for side in [-1,1,-1,1]:
-		game.truck.position=actor.position+Vector3(side*3,1,4)
-		game.truck.reset_physics_interpolation()
-		await frames(40)
-		stable=stable and panel.position.distance_to(dock)<.1 and not Rect2(panel.position,panel.size).intersects(hud.truck_screen_rect())
-	check(stable and (panel.position+panel.tail_tip).distance_to(tail)>15,"Camera and nearby vehicle movement update the notch without moving the docked card")
-	game.truck.position=actor.position+Vector3(-12,1,-14)
+	var head: Vector2=game.camera.unproject_position(actor.global_position+Vector3.UP*2.85)
+	check(panel.position.y+panel.size.y<head.y and not Rect2(panel.position,panel.size).intersects(hud.conversation_subject_rect()),"The balloon appears above Maya and leaves the tree pet visible")
+	check(not Rect2(panel.position,panel.size).intersects(hud.truck_screen_rect()),"The above-head balloon leaves the complete truck visible")
+	check(hud.speaker_label.position.y>hud.portrait.position.y+hud.portrait.size.y and hud.dialogue_label.position.y<24 and not hud.continue_label.visible,"Compact layout has the name beneath the portrait, top-aligned text, and no continue hint")
+	var truck_screen: Vector2=game.camera.unproject_position(game.truck.position)
+	check(truck_screen.y>hud.size.y*.55 and truck_screen.y<hud.size.y*.86 and game.camera.size<25.8,"Conversation framing keeps the truck below centre with a close view")
+	var initial:=panel.position
+	game.truck.position=actor.position+Vector3(-8,1,14)
 	game.truck.reset_physics_interpolation()
 	await frames(1)
-	check(panel.position.distance_to(dock)<5,"Driving away begins a gradual transition instead of a teleport")
+	check(panel.position.distance_to(initial)<15,"A world balloon begins moving gently rather than teleporting")
 	var previous:=panel.position
 	var max_step:=0.0
-	for i in 100:
+	for i in 150:
 		await frames(1)
 		max_step=maxf(max_step,panel.position.distance_to(previous))
 		previous=panel.position
-	check(game.dialogue_active and hud.bubble_detach_blend>.75 and panel.position.distance_to(dock)>20 and max_step<15,"Driving farther away smoothly brings the bubble toward the NPC")
-	check(not Rect2(panel.position,panel.size).intersects(hud.truck_screen_rect()),"The detached bubble stays clear of the truck")
-	var head: Vector2=game.camera.unproject_position(actor.global_position+Vector3.UP*2.85)
-	check((panel.position+panel.tail_tip).distance_to(head)<1 and not Rect2(panel.position,panel.size).has_point(head),"The notch remains aimed at the on-screen speaker throughout detachment")
+	check(game.dialogue_active and game.camera.size<25.8 and max_step<15,"Driving sixteen metres away retains the conversation zoom and smooth balloon tracking")
+	head=game.camera.unproject_position(actor.global_position+Vector3.UP*2.85)
+	check((panel.position+panel.tail_tip).distance_to(head)<1,"The rounded notch remains aimed at the on-screen speaker")
 	game.paused=true
 	var paused_position:=panel.position
-	var paused_blend:=hud.bubble_detach_blend
 	await frames(20)
-	check(panel.position==paused_position and hud.bubble_detach_blend==paused_blend,"Pause freezes the bubble transition")
+	check(panel.position==paused_position and not panel.visible,"Pause freezes and hides the conversation balloon")
 	game.paused=false
-	game.truck.position=actor.position+Vector3(0,1,4)
-	game.truck.reset_physics_interpolation()
-	await frames(150)
-	check(game.dialogue_active and panel.position.distance_to(hud.dialogue_dock_position())<1,"Returning to the NPC gently restores the fixed dock")
 	game.end_dialogue()
-	game.talk("DISPATCH","There's a barbecue fire near Leo's cottage.",1)
-	await frames(30)
-	check(panel.phone_mode and (panel.position+panel.tail_tip).distance_to(hud._phone_center()-Vector2(0,27))<1,"Dispatch keeps its fixed phone anchor and operator avatar")
+	root.size=Vector2i(390,564)
+	hud.touch_mode=true
+	hud.touch_portrait=true
+	await frames(5)
+	game.talk("DISPATCH","There's a barbecue fire near Leo's cottage. Head east and lend him a hose.",1)
+	await frames(100)
+	check(panel.phone_mode and panel.position.y+panel.size.y>hud.size.y*.75 and (panel.position+panel.tail_tip).distance_to(hud._phone_center()-Vector2(0,27))<1,"Portrait dispatch sits at the bottom and points to its phone icon")
+	game.paused=true
+	hud.pause_panel.show()
+	await frames(3)
+	check(hud.menu_button.visible and not hud.pause_title.visible and not hud.pause_help.visible,"Mobile pause offers only the main-menu button")
+	hud.menu_button.pressed.emit()
+	check(game.in_main_menu and game.truck.freeze and not game.truck.enabled and hud.main_menu.visible and not hud.pause_panel.visible,"The pause button actually returns to the native main menu")
 	game.queue_free()
 	await process_frame
 	await process_frame
-	print("DIALOGUE DOCK CHECKS: ","ALL PASS" if failures==0 else str(failures)+" failed")
+	print("CONVERSATION PRESENTATION CHECKS: ","ALL PASS" if failures==0 else str(failures)+" failed")
 	quit(0 if failures==0 else 1)

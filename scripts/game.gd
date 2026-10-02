@@ -38,6 +38,8 @@ var job_label: Label3D
 var camera_offset:=Vector3(16,23,29)
 var camera_focus:=Vector3.ZERO
 const TALK_CAMERA_SIZE := 18.8
+const TALK_FULL_RADIUS:=18.0
+const TALK_RELEASE_RADIUS:=36.0
 const TALK_CAMERA_OFFSET := Vector3(22,16.5,26)
 var camera_subject: Node3D
 var conversation_blend := 0.0
@@ -52,6 +54,8 @@ var camera_trauma := 0.0
 var proximity_latches: Dictionary = {}
 var rescue_running := false
 var rescue_tween: Tween
+var cat_cuddle_tween: Tween
+var in_main_menu:=false
 var cat_ladder_event: LadderEvent
 var cat_rescued:=false
 var cat_home:=Vector3.ZERO
@@ -155,6 +159,7 @@ func _ready() -> void:
 	railway=NorthlineRailway.new()
 	railway.game=self
 	add_child(railway)
+	truck.drive_guide=railway.guide_push
 	dog_puddle=DogPuddle.new()
 	dog_puddle.game=self
 	add_child(dog_puddle)
@@ -315,7 +320,7 @@ func _update_dispatch(dt: float) -> void:
 			hud.auto_close_delay=-1 # Keep the job visible until acknowledged or discovered.
 
 func _unhandled_input(event: InputEvent) -> void:
-	if loading: return
+	if loading or in_main_menu: return
 	if event is InputEventKey and event.echo: return
 	if intro and intro.active:
 		if event.is_action_pressed("jump") or event.is_action_pressed("continue") or (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed):
@@ -324,6 +329,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("pause"):
 		paused=not paused
+		if OS.has_feature("web"): JavaScriptBridge.eval("window.firetruckPause(%s)" % ("true" if paused else "false"))
 		hud.pause_panel.visible=paused
 		truck.enabled=not paused and not rescue_running
 		truck.freeze=paused or rescue_running
@@ -331,6 +337,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		town.set_process(not paused)
 		if rescue_tween and rescue_tween.is_valid() and rescue_tween.is_running() and paused: rescue_tween.pause()
 		elif rescue_tween and rescue_tween.is_valid() and not paused: rescue_tween.play()
+		if cat_cuddle_tween and cat_cuddle_tween.is_valid() and paused: cat_cuddle_tween.pause()
+		elif cat_cuddle_tween and cat_cuddle_tween.is_valid() and not paused: cat_cuddle_tween.play()
 	if paused: return
 	if event.is_action_pressed("map"): hud.map_open=not hud.map_open
 	if event.is_action_pressed("music"):
@@ -462,8 +470,11 @@ func _process(dt: float) -> void:
 		# Release the camera's attention gradually as the truck leaves, so the
 		# neighbour can naturally leave the screen instead of being held in view.
 		var separation:=rendered_truck_position.distance_to(camera_subject.global_position)
-		var attention:=.5*(1-smoothstep(6.0,24.0,separation))
-		var conversation_focus:=rendered_truck_position.lerp(camera_subject.global_position,attention)+Vector3.UP*.25+ahead*.1
+		var attention:=.52*(1-smoothstep(TALK_FULL_RADIUS,TALK_RELEASE_RADIUS,separation))
+		var subject:=camera_subject.global_position
+		if camera_subject==town.people[0] and not cat_rescued:
+			subject=subject.lerp(town.cat.global_position,.38)
+		var conversation_focus:=rendered_truck_position.lerp(subject,attention)+Vector3.UP*.25+ahead*.1
 		focus=focus.lerp(conversation_focus,conversation_blend)
 	camera_focus=camera_focus.lerp(focus,1-exp(-4.5*dt))
 	camera_trauma=maxf(0,camera_trauma-dt*1.5)
@@ -505,7 +516,7 @@ func _process(dt: float) -> void:
 	if refill_hose.active: truck.water=minf(truck.tank_capacity,truck.water+dt*25)
 	var prompt:=""
 	# The hint is a control reminder after Maya's briefing, not a status feed.
-	if stage==1 and rescued and not cat_rescued and not dialogue_active and not rescue_running and not truck.ladder_deployed and truck.global_position.distance_to(objective())<12:
+	if stage==1 and rescued and not cat_rescued and not dialogue_active and not rescue_running and not truck.ladder_deployed and truck.global_position.distance_to(TownLayout.MAYA)<12:
 		prompt=_ladder_instruction()
 	hud.prompt_label.text=prompt
 	if stage==3:
@@ -516,25 +527,40 @@ func _ladder_instruction() -> String:
 	return "Press 'ladder' to extend ladder" if hud.touch_mode else "Press E to extend the ladder"
 
 func _talk_camera_size() -> float:
-	if not dialogue_active or not is_instance_valid(dialogue_actor) or hud.size.y>=650: return TALK_CAMERA_SIZE
-	# Short game views need room between the top gauge and the bottom message
-	# for the complete vehicle. Taller views retain the close shot.
-	var padding:=8.0 if hud.size.y<450 else 14.0
-	var extent:=(hud.truck_screen_rect().size.y-padding*2)*camera.size/hud.size.y
-	var available:=maxf(24,hud.dialogue_dock_position().y-104-padding*2)
-	return maxf(TALK_CAMERA_SIZE,extent*hud.size.y/available)
+	if not is_instance_valid(camera_subject): return TALK_CAMERA_SIZE
+	var distance:=truck.global_position.distance_to(camera_subject.global_position)
+	var frame:=hud.truck_screen_rect().merge(hud.conversation_subject_rect())
+	var extent:=frame.size.y*camera.size/maxf(1,hud.size.y)
+	var available:=maxf(100,hud.size.y-hud.dialogue_panel.size.y-118)
+	var close_size:=maxf(TALK_CAMERA_SIZE,extent*hud.size.y/available)
+	return lerpf(close_size,25.8,smoothstep(TALK_FULL_RADIUS,TALK_RELEASE_RADIUS,distance))
 
 func _conversation_pan_target() -> float:
-	if not dialogue_active or not is_instance_valid(dialogue_actor): return 0.0
-	# Reserve the bottom conversation dock. Move the view gently so the truck
-	# remains above it instead of shuffling the card around the vehicle.
-	var rect:=hud.truck_screen_rect()
+	if not is_instance_valid(camera_subject) or conversation_blend<=0: return 0.0
+	# Keep the truck below centre, leaving the upper half for the neighbour,
+	# the tree pet, and their above-head speech balloon.
 	var p:=truck.get_global_transform_interpolated().origin
-	var pixels_per_unit:=absf(camera.unproject_position(p+camera.global_basis.y).y-camera.unproject_position(p).y)
-	var unshifted_bottom:=rect.end.y-camera.v_offset*pixels_per_unit
-	var dock_top:=hud.dialogue_dock_position().y
-	var shift:=minf(0,dock_top-16-unshifted_bottom)
-	return shift/maxf(.01,pixels_per_unit)
+	var screen:=camera.unproject_position(p)
+	var pixels_per_unit:=absf(camera.unproject_position(p+camera.global_basis.y).y-screen.y)
+	var unshifted:=screen.y-camera.v_offset*pixels_per_unit
+	var truck_rect:=hud.truck_screen_rect()
+	var scene_top:=minf(truck_rect.position.y,hud.conversation_subject_rect().position.y)-camera.v_offset*pixels_per_unit
+	var below_centre:=hud.size.y*.64-unshifted
+	var balloon_space:=76+hud.dialogue_panel.size.y+26-scene_top
+	var max_shift:=hud.size.y-22-(truck_rect.end.y-camera.v_offset*pixels_per_unit)
+	return minf(max_shift,maxf(below_centre,balloon_space))/maxf(.01,pixels_per_unit)*conversation_blend
+
+func return_to_main_menu() -> void:
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.firetruckMainMenu()")
+		return
+	in_main_menu=true
+	paused=true
+	end_dialogue()
+	truck.freeze=true
+	truck.enabled=false
+	hud.pause_panel.hide()
+	hud.main_menu.show()
 
 func _assisted_water_target(origin: Vector3, requested: Vector3) -> Variant:
 	var aim:=Vector3(requested.x-origin.x,0,requested.z-origin.z).normalized()
@@ -721,17 +747,42 @@ func _on_cat_ladder_reached(engine: FireEngine) -> void:
 		rescue_running=false
 		truck.freeze=false
 		truck.release_ladder()
-		_after_cat_rescue())
+		_after_cat_rescue()
+		_start_cat_cuddle())
 
 func _after_cat_rescue() -> void:
 	var next_stage:=4 if fire_progress>=1 else (3 if barbecue_discovered else 5)
-	talk("MAYA  /  THANK YOU","Thank you! Pippin, you little rascal. Let's keep all four paws on the ground from now on.",next_stage)
+	talk("MAYA  /  THANK YOU","Thank you! Come here, Pippin. That's enough adventuring for one morning.",next_stage)
 	if not barbecue_discovered and not barbecue_call_sent and fire_progress<1:
 		barbecue_call_delay=BARBECUE_CALL_DELAY
 		barbecue_ring_timer=-1
 
+func _start_cat_cuddle() -> void:
+	var cat:=town.cat
+	var maya: Node3D=town.people[0]
+	var start:=cat.global_position
+	cat_cuddle_tween=create_tween()
+	cat_cuddle_tween.tween_method(func(t: float):
+		var feet: Vector3=maya.global_transform*Vector3(0,.10,-1.2)
+		cat.global_position=start.lerp(feet,t)+Vector3.UP*absf(sin(t*TAU*5))*.055
+		cat.look_at(Vector3(maya.position.x,cat.global_position.y,maya.position.z)),0.0,1.0,.85)
+	cat_cuddle_tween.tween_callback(func(): town.cat_cuddling=true)
+	cat_cuddle_tween.tween_method(func(t: float):
+		var feet: Vector3=maya.global_transform*Vector3(0,.10,-1.2)
+		var arms: Vector3=maya.global_transform*Vector3(0,.80,-.55)
+		cat.global_position=feet.lerp(arms,t)+Vector3.UP*sin(t*PI)*.5
+		cat.scale=Vector3.ONE*lerpf(1,.82,t),0.0,1.0,.55)
+	cat_cuddle_tween.tween_callback(func():
+		cat.reparent(maya)
+		cat.position=Vector3(0,.80,-.55)
+		cat.rotation=Vector3(0,-PI/2,0))
+
 func _cancel_cat_rescue() -> void:
 	if rescue_tween and rescue_tween.is_valid(): rescue_tween.kill()
+	if cat_cuddle_tween and cat_cuddle_tween.is_valid(): cat_cuddle_tween.kill()
+	town.cat_cuddling=false
+	if town.cat.get_parent()!=town: town.cat.reparent(town)
+	town.cat.scale=Vector3.ONE
 	town.cat.global_position=cat_home
 	town.cat.rotation=cat_home_rotation
 	for paw in cat_paws: paw.rotation.x=0

@@ -10,32 +10,34 @@ const INK := Color("294754")
 const FACE := Color("eff8fc")
 
 func _draw() -> void:
-	# A drawn balloon tail and enamel portrait bezel, fixed independently of
-	# the moving artwork inside the portrait's circular shader mask.
-	# Attach the notch to whichever edge faces the speaker after collision avoidance.
 	var relative:=tail_tip-size*.5
 	var normal:=Vector2.ZERO
 	var base:=Vector2.ZERO
 	if absf(relative.x)/size.x>absf(relative.y)/size.y:
 		normal=Vector2(signf(relative.x),0)
-		base=Vector2(size.x-3 if normal.x>0 else 3,clampf(tail_tip.y,38,size.y-38))
+		base=Vector2(size.x-2 if normal.x>0 else 2,clampf(tail_tip.y,28,size.y-28))
 	else:
 		normal=Vector2(0,signf(relative.y))
-		base=Vector2(clampf(tail_tip.x,38,size.x-38),size.y-3 if normal.y>0 else 3)
+		base=Vector2(clampf(tail_tip.x,28,size.x-28),size.y-2 if normal.y>0 else 2)
 	var tangent:=Vector2(-normal.y,normal.x)
-	# The world anchor sets the direction; keep the notch short even when the
-	# card has to move far away from its speaker to clear the vehicle.
-	var tip:=base+(tail_tip-base).limit_length(48)
+	var tip:=base+(tail_tip-base).limit_length(36)
 	if not Rect2(Vector2.ZERO,size).has_point(tail_tip):
-		draw_colored_polygon(PackedVector2Array([base-tangent*18,tip,base+tangent*18]),INK)
-		draw_colored_polygon(PackedVector2Array([base-tangent*11-normal*3,tip-(tip-base).normalized()*9,base+tangent*11-normal*3]),FACE)
-	draw_circle(portrait_center,portrait_radius,INK)
-	draw_circle(portrait_center,portrait_radius-4,Color("70b7c7"))
-	draw_circle(portrait_center,portrait_radius-8,FACE)
-	for x in [18.0,size.x-18]:
-		draw_circle(Vector2(x,18),3,Color("80b9c8"))
-		draw_circle(Vector2(x,size.y-18),3,Color("80b9c8"))
-	draw_line(Vector2(divider_start,30 if portrait_radius<50 else 34),Vector2(size.x-28,30 if portrait_radius<50 else 34),Color("c6dfe8"),2,true)
+		var left:=base-tangent*14-normal*2
+		var right:=base+tangent*14-normal*2
+		var direction: Vector2=(tip-base).normalized()
+		var perpendicular:=Vector2(-direction.y,direction.x)
+		var curve:=PackedVector2Array()
+		for i in 17:
+			curve.append(left.bezier_interpolate(left+direction*12,tip-direction*8-perpendicular*3,tip-perpendicular*.8,float(i)/16))
+		for i in range(1,17):
+			curve.append((tip-perpendicular*.8).bezier_interpolate(tip+direction*1.2,tip+direction*1.2,tip+perpendicular*.8,float(i)/16))
+		for i in range(1,17):
+			curve.append((tip+perpendicular*.8).bezier_interpolate(tip-direction*8+perpendicular*3,right+direction*12,right,float(i)/16))
+		draw_colored_polygon(curve,FACE)
+		draw_polyline(curve,INK,3,true)
+		draw_line(left+tangent,right-tangent,FACE,5,true)
+	# One smooth, fixed-colour rim; only the portrait artwork moves inside it.
+	draw_circle(portrait_center,portrait_radius,INK,true,-1,true)
 
 static func draw_phone(canvas: CanvasItem, center: Vector2, scale_factor: float, clock: float, active: bool) -> void:
 	var shape:=PackedVector2Array()
