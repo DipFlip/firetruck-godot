@@ -11,6 +11,8 @@ var game: Node3D
 var fire_light: OmniLight3D
 var fountain_drops: Array[MeshInstance3D]=[]
 
+const ROAD_REACH:=79.6
+
 func _ready() -> void:
 	seed(421)
 	var town: LittleTown=game.town
@@ -18,17 +20,28 @@ func _ready() -> void:
 	for child in town.get_children():
 		if child is MeshInstance3D:
 			var material: ShaderMaterial
-			if child.scale.x>150:
+			if child.scale.x>150 and child.scale.z>150:
 				material=ShaderMaterial.new()
 				material.shader=preload("res://shaders/ground.gdshader")
-				material.set_shader_parameter("base_color",Color("6eac67"))
-				material.set_shader_parameter("variation",0.20)
+				material.set_shader_parameter("base_color",Color("609958"))
+				material.set_shader_parameter("variation",0.13)
 				material.set_shader_parameter("meadow",true)
 				child.material_override=material
+			elif child.scale.y<.2 and child.scale.y>.1 and maxf(child.scale.x,child.scale.z)>120:
+				# Curbs follow the longer streets.
+				if child.scale.z>120: child.scale.z=ROAD_REACH*2-1
+				else: child.scale.x=ROAD_REACH*2-1
+			elif child.scale.y<.2 and child.scale.x*child.scale.z>20 and child.material_override is StandardMaterial3D and child.material_override.albedo_color.g>child.material_override.albedo_color.r and child.material_override.albedo_color.g>child.material_override.albedo_color.b*1.12:
+				# Garden slabs introduced sharp raised seams in the continuous felt.
+				town.remove_child(child)
+				child.queue_free()
 			elif child.scale.y<0.06 and child.scale.x+child.scale.z>100:
+				# Run every street right up to the toy-block wall at the mat's edge.
+				if child.scale.z>100: child.scale.z=ROAD_REACH*2
+				else: child.scale.x=ROAD_REACH*2
 				material=ShaderMaterial.new()
 				material.shader=preload("res://shaders/ground.gdshader")
-				material.set_shader_parameter("base_color",Color("788780"))
+				material.set_shader_parameter("base_color",Color("50636d"))
 				material.set_shader_parameter("grain_scale",18.0)
 				material.set_shader_parameter("variation",0.045)
 				child.material_override=material
@@ -70,11 +83,20 @@ func _ready() -> void:
 		for i in range(4): _flower(p+Vector3(randf_range(-.4,.4),.9,randf_range(-.4,.4)),Color("d59886"))
 	# Curbstone joins are visual only, so the drive surface remains smooth.
 	for street in [-36,0,36]:
-		for n in range(-27,28):
+		for n in range(-36,37):
+			if absf(n*2.2)+1.06>ROAD_REACH-.5: continue
 			if absf(n*2.2)<8 or absf(absf(n*2.2)-36)<8: continue
 			for side in [-1,1]:
 				TownProps.box(self,Vector3(street+side*4.1,.13,n*2.2),Vector3(.18,.18,2.12),Color("c5bca7")).set_meta("batch_static",true)
 				TownProps.box(self,Vector3(n*2.2,.13,street+side*4.1),Vector3(2.12,.18,.18),Color("c5bca7")).set_meta("batch_static",true)
+	# Centre-line dashes continue over the new road ends.
+	for line in [-36,0,36]:
+		for n in range(15,20):
+			for side in [-1,1]:
+				var p: float=side*n*4.0
+				if absf(p)+.75>ROAD_REACH-.5: continue
+				TownProps.box(self,Vector3(line,0.075,p),Vector3(0.13,0.02,1.5),Color("f4d898")).set_meta("batch_static",true)
+				TownProps.box(self,Vector3(p,0.08,line),Vector3(1.5,0.02,0.13),Color("f4d898")).set_meta("batch_static",true)
 	var smoke_material:=TownProps.effect_material(preload("res://shaders/smoke.gdshader"))
 	for i in range(12):
 		var puff:=MeshInstance3D.new()

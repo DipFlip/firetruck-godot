@@ -485,9 +485,12 @@ func _draw() -> void:
 			SpeechFrame.draw_phone(self,phone_center,.75,time,game.phone_ringing() or char_count<full_text.length())
 		if game.navigation_active() and game.truck.global_position.distance_to(game.objective())>9:
 			_draw_navigation()
-		var target: Vector2=game.camera.unproject_position(game.truck.aim_point)
-		draw_arc(target,8,0,TAU,32,Color(PAPER,.85),1.8,true)
-		draw_circle(target,2,TEAL)
+		# Keyboard and touch aiming read from the water itself; only the mouse
+		# gets a reticle while it is the active aiming device.
+		if game.truck.mouse_aiming and not touch_mode:
+			var target: Vector2=game.camera.unproject_position(game.truck.aim_point)
+			draw_arc(target,8,0,TAU,32,Color(PAPER,.85),1.8,true)
+			draw_circle(target,2,TEAL)
 	if game.paused: draw_rect(Rect2(Vector2.ZERO,size),Color(.10,.20,.27,.3))
 
 func _phone_center() -> Vector2:
@@ -562,8 +565,8 @@ func _draw_map() -> void:
 	var s:=r/92
 	for x in [-36,0,36]:
 		for axis in 2:
-			var start:=Vector2(x,-62) if axis==0 else Vector2(-62,x)
-			var end:=Vector2(x,62) if axis==0 else Vector2(62,x)
+			var start:=Vector2(x,-79) if axis==0 else Vector2(-79,x)
+			var end:=Vector2(x,79) if axis==0 else Vector2(79,x)
 			draw_line(center+start.rotated(.50)*s,center+end.rotated(.50)*s,Color("587c87"),9*s,true)
 			draw_line(center+start.rotated(.50)*s,center+end.rotated(.50)*s,PAPER,5*s,true)
 	for p in [Vector2(-15,13),Vector2(18,19),Vector2(19,-20),Vector2(-19,-20),Vector2(49,18),Vector2(-48,18),Vector2(18,49),Vector2(-19,49),Vector2(-49,-22)]:

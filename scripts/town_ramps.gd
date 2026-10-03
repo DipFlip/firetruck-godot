@@ -37,7 +37,7 @@ func _make_ramp(at: Vector3, yaw: float) -> void:
 	var shader:=Shader.new()
 	shader.code=preload("res://shaders/ground.gdshader").code.replace("render_mode diffuse_burley;","render_mode diffuse_burley, cull_disabled;")
 	asphalt.shader=shader
-	asphalt.set_shader_parameter("base_color",Color("788780"))
+	asphalt.set_shader_parameter("base_color",Color("50636d"))
 	asphalt.set_shader_parameter("grain_scale",18.0)
 	asphalt.set_shader_parameter("variation",.045)
 	mesh.material_override=asphalt

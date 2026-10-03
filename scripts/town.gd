@@ -17,6 +17,9 @@ var water_response := 0.0
 func _ready() -> void:
 	if get_child_count()>0:
 		_gather_foliage()
+		TownProps.apply_toy_finish(self)
+		for art in foliage: TownProps.soften_toy_shine(art)
+		for person in people: TownProps.soften_toy_shine(person)
 		return
 	seed(42)
 	TownProps.box(self,Vector3(0,-0.5,0),Vector3(160,1,160),Color("8ea57c"),true)

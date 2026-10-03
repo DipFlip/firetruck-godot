@@ -3,7 +3,7 @@ extends Node
 
 # One reusable bank for quiet, varied local Foley. No per-particle audio nodes
 # or sample generation in the frame loop, including the browser build.
-const LEVELS:={"bird":-25.0,"dodge":-22.0,"woof":-21.0,"meow":-23.0,"wood":-18.0,"fence":-21.0,"metal":-22.0,"brick":-19.0,"bush":-24.0,"car_bump":-20.0,"splash":-20.0,"clean":-22.0,"honk":-24.0,"chuff":-25.0,"whistle":-25.0,"refill":-25.0,"fire_sizzle":-24.0}
+const LEVELS:={"bird":-25.0,"dodge":-22.0,"woof":-21.0,"meow":-23.0,"wood":-18.0,"fence":-21.0,"metal":-22.0,"brick":-19.0,"bush":-28.0,"car_bump":-20.0,"splash":-20.0,"clean":-22.0,"honk":-24.0,"chuff":-25.0,"whistle":-25.0,"refill":-25.0,"fire_sizzle":-24.0}
 var game: Node3D
 var bank: Dictionary={}
 var players: Array[AudioStreamPlayer]=[]
@@ -72,8 +72,11 @@ func play(kind: String, at: Vector3, strength: float=1.0, cooldown: float=.18) -
 	return false
 
 func prop_impact(kind: String, at: Vector3, speed: float) -> void:
-	var sound: String={"tree":"wood","bench":"wood","fence":"fence","lamp":"metal","hydrant":"metal","bush":"bush","planter":"brick"}.get(kind,"wood")
-	play(sound,at,clampf(speed/10,.45,1.1))
+	var sound: String={"tree":"wood","bench":"wood","fence":"fence","lamp":"metal","rail_sign":"wood","hydrant":"metal","bush":"bush","planter":"brick"}.get(kind,"wood")
+	# A hedge can contain five adjacent bodies: one quiet rustle covers the pass.
+	if kind=="bush":
+		play(sound,at,clampf(speed/12,.35,.70),.85)
+	else: play(sound,at,clampf(speed/10,.45,1.1))
 
 func _truck_contact(body: Node) -> void:
 	var speed:=Vector2(truck_velocity.x,truck_velocity.z).length()
@@ -87,6 +90,8 @@ func _truck_contact(body: Node) -> void:
 			play("honk",body.global_position,.7,1.8)
 			for car in game.life.cars:
 				if car.node==body: car.coast=maxf(car.coast,.8)
+	elif body.is_in_group("wooden_boundary"):
+		play("wood",game.truck.global_position,clampf(speed/14,.4,.8),.65)
 	elif body.is_in_group("masonry_collision"):
 		play("brick",game.truck.global_position,clampf(speed/12,.4,1.1),.5)
 

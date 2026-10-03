@@ -71,6 +71,7 @@ var splash_index:=0
 var water_materials: Array[Material]=[]
 var spray_direction := Vector3.FORWARD
 var aim_point := Vector3.ZERO
+var mouse_aiming := false
 var spraying := false
 var spray_requested:=false
 var empty_spray_cooldown:=0.0
@@ -103,7 +104,7 @@ var lights: Array[MeshInstance3D] = []
 func _ready() -> void:
 	physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_ON
 	mass = 2.0
-	collision_mask=19
+	collision_mask=51 # Town contacts plus the play-mat boundary.
 	lock_rotation = true
 	linear_damp = 0.2
 	continuous_cd = true
@@ -493,7 +494,7 @@ func _setup_body_squash(node: Node3D) -> void:
 	if node is MeshInstance3D:
 		var body_from_mesh:=visual.global_transform.affine_inverse()*node.global_transform
 		for surface in node.mesh.get_surface_count():
-			var original: StandardMaterial3D=node.get_active_material(surface)
+			var original: StandardMaterial3D=TownProps.toy_finish(node.get_active_material(surface))
 			var material:=ShaderMaterial.new()
 			material.shader=preload("res://shaders/truck_squash.gdshader")
 			material.set_shader_parameter("paint",original.albedo_color)
@@ -527,6 +528,7 @@ func mouse_aim_direction(pointer: Vector2) -> Vector3:
 
 func _update_aim(dt: float=1.0/60) -> void:
 	if not camera: return
+	mouse_aiming=false
 	if not spray_requested:
 		# Keep the turret's local pose. Its truck parent supplies idle rotation;
 		# moving the pointer while driving cannot lock it to a compass heading.
@@ -541,7 +543,8 @@ func _update_aim(dt: float=1.0/60) -> void:
 		aim_point=automated_aim
 	else:
 		var stick:=touch_aim if touch_aim.length()>.12 else Input.get_vector("aim_left","aim_right","aim_up","aim_down")
-		var direction:=world_aim_direction(stick) if stick.length()>.01 else mouse_aim_direction(get_viewport().get_mouse_position())
+		mouse_aiming=stick.length()<=.01
+		var direction:=world_aim_direction(stick) if not mouse_aiming else mouse_aim_direction(get_viewport().get_mouse_position())
 		aim_point=origin+direction*FREE_SPRAY_REACH+Vector3.DOWN*FREE_SPRAY_DROP
 	# Like the browser prototype, select a nearby target ahead of the nozzle,
 	# then solve the arc. This changes the shot, never the collision result.

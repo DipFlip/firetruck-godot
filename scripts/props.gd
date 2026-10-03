@@ -7,11 +7,15 @@ static var sphere_mesh: SphereMesh
 static var cylinder_meshes: Dictionary = {}
 static var effect_shaders: Dictionary = {}
 static var bake_scenery:=false
+static var toy_materials: Dictionary={}
+static var softened_materials: Dictionary={}
 
 static func model(path: String, parent: Node3D) -> Node3D:
 	var optimized: String="res://assets/scenery/"+path.get_file().get_basename()+".scn"
 	var source_path:=optimized if path.get_file().begins_with("tree_") and ResourceLoader.exists(optimized) else path
 	var node: Node3D=load(source_path).instantiate()
+	apply_toy_finish(node)
+	if path.get_file().begins_with("tree_"): soften_toy_shine(node)
 	parent.add_child(node)
 	return node
 
@@ -30,13 +34,62 @@ static func material(color: Color, glow: bool = false) -> StandardMaterial3D:
 	if materials.has(key): return materials[key]
 	var m := StandardMaterial3D.new()
 	m.albedo_color = color
-	m.roughness = 0.82
+	var dark:=maxf(color.r,maxf(color.g,color.b))<.26
+	m.roughness = .72 if dark else .38
+	m.metallic_specular = 0.42
+	m.clearcoat_enabled = not dark and not glow
+	m.clearcoat = 0.28
+	m.clearcoat_roughness = 0.30
 	if glow:
 		m.emission_enabled = true
 		m.emission = color
 		m.emission_energy_multiplier = 1.4
+	m.set_meta("toy_finish",true)
 	materials[key] = m
 	return m
+
+# Share the same satin plastic palette across imported and procedural art.
+# Surface overrides preserve source GLBs and keep colour batching available.
+static func toy_finish(source: StandardMaterial3D) -> StandardMaterial3D:
+	if source.get_meta("toy_finish",false): return source
+	if toy_materials.has(source): return toy_materials[source]
+	var paint:=source.duplicate() as StandardMaterial3D
+	var dark:=maxf(source.albedo_color.r,maxf(source.albedo_color.g,source.albedo_color.b))<.26 and not source.vertex_color_use_as_albedo
+	paint.roughness=.72 if dark else .34
+	paint.metallic=minf(source.metallic,.12)
+	paint.metallic_specular=.28 if dark else .42
+	paint.clearcoat_enabled=not dark and not source.emission_enabled
+	paint.clearcoat=.30
+	paint.clearcoat_roughness=.28
+	paint.set_meta("toy_finish",true)
+	toy_materials[source]=paint
+	return paint
+
+static func apply_toy_finish(root: Node) -> void:
+	if root is MeshInstance3D and root.mesh:
+		if root.material_override is StandardMaterial3D:
+			root.material_override=toy_finish(root.material_override)
+		elif root.material_override==null:
+			for surface in root.mesh.get_surface_count():
+				var source: Material=root.get_active_material(surface)
+				if source is StandardMaterial3D: root.set_surface_override_material(surface,toy_finish(source))
+	for child in root.get_children(): apply_toy_finish(child)
+
+# Trees and people retain the toy finish with ten percent gentler highlights.
+static func soften_toy_shine(root: Node) -> void:
+	if root is MeshInstance3D and root.mesh:
+		for surface in root.mesh.get_surface_count():
+			var source: Material=root.get_active_material(surface)
+			if not source is StandardMaterial3D or source.get_meta("softened_toy_shine",false): continue
+			if not softened_materials.has(source):
+				var paint:=source.duplicate() as StandardMaterial3D
+				paint.metallic_specular*=.9
+				paint.clearcoat*=.9
+				paint.set_meta("softened_toy_shine",true)
+				softened_materials[source]=paint
+			if root.material_override is StandardMaterial3D: root.material_override=softened_materials[source]
+			else: root.set_surface_override_material(surface,softened_materials[source])
+	for child in root.get_children(): soften_toy_shine(child)
 
 static func box(parent: Node3D, pos: Vector3, size: Vector3, color: Color, solid: bool = false) -> MeshInstance3D:
 	var node := MeshInstance3D.new()
@@ -162,6 +215,7 @@ static func person(parent: Node3D, pos: Vector3, shirt: Color) -> Node3D:
 	ball(p,Vector3(0,1.68,-0.41),Vector3(0.17,0.055,0.045),Color("956352"))
 	if shirt==Color("b88ca1"):
 		ball(p,Vector3(0,2.57,0.1),Vector3(0.48,0.46,0.5),hair)
+	soften_toy_shine(p)
 	return p
 
 # Compatibility/WebGL has a much smaller instance-uniform buffer. Particle

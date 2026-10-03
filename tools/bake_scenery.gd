@@ -10,6 +10,8 @@ func run() -> void:
 	# each model, so interaction and wind do not require eight material draws.
 	for variant in 2:
 		var tree: Node3D=load("res://assets/models/tree_%d.glb" % variant).instantiate()
+		TownProps.apply_toy_finish(tree)
+		TownProps.soften_toy_shine(tree)
 		root.add_child(tree)
 		TownProps.merge_fixed_geometry(tree,[],"tree_%d" % variant)
 		tree.free()

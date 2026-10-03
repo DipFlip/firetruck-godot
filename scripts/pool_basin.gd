@@ -23,7 +23,7 @@ func _ready() -> void:
 		if child.position.distance_to(TownLayout.POOL+Vector3.UP*.35)<.01 and child.scale.is_equal_approx(Vector3(10,.7,6)):
 			game.town.remove_child(child)
 			child.queue_free()
-		if child.scale.x>150:
+		if child.scale.x>150 and child.scale.z>150:
 			child.material_override.set_shader_parameter("pool_hole",Vector4(TownLayout.POOL.x-4.4,TownLayout.POOL.z-2.4,TownLayout.POOL.x+4.4,TownLayout.POOL.z+2.4))
 			child.material_override.set_shader_parameter("cut_pool",true)
 			for body in child.get_children():

@@ -82,6 +82,8 @@ var dog_puddle: DogPuddle
 var intro: TownIntro
 var sounds: TownAudio
 var barbecue: Barbecue
+var miniature: MiniatureLook
+var playroom: Playroom
 
 func _ready() -> void:
 	# Frame-driven scenery and camera are not physics-interpolated a second time.
@@ -118,6 +120,9 @@ func _ready() -> void:
 	camera.current=true
 	camera_focus=truck.position
 	truck.camera=camera
+	miniature=MiniatureLook.new()
+	miniature.game=self
+	add_child(miniature)
 	var canvas:=CanvasLayer.new()
 	add_child(canvas)
 	hud=FireHUD.new()
@@ -172,6 +177,8 @@ func _ready() -> void:
 	railway.game=self
 	add_child(railway)
 	truck.drive_guide=railway.guide_push
+	playroom=Playroom.new()
+	add_child(playroom)
 	dog_puddle=DogPuddle.new()
 	dog_puddle.game=self
 	add_child(dog_puddle)
@@ -236,8 +243,8 @@ func _setup_light() -> void:
 	env.ssao_intensity=1.5
 	env.ssao_light_affect=0.35
 	env.glow_enabled=not compatibility
-	env.glow_intensity=0.3
-	env.glow_bloom=0.04
+	env.glow_intensity=0.12
+	env.glow_bloom=0.0
 	env.adjustment_enabled=true
 	env.adjustment_saturation=1.24
 	env.adjustment_contrast=1.08 if compatibility else 1.03
@@ -823,5 +830,7 @@ func _exit_tree() -> void:
 	if audio: audio.stop()
 	playback=null
 	TownProps.materials.clear()
+	TownProps.toy_materials.clear()
+	TownProps.softened_materials.clear()
 	TownProps.effect_shaders.clear()
 	TownProps.rounded_mesh=null

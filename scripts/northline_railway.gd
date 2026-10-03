@@ -29,6 +29,8 @@ var clock:=0.0
 var puff_clock:=0.0
 var chuff_clock:=0.0
 var crossings: Array[MeshInstance3D]=[]
+var signs: Array[BreakableProp]=[]
+var gates: Array[ToyRailGate]=[]
 var offstage:=false
 var turns:=0
 var last_crossing:=99
@@ -46,13 +48,18 @@ func _ready() -> void:
 		TownProps.box(tracks,Vector3(x,.07,TRACK_Z),Vector3(8,.05,7),Color("7c8984"))
 		for side in [-1,1]:
 			var p:=Vector3(x+side*5,.0,TRACK_Z+3.0)
-			TownProps.cylinder(tracks,p+Vector3.UP*1.1,.085,2.2,Color("eaf4ef"))
-			var cross:=TownProps.box(tracks,p+Vector3.UP*2.2,Vector3(.12,.16,1.25),Color("eaf4ef"))
+			var art:=Node3D.new()
+			add_child(art)
+			art.position=p
+			TownProps.cylinder(art,Vector3.UP*1.1,.085,2.2,Color("eaf4ef"))
+			var cross:=TownProps.box(art,Vector3.UP*2.2,Vector3(.12,.16,1.25),Color("eaf4ef"))
 			cross.rotation.x=.65
-			cross=TownProps.box(tracks,p+Vector3.UP*2.2,Vector3(.12,.16,1.25),Color("eaf4ef"))
+			cross=TownProps.box(art,Vector3.UP*2.2,Vector3(.12,.16,1.25),Color("eaf4ef"))
 			cross.rotation.x=-.65
-			crossings.append(TownProps.ball(self,p+Vector3.UP*1.75,Vector3(.20,.20,.20),Color("e78970")))
-	_make_tunnels(tracks)
+			crossings.append(TownProps.ball(art,Vector3.UP*1.75,Vector3(.20,.20,.20),Color("e78970")))
+			var sign: BreakableProp=game.interactions.add_prop("rail_sign",p,[art],Vector3(.26,2.7,.95),Vector3.UP*1.35,4.5,.35,.5)
+			signs.append(sign)
+	_make_portals()
 	for child in tracks.get_children():
 		if child is MeshInstance3D: child.set_meta("batch_static",true)
 	TownProps.batch_decorations(tracks)
@@ -84,6 +91,7 @@ func _ready() -> void:
 	TownProps.cylinder(driver,Vector3(0,2.55,0),.50,.20,Color("365868"))
 	TownProps.box(driver,Vector3(0,2.47,-.28),Vector3(.65,.06,.35),Color("365868"))
 	for x in [-.10,.10]: TownProps.ball(driver,Vector3(x,1.78,-.42),Vector3(.23,.075,.055),Color("694f3f"))
+	TownProps.soften_toy_shine(driver)
 	driver_guard=game.interactions._visibility_guard("RailwayDriverSpace",driver.position)
 	sound=AudioStreamPlayer3D.new()
 	sound.stream=load("res://assets/audio/town/chuff_0.wav")
@@ -111,6 +119,9 @@ func _clear_corridor() -> void:
 		for attempt in 20:
 			var candidate:=Vector3(-72+attempt*7.5,0,-74.5)
 			var clear:=true
+			# Keep the extended street ends open up to the wall.
+			for road in [-36,0,36]:
+				if absf(candidate.x-road)<8: clear=false
 			for other in game.interactions.props:
 				if other!=prop and other.position.distance_to(candidate)<6.5: clear=false; break
 			if not clear: continue
@@ -257,6 +268,7 @@ func _physics_process(dt: float) -> void:
 		if chuff_clock<=0:
 			chuff_clock=.6 if absf(engine.linear_velocity.x)>.8 else 1.0
 			if not offstage: game.sounds.play("chuff",engine.global_position,.9,.15)
+	for gate in gates: gate.update_train(engine.position.x,started and boarded and not offstage,dt)
 	for wheel in wheels: wheel.rotation.z-=engine.linear_velocity.x*direction*dt/.48
 	for light in crossings:
 		light.material_override=TownProps.material(Color("ef927b") if started and wait==0 and sin(clock*6)>0 else Color("925d53"),started and wait==0)
@@ -291,9 +303,9 @@ func _puff() -> void:
 		break
 
 func _update_route(dt: float) -> void:
-	# The hidden continuation sits behind the railway tunnels, avoiding a
-	# locomotive floating beyond the terrain while it travels out of view.
-	engine.visible=not offstage and absf(engine.position.x)<80
+	# The train keeps moving forwards over the wooden track outside the mat.
+	# Turn only after the entire engine has left the camera's view.
+	engine.visible=not offstage
 	if offstage:
 		wait=maxf(0,wait-dt)
 		# Wait outside the playable town, then re-enter with the boiler leading.
@@ -305,7 +317,7 @@ func _update_route(dt: float) -> void:
 			engine.reset_physics_interpolation()
 			offstage=false
 			turns+=1
-			engine.visible=absf(engine.position.x)<80
+			engine.visible=TownProps.near_view(game.camera,engine.position,12)
 			engine.collision_layer=2
 			last_crossing=99
 		return
@@ -322,13 +334,26 @@ func _update_route(dt: float) -> void:
 			last_crossing=crossing
 			game.sounds.play("whistle",engine.global_position,.65,3.0)
 
-func _make_tunnels(tracks: Node3D) -> void:
+func _make_portals() -> void:
 	for side in [-1,1]:
-		var mouth:=Vector3(side*73.0,0,TRACK_Z)
-		TownProps.ball(tracks,Vector3(side*84.0,2.0,TRACK_Z),Vector3(24,13,21),Color("88a66b"))
-		TownProps.ball(tracks,mouth+Vector3(side*.08,2.3,0),Vector3(.12,7.0,7.2),Color("273c42"))
-		for z in [-3.5,3.5]: TownProps.box(tracks,mouth+Vector3(0,.65,z),Vector3(.95,1.4,.70),Color("9faaa3"))
-		for i in 12:
-			var angle: float=i*PI/11
-			var stone:=TownProps.box(tracks,mouth+Vector3(0,1.3+sin(angle)*3.5,cos(angle)*3.5),Vector3(.96,.64,1.08),Color("aeb9ad") if i%2==0 else Color("99a99f"))
-			stone.rotation.x=-PI/2-angle
+		var portal:=ToyRailGate.new()
+		# Place before entering the tree so the boom's physics body starts at the arch.
+		portal.position=Vector3(side*81.0,0,TRACK_Z)
+		add_child(portal)
+		gates.append(portal)
+	# Raised wooden track beds carry the train onto the room floor without
+	# leaving its wheels floating a metre above the floor outside the mat.
+	var continuation:=Node3D.new()
+	add_child(continuation)
+	var wood:=Playroom.wood_finish(Color("bda079"))
+	for side in [-1,1]:
+		var bed:=TownProps.box(continuation,Vector3(side*110,-.50,TRACK_Z),Vector3(60,1.05,3.4),Color.WHITE)
+		bed.material_override=wood
+		bed.set_meta("batch_static",true)
+		for z in [-.98,.98]:
+			var rail:=TownProps.box(continuation,Vector3(side*110,.13,TRACK_Z+z),Vector3(60,.12,.13),Color("667d83"))
+			rail.set_meta("batch_static",true)
+		for x in range(82,140,2):
+			var sleeper:=TownProps.box(continuation,Vector3(side*x,.085,TRACK_Z),Vector3(.30,.09,2.7),Color("857461"))
+			sleeper.set_meta("batch_static",true)
+	TownProps.batch_decorations(continuation)

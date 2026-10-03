@@ -1,7 +1,7 @@
 shader_type spatial;
 render_mode diffuse_burley;
 uniform vec4 paint : source_color = vec4(1.0);
-uniform float roughness = 0.65;
+uniform float roughness = 0.34;
 uniform float metal = 0.0;
 uniform float squash = 1.0;
 uniform mat4 body_from_mesh;
@@ -21,4 +21,7 @@ void fragment() {
  ALBEDO=paint.rgb;
  ROUGHNESS=roughness;
  METALLIC=metal;
+ SPECULAR=.42;
+ CLEARCOAT=.30;
+ CLEARCOAT_ROUGHNESS=.28;
 }
