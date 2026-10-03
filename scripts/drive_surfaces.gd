@@ -5,6 +5,8 @@ extends Node3D
 # rounded physical supports still roll smoothly across these tiny steps.
 func register(root: Node) -> void:
 	for child in root.get_children():
+		# Shaped pavements bring their own exact collision faces.
+		if child is TownSidewalks: continue
 		if child is MeshInstance3D and child.mesh:
 			var bounds: AABB=child.mesh.get_aabb()
 			var dimensions: Vector3=bounds.size*child.global_basis.get_scale()

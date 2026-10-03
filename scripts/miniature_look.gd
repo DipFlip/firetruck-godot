@@ -6,6 +6,7 @@ var lens: ColorRect
 var finish: ShaderMaterial
 var focus_top:=.27
 var focus_bottom:=.73
+var strength:=1.0
 
 func _ready() -> void:
 	# Render after the world, before portraits, text, gauges and intro lettering.
@@ -37,5 +38,13 @@ func _process(dt: float) -> void:
 	var blend:=1-exp(-5*dt)
 	focus_top=lerpf(focus_top,top,blend)
 	focus_bottom=lerpf(focus_bottom,bottom,blend)
+	# Depth of field deepens roughly with the square of subject distance. The
+	# orthographic size stands in for distance: gameplay framing (~26) keeps the
+	# full effect, close conversations a touch more, the town overview very little.
+	var reference:=25.8/maxf(1,game.camera.size)
+	var target_strength:=clampf(reference*reference,.08,1.15)
+	# Intro cuts change lens instantly; gameplay zooms ease with the camera.
+	strength=target_strength if game.intro and game.intro.active else lerpf(strength,target_strength,1-exp(-8*dt))
+	finish.set_shader_parameter("strength",strength)
 	finish.set_shader_parameter("focus_top",focus_top)
 	finish.set_shader_parameter("focus_bottom",focus_bottom)

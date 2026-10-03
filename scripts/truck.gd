@@ -55,6 +55,9 @@ var suspension_grounded := false
 var jump_pitch := 0.0
 var jump_pitch_velocity := 0.0
 var drive_pitch := 0.0
+var body_roll := 0.0
+var body_roll_velocity := 0.0
+const WHEEL_LIFT_LIMIT:=.10 # Highest step a tire climbs relative to the chassis.
 var ground_distance := INF
 var ground_normal := Vector3.UP
 var support_height := .8
@@ -290,6 +293,8 @@ func reset_truck() -> void:
 	jump_pitch=0
 	jump_pitch_velocity=0
 	drive_pitch=0
+	body_roll=0
+	body_roll_velocity=0
 	suspension_grounded=false
 	previous_velocity=Vector3.ZERO
 	visual.transform=Transform3D.IDENTITY
@@ -455,7 +460,13 @@ func _update_suspension(dt: float, acceleration_local: Vector3, forward_speed: f
 	var road_pitch:=clampf(acceleration_local.z*.005,-.085,.085) if touching else 0.0
 	drive_pitch=lerpf(drive_pitch,road_pitch,1-exp(-6*dt))
 	visual.rotation.x=jump_pitch+drive_pitch
-	visual.rotation.z=lerpf(visual.rotation.z,-steering*absf(forward_speed)*.024,1-exp(-7*dt))
+	# The body leans out of corners on soft springs and sways back past level.
+	# Cornering force comes from sideways acceleration plus steering at speed,
+	# so a sharp turn is felt even before the chassis has fully rotated.
+	var corner:=clampf(acceleration_local.x*.011-steering*absf(forward_speed)*.016,-.14,.14) if touching else 0.0
+	body_roll_velocity+=((corner-body_roll)*70-body_roll_velocity*7.5)*dt
+	body_roll=clampf(body_roll+body_roll_velocity*dt,-.17,.17) # Stays clear of the tires.
+	visual.rotation.z=body_roll
 	body_squash=1.0+minf(0,suspension_offset)/1.80
 	for material in body_materials: material.set_shader_parameter("squash",body_squash)
 	visual.position.y=maxf(0,suspension_offset)+(sin(elapsed*13)*minf(.012,absf(forward_speed)*.001) if touching else 0.0)
@@ -479,12 +490,40 @@ func _update_suspension(dt: float, acceleration_local: Vector3, forward_speed: f
 			var sample:=center+samples[j]
 			var query:=PhysicsRayQueryParameters3D.create(sample+Vector3.UP*.7,sample+Vector3.DOWN*1.25,9,[get_rid()])
 			var hit:=get_world_3d().direct_space_state.intersect_ray(query)
-			if not hit: continue
+			# Tires follow fixed ground, curbs and ramps. Loose props, traffic
+			# and the train are pushed by the chassis instead of climbed.
+			if not hit or hit.collider is RigidBody3D: continue
 			var radius:=.4386 if j==1 or j==2 else .50
 			tire_y=maxf(tire_y,hit.position.y+radius/maxf(.7,hit.normal.y)+.012)
-		var correction: float=tire_y-center.y
+		var correction: float=minf(tire_y-center.y,WHEEL_LIFT_LIMIT)
 		if correction>0 or (touching and correction>-.22):
 			axle.global_position=center+Vector3.UP*correction
+	_bump_stop()
+
+# Tires must stay inside their arches however the body leans. When one would
+# rise into its arch, ease that side's roll first, then lift the body over it,
+# as a real suspension does when it reaches its bump stops.
+const ARCH_TRAVEL:=.11 # Upward room between a resting tire and its fender lip.
+func _bump_stop() -> void:
+	for pass_index in 2:
+		var to_body:=visual.transform.affine_inverse()
+		var side_excess:=[0.0,0.0]
+		for i in wheel_steers.size():
+			var tire: Vector3=to_body*(wheel_rig.transform*wheel_steers[i].position)
+			var rest: Vector3=wheel_rest_positions[i]
+			var side:=0 if rest.x<0 else 1
+			side_excess[side]=maxf(side_excess[side],tire.y-rest.y-ARCH_TRAVEL)
+		var left: float=maxf(0,side_excess[0])
+		var right: float=maxf(0,side_excess[1])
+		if left==0 and right==0: return
+		# Positive Z roll raises the right (+X) side away from its tires.
+		var roll_fix:=(right-left)/(2*.94)
+		if pass_index==0:
+			body_roll+=roll_fix
+			if signf(body_roll_velocity)!=signf(roll_fix): body_roll_velocity=0
+			visual.rotation.z=body_roll
+		else:
+			visual.position.y+=maxf(left,right)
 
 func body_point(point: Vector3) -> Vector3:
 	if point.y>.38: point.y=.38+(point.y-.38)*body_squash

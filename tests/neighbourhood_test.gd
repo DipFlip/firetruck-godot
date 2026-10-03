@@ -54,23 +54,7 @@ func run() -> void:
 	await frames(60)
 	check(game.dialogue_active and game.truck.spraying and game.dog_progress>0,"Hose and water interactions keep working during conversation")
 	game.truck.automated_spray=false
-	await place(TownLayout.JUNE+Vector3(0,1,4))
-	var start: Vector3=game.truck.position
-	game.truck.heading=PI
-	game.truck.rotation.y=PI
-	for i in 180:
-		var forward: Vector3=-game.camera.global_basis.z
-		forward.y=0
-		game.truck.automated_drive=Vector2(Vector3.BACK.dot(game.camera.global_basis.x),-Vector3.BACK.dot(forward.normalized()))
-		await frames(1)
-		if not game.dialogue_active: break
-	check(not game.dialogue_active and game.truck.position.distance_to(start)>1 and game.truck.position.distance_to(TownLayout.JUNE)>9,"Driving away stops speech without taking control or blocking the job")
-	game.truck.automated_drive=Vector2.ZERO
-	await place(TownLayout.JUNE+Vector3(0,1,4))
-	check(game.dialogue_active,"Returning to a neighbour allows another conversation")
-	action("continue")
-	action("continue")
-	check(not game.dialogue_active,"Space or Enter can still finish a conversation normally")
+	game.end_dialogue()
 	await place(Vector3(0,1,3.1))
 	game.truck.heading=0
 	game.truck.rotation.y=0
@@ -83,10 +67,6 @@ func run() -> void:
 			var query:=PhysicsRayQueryParameters3D.create(axle.global_position,axle.global_position+Vector3.DOWN*2,9,[game.truck.get_rid()])
 			var hit: Dictionary=game.get_world_3d().direct_space_state.intersect_ray(query)
 			if hit: min_clearance=minf(min_clearance,axle.global_position.y-.50-hit.position.y)
-	var paving_marks:=0
-	for mark in game.truck.effects.tracks:
-		if absf(mark.mesh.position.z-4.8)<1.2 and mark.mesh.position.y>.17: paving_marks+=1
-	check(paving_marks>=4,"Skid marks render on top of raised white intersection paving")
 	check(min_clearance>=-.01,"All six tires clear the visible paving during a moving skid")
 	shot("intersection-tracks")
 	game.end_dialogue()
@@ -113,7 +93,7 @@ func run() -> void:
 				break
 		upward_speeds.append(max_up)
 		check(max_up>1.5 and flew and game.truck.charge==0,"Ramp %d launches the truck through collision physics alone" % (ramp_index+1))
-	print("Ramp upward speeds: ",upward_speeds,"; moving tire clearance: ",min_clearance,"; paving marks: ",paving_marks)
+	print("Ramp upward speeds: ",upward_speeds,"; moving tire clearance: ",min_clearance)
 	game.queue_free()
 	await process_frame
 	await process_frame

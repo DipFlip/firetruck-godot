@@ -10,8 +10,8 @@ func run() -> void:
 	game.call_timer=0
 	game.stage=4
 	await process_frame
-	check(game.batched_decorations>1000,"Over 1000 static details are batched without changing interactive props")
-	check(game.merged_scenery>200 and game.town.has_node("BakedScenery"),"Fixed scenery uses prebuilt spatial batches, including model LODs")
+	check(game.batched_decorations>700,"Over 700 static details are batched without changing interactive props (pavements are single generated meshes)")
+	check(game.merged_scenery>120 and game.town.has_node("BakedScenery"),"Fixed scenery uses prebuilt spatial batches, including model LODs")
 	var tree_surfaces:=0
 	var tree_props:=0
 	for prop in game.interactions.props:

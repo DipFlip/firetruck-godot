@@ -53,8 +53,12 @@ func run() -> void:
 	check(game.hud.prompt_label.text=="Press E to extend the ladder" and game.hud.prompt_panel.visible,"After Maya's briefing the desktop hint only explains how to extend the ladder")
 	game.hud.touch_mode=true
 	await frames(3)
-	check(game.hud.prompt_label.text=="Press 'ladder' to extend ladder","Touch hint names the ladder button instead of a keyboard key")
+	check(game.hud.prompt_label.text=="Press 'ladder' to extend the ladder","Touch hint names the ladder button instead of a keyboard key")
 	game.hud.touch_mode=false
+	game.controls.set_mode(ControlPrompts.Mode.GAMEPAD)
+	await frames(2)
+	check(game.hud.prompt_label.text=="Press B to extend the ladder" and game.hud.prompt_rich.text.contains("pad_east.svg"),"Gamepad hint shows the east face-button glyph for the ladder")
+	game.controls.set_mode(ControlPrompts.Mode.KEYBOARD)
 	game.truck.extend_ladder()
 	await frames(3)
 	check(game.hud.prompt_label.text.is_empty(),"An extended ladder needs no extra approach/status hint")

@@ -32,7 +32,15 @@ func _ready() -> void:
 	for x in [-7,7,29,-29]:
 		for z in [-28,10,29]:
 			var p:=Vector3(x,0,z)
-			add_prop("lamp",p,_parts(game.town,p+Vector3.UP*2.1,Vector3(.8,2.2,.8)),Vector3(.18,4.2,.18),Vector3.UP*2.1,5.5,.48,.18)
+			var lamp:=add_prop("lamp",p,_parts(game.town,p+Vector3.UP*2.1,Vector3(.8,2.2,.8)),Vector3(.18,4.2,.18),Vector3.UP*2.1,5.5,.48,.18)
+			# The lantern is wider than the pole; give it its own shape so a
+			# toppled lamp lies on top of the street rather than through it.
+			var head:=CollisionShape3D.new()
+			var head_box:=BoxShape3D.new()
+			head_box.size=Vector3(.7,.2,.6)
+			head.shape=head_box
+			head.position=Vector3.UP*4.1
+			lamp.add_child(head)
 	for p in [Vector3(-10,0,21),Vector3(10,0,-27),Vector3(-23,0,-8)]:
 		add_prop("bench",p,_parts(game.town,p+Vector3.UP*.7,Vector3(1.45,.65,.5)),Vector3(2.8,1.3,.8),Vector3.UP*.65,4.0,.55,1.1)
 	for p in game.town.hydrants:

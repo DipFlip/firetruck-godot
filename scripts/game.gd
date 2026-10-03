@@ -84,11 +84,14 @@ var sounds: TownAudio
 var barbecue: Barbecue
 var miniature: MiniatureLook
 var playroom: Playroom
+var controls: ControlPrompts
 
 func _ready() -> void:
 	# Frame-driven scenery and camera are not physics-interpolated a second time.
 	physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_setup_input()
+	controls=ControlPrompts.new()
+	add_child(controls)
 	_setup_light()
 	town=$MapleBay
 	town.people[3].position=TownLayout.OLIVER
@@ -128,6 +131,7 @@ func _ready() -> void:
 	hud=FireHUD.new()
 	hud.game=self
 	canvas.add_child(hud)
+	controls.mode_changed.connect(func(_mode): hud.refresh_controls())
 	truck.empty_spray.connect(hud.on_empty_spray)
 	marker=MeshInstance3D.new()
 	var ring:=TorusMesh.new()
@@ -179,6 +183,9 @@ func _ready() -> void:
 	truck.drive_guide=railway.guide_push
 	playroom=Playroom.new()
 	add_child(playroom)
+	var dust:=RoomDust.new()
+	dust.game=self
+	add_child(dust)
 	dog_puddle=DogPuddle.new()
 	dog_puddle.game=self
 	add_child(dog_puddle)
@@ -220,34 +227,46 @@ func _setup_light() -> void:
 	var compatibility:=RenderingServer.get_current_rendering_method()=="gl_compatibility"
 	var sun:=DirectionalLight3D.new()
 	sun.rotation_degrees=Vector3(-48,-32,0)
-	sun.light_color=Color("ffffff")
+	# Daylight through a large window: near-white sun with a hint of warmth.
+	sun.light_color=Color("fff7ec")
 	# Compatibility blends shadowed lighting differently from Forward+.
 	# Keep browser highlights below the pale shoulder of the ACES curve.
-	sun.light_energy=.24 if compatibility else 1.05
-	sun.light_angular_distance=0.8
+	sun.light_energy=.22 if compatibility else .95
+	# A window is a broad source: soft penumbras, and shadows filled in by the
+	# light bouncing around the room rather than going dark.
+	sun.light_angular_distance=2.2
+	sun.shadow_opacity=.72
 	sun.shadow_enabled=true
 	sun.directional_shadow_max_distance=60 if compatibility else 100
 	# The fixed orthographic camera does not need four perspective shadow splits.
 	if compatibility: sun.directional_shadow_mode=DirectionalLight3D.SHADOW_ORTHOGONAL
 	add_child(sun)
+	# Bounce light from the opposite wall and ceiling: broad, shadowless, cool.
+	var bounce:=DirectionalLight3D.new()
+	bounce.rotation_degrees=Vector3(-62,148,0)
+	bounce.light_color=Color("e6eefa")
+	bounce.light_energy=.07 if compatibility else .28
+	bounce.light_specular=.15
+	add_child(bounce)
 	var world:=WorldEnvironment.new()
 	var env:=Environment.new()
 	env.background_mode=Environment.BG_COLOR
-	env.background_color=Color("aecbca")
+	# Pale painted walls beyond the floor; strong soft fill from the room.
+	env.background_color=Color("e9e4da")
 	env.ambient_light_source=Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color=Color("d6e8ff")
-	env.ambient_light_energy=0.32
+	env.ambient_light_color=Color("eef1f5")
+	env.ambient_light_energy=0.42
 	env.tonemap_mode=Environment.TONE_MAPPER_ACES
 	env.ssao_enabled=not compatibility
-	env.ssao_radius=1.2
-	env.ssao_intensity=1.5
+	env.ssao_radius=1.1
+	env.ssao_intensity=1.6
 	env.ssao_light_affect=0.35
 	env.glow_enabled=not compatibility
 	env.glow_intensity=0.12
 	env.glow_bloom=0.0
 	env.adjustment_enabled=true
-	env.adjustment_saturation=1.24
-	env.adjustment_contrast=1.08 if compatibility else 1.03
+	env.adjustment_saturation=1.14 if compatibility else 1.08
+	env.adjustment_contrast=1.04 if compatibility else 1.0
 	env.tonemap_exposure=.75 if compatibility else .92
 	world.environment=env
 	add_child(world)
@@ -474,7 +493,7 @@ func _talk_to_npc(i: int, manual: bool=false) -> bool:
 			elif not barbecue_briefed or manual:
 				_discover_barbecue()
 				barbecue_briefed=true
-				talk("LEO  /  A LITTLE TOO WELL DONE","I was going for smoky flavour, not actual smoke! Aim at the barbecue and hold the hose. Shift will keep you steady.",3 if cat_rescued or stage in [2,3,5] else stage)
+				talk("LEO  /  A LITTLE TOO WELL DONE","I was going for smoky flavour, not actual smoke! Aim at the barbecue and hold the hose. {brake} will keep you steady.",3 if cat_rescued or stage in [2,3,5] else stage)
 			else: return false
 		2:
 			talk("JUNE  /  BISCUIT'S BIG DAY", "He's spotless. Thank you!" if dog_done else "Biscuit found every puddle in town. Could you give him a gentle rinse? Aim the hose at him until he's clean.",stage)
@@ -553,13 +572,13 @@ func _process(dt: float) -> void:
 	# The hint is a control reminder after Maya's briefing, not a status feed.
 	if stage==1 and rescued and not cat_rescued and not dialogue_active and not rescue_running and not truck.ladder_deployed and truck.global_position.distance_to(TownLayout.MAYA)<12:
 		prompt=_ladder_instruction()
-	hud.prompt_label.text=prompt
+	hud.set_prompt(prompt)
 	if stage==3:
 		hud.heading_label.text="ON TARGET  /  COOLING" if fire_feedback>.1 else "02  /  HOSE AT THE READY"
-		hud.detail_label.text="Extinguish the barbecue  ·  %d%%\n" % (fire_progress*100) + ("Keep it there!" if fire_feedback>.1 else "Aim near the flames · Shift to brace.")
+		hud.detail_label.text="Extinguish the barbecue  ·  %d%%\n" % (fire_progress*100) + ("Keep it there!" if fire_feedback>.1 else ControlPrompts.plain("Aim near the flames · {brake} to brace."))
 
 func _ladder_instruction() -> String:
-	return "Press 'ladder' to extend ladder" if hud.touch_mode else "Press E to extend the ladder"
+	return "Press {interact} to extend the ladder"
 
 func _talk_camera_size() -> float:
 	if not is_instance_valid(camera_subject): return TALK_CAMERA_SIZE
@@ -680,7 +699,7 @@ func _update_mission() -> void:
 		1:
 			hud.heading_label.text="01  /  THE FIRST CALL"
 			hud.mission_label.text="A cat in a tree"
-			hud.detail_label.text="E to extend the ladder.\nBring its tip close to Pippin." if rescued else "Follow the gold arrow to Maya.\nDrive close to say hello."
+			hud.detail_label.text=ControlPrompts.plain("{interact} to extend the ladder.\nBring its tip close to Pippin.") if rescued else "Follow the gold arrow to Maya.\nDrive close to say hello."
 		2:
 			hud.heading_label.text="02  /  WILLOW LANE"
 			hud.mission_label.text="A little too well done"
@@ -692,7 +711,7 @@ func _update_mission() -> void:
 			job_label.text="SPRAY THE FLAMES"
 		4:
 			hud.heading_label.text="OFF DUTY  /  STILL A HERO"
-			hud.mission_label.text="Little acts of kindness"
+			hud.mission_label.text="Optional jobs"
 			hud.detail_label.text=("✓" if dog_done else "○")+" Rinse Biscuit · west side\n"+("✓" if pool_done else "○")+" Fill the pool · Rose Cottage"
 		5:
 			hud.heading_label.text="A QUIET MOMENT"

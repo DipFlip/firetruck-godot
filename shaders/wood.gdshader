@@ -79,6 +79,8 @@ void fragment(){
  shade+=(noise(vec2(along*.05,radius*.6)+seed*29.0)-.5)*(painted ? .03 : floorboards ? .05 : .08);
  shade+=(seed-.5)*(painted ? .05 : .14);
  shade-=seam;
+ // Only a gentle falloff towards the far floor, away from the window.
+ if(floorboards){shade*=mix(1.0,.9,smoothstep(100.0,220.0,length(world.xz)));}
  vec3 colour=timber.rgb;
  // Latewood is slightly warmer and redder, as in real beech and maple.
  if(!painted){colour=mix(colour,colour*vec3(1.0,.86,.72),late*filter*.55);}

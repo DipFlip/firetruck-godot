@@ -15,14 +15,15 @@ var heading_label: Label
 var water_label: Label
 var speed_label: Label
 var location_label: Label
-var prompt_label: Label
+var prompt_label: Label # Plain message; prompt_rich shows it with control glyphs.
+var prompt_rich: RichTextLabel
 var dialogue_panel: SpeechFrame
 var speaker_label: Label
-var dialogue_label: Label
-var footer: Label
+var dialogue_label: RichTextLabel
+var footer: RichTextLabel
 var toast_label: Label
 var pause_panel: Panel
-var pause_help: Label
+var pause_help: RichTextLabel
 var pause_title: Label
 var menu_button: Button
 var main_menu: Control
@@ -51,7 +52,12 @@ var water_gauge_scale:=1.0
 var water_gauge_offset:=Vector2.ZERO
 var radio_idle := 0.0
 var auto_close_delay := -1.0
-var touch_mode:=false
+var touch_mode:=false:
+	set(value):
+		if value==touch_mode: return
+		touch_mode=value
+		# Touch screens show named on-screen buttons until a pad is used.
+		if game and game.controls: game.controls.set_touch_device(value)
 var touch_portrait:=false
 var last_window_size:=Vector2i.ZERO
 var dialogue_layout_width:=-1.0
@@ -62,7 +68,8 @@ var bubble_position_ready:=false
 var bubble_move_from:=Vector2.ZERO
 var bubble_follow_target:=Vector2.ZERO
 var bubble_move_elapsed:=BUBBLE_MOVE_TIME
-var dialogue_text:=""
+var dialogue_text:="" # Plain words; the label shows dialogue_source with glyphs.
+var dialogue_source:=""
 var dialogue_pages: Array[String]=[]
 var page_index:=0
 var dialogue_font_size:=19
@@ -100,6 +107,25 @@ func words(parent: Node, rect: Rect2, value: String, size_px: int, color: Color 
 	l.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	return l
 
+func rich(parent: Node, rect: Rect2, size_px: int, color: Color = INK, heavy: bool = false) -> RichTextLabel:
+	var l:=RichTextLabel.new()
+	parent.add_child(l)
+	l.position=rect.position
+	l.size=rect.size
+	l.bbcode_enabled=true
+	l.scroll_active=false
+	l.add_theme_font_override("normal_font",bold if heavy else font)
+	l.add_theme_font_override("bold_font",bold)
+	l.add_theme_font_size_override("normal_font_size",size_px)
+	l.add_theme_font_size_override("bold_font_size",size_px)
+	l.add_theme_color_override("default_color",color)
+	l.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	return l
+
+# Control glyphs sized to sit in a line of text like an emoji.
+func glyph_size(size_px: int) -> int:
+	return int(round(size_px*1.3))
+
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter=Control.MOUSE_FILTER_IGNORE
@@ -121,12 +147,16 @@ func _ready() -> void:
 	location_label=words(hud_group,Rect2(),"",12)
 	prompt_panel=panel(self,Rect2(450,807,540,42),PAPER,18)
 	prompt_label=words(prompt_panel,Rect2(16,6,508,28),"",15,INK,true)
-	prompt_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	prompt_label.hide()
+	prompt_rich=rich(prompt_panel,Rect2(16,6,508,30),15,INK,true)
+	prompt_rich.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	prompt_rich.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	toast_panel=panel(self,Rect2(440,109,560,46),PAPER,18)
 	toast_label=words(toast_panel,Rect2(15,7,530,30),"",16,INK,true)
 	toast_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	footer=words(self,Rect2(350,865,960,25),"WASD drive   ·   CLICK hose   ·   E ladder   ·   SPACE hop / talk   ·   ESC help",12,INK,true)
+	footer=rich(self,Rect2(240,860,1180,30),12,INK,true)
 	footer.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	footer.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	footer.add_theme_color_override("font_outline_color",PAPER)
 	footer.add_theme_constant_override("outline_size",4)
 	dialogue_panel=SpeechFrame.new()
@@ -169,17 +199,18 @@ void fragment(){
 	var mat:=ShaderMaterial.new()
 	mat.shader=sh
 	portrait.material=mat
-	dialogue_label=words(dialogue_panel,Rect2(148,46,363,116),"",19,INK)
+	dialogue_label=rich(dialogue_panel,Rect2(148,46,363,116),19,INK)
 	dialogue_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	dialogue_label.visible_characters_behavior=TextServer.VC_CHARS_AFTER_SHAPING
-	dialogue_label.add_theme_constant_override("line_spacing",0)
+	dialogue_label.add_theme_constant_override("line_separation",0)
 	continue_label=words(dialogue_panel,Rect2(148,171,363,23),"SPACE  ·  continue",12,MUTED,true)
 	continue_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
 	continue_label.hide()
 	dialogue_panel.hide()
 	pause_panel=panel(self,Rect2(446,163,548,568),PAPER,26)
 	pause_title=words(pause_panel,Rect2(37,24,470,46),"Paused",30,INK,true)
-	pause_help=words(pause_panel,Rect2(38,91,475,425),"WASD     Drive toward that side of the screen\nMouse + click     Aim and spray\nArrow keys     Directional spray\nHold Space, release     A springy little hop\nShift     Brake / brace against the hose\nE     Extend / retract ladder\nSpace / Enter     Continue a conversation\nSpace / click a neighbour     Say hello\nTab     Open the town map\nPark by a hydrant to refill\nR     Recover at the station\nM     Music on / off\n\nEsc     Back to the neighbourhood",18,INK)
+	pause_help=rich(pause_panel,Rect2(38,91,475,435),18,INK)
+	refresh_controls()
 	menu_button=Button.new()
 	pause_panel.add_child(menu_button)
 	menu_button.text="Return to main menu"
@@ -198,10 +229,10 @@ void fragment(){
 	main_menu.add_child(backdrop)
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	backdrop.color=INK
-	var title:=words(main_menu,Rect2(),"Firedriver",54,PAPER,true)
+	var title:=words(main_menu,Rect2(),"Firetruck Frenzy",54,PAPER,true)
 	title.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	title.position=Vector2(-180,-130)
-	title.size=Vector2(360,80)
+	title.position=Vector2(-280,-130)
+	title.size=Vector2(560,80)
 	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	var start:=Button.new()
 	main_menu.add_child(start)
@@ -239,10 +270,11 @@ func begin_dialogue(speaker: String, text: String) -> void:
 	portrait.material.set_shader_parameter("region_start",Vector2.ZERO if single else Vector2(cell)*.5)
 	portrait.material.set_shader_parameter("region_size",Vector2.ONE if single else Vector2.ONE*.5)
 	portrait.material.set_shader_parameter("bob",Vector2.ZERO)
-	dialogue_text=text
+	dialogue_source=text
+	dialogue_text=ControlPrompts.plain(text)
 	page_index=0
-	full_text=text
-	dialogue_label.text=text
+	full_text=dialogue_text
+	dialogue_label.text=_dialogue_markup()
 	dialogue_label.visible_characters=0
 	char_count=0
 	text_clock=0
@@ -282,16 +314,62 @@ func _reflow_dialogue() -> void:
 	dialogue_font_size=19
 	while dialogue_font_size>15 and font.get_multiline_string_size(dialogue_text,HORIZONTAL_ALIGNMENT_LEFT,dialogue_label.size.x,dialogue_font_size).y+36>max_height:
 		dialogue_font_size-=1
-	dialogue_label.add_theme_font_size_override("font_size",dialogue_font_size)
+	dialogue_label.add_theme_font_size_override("normal_font_size",dialogue_font_size)
+	dialogue_label.add_theme_font_size_override("bold_font_size",dialogue_font_size)
 	dialogue_pages.assign([dialogue_text])
 	page_index=0
 	full_text=dialogue_text
-	dialogue_label.text=full_text
+	dialogue_label.text=_dialogue_markup()
 	_resize_dialogue()
-	dialogue_label.visible_characters=char_count
+	dialogue_label.visible_characters=_visible_markup_count(char_count)
+
+func _dialogue_markup() -> String:
+	return ControlPrompts.format(dialogue_source,glyph_size(dialogue_font_size))
+
+# Typing progress is counted on the plain words; glyphs take one character.
+func _visible_markup_count(plain_count: int) -> int:
+	if plain_count>=full_text.length(): return -1
+	return dialogue_label.get_parsed_text().length()*plain_count/maxi(1,full_text.length())
+
+# Re-render every control reminder after the input device changes.
+func refresh_controls() -> void:
+	var g:=func(action: String) -> String: return ControlPrompts.glyph(action,glyph_size(18))
+	var lines: Array[String]=[]
+	if ControlPrompts.mode==ControlPrompts.Mode.GAMEPAD:
+		lines=["Left stick     Drive toward that side of the screen","Right stick     Aim and spray",g.call("jump")+"  hold, release     A springy little hop",g.call("brake")+"     Brake / brace against the hose",g.call("interact")+"     Extend / retract ladder",g.call("jump")+"     Say hello / continue a conversation",g.call("map")+"     Open the town map","Park by a hydrant to refill","Select     Recover at the station","","Start     Back to the neighbourhood"]
+	else:
+		lines=["WASD     Drive toward that side of the screen","Mouse + click     Aim and spray","Arrow keys     Directional spray","Hold Space, release     A springy little hop","Shift     Brake / brace against the hose","E     Extend / retract ladder","Space / Enter     Continue a conversation","Space / click a neighbour     Say hello","Tab     Open the town map","Park by a hydrant to refill","R     Recover at the station","M     Music on / off","","Esc     Back to the neighbourhood"]
+	pause_help.text="\n".join(lines)
+	var f:=func(action: String) -> String: return ControlPrompts.glyph(action,glyph_size(12))
+	if ControlPrompts.mode==ControlPrompts.Mode.GAMEPAD:
+		footer.text="LEFT STICK drive   ·   RIGHT STICK hose   ·   %s hop / talk   ·   %s ladder   ·   %s brace   ·   START help" % [f.call("jump"),f.call("interact"),f.call("brake")]
+	else:
+		footer.text="WASD drive   ·   CLICK hose   ·   E ladder   ·   SPACE hop / talk   ·   ESC help"
+	_refresh_prompt()
+	if not dialogue_source.is_empty():
+		var finished:=char_count>=full_text.length()
+		dialogue_text=ControlPrompts.plain(dialogue_source)
+		full_text=dialogue_text
+		dialogue_label.text=_dialogue_markup()
+		dialogue_layout_width=-1
+		dialogue_panel.set_meta("layout_key",Vector2.ZERO)
+		char_count=full_text.length() if finished else mini(char_count,full_text.length())
+		dialogue_label.visible_characters=_visible_markup_count(char_count)
+
+var prompt_source:=""
+# Messages may contain "{action}" tokens, resolved for the active device.
+func set_prompt(text: String) -> void:
+	if text==prompt_source: return
+	prompt_source=text
+	_refresh_prompt()
+
+func _refresh_prompt() -> void:
+	prompt_label.text=ControlPrompts.plain(prompt_source)
+	prompt_rich.text=ControlPrompts.format(prompt_source,glyph_size(15))
 
 func _resize_dialogue() -> void:
 	var text_height:=font.get_multiline_string_size(full_text,HORIZONTAL_ALIGNMENT_LEFT,dialogue_label.size.x,dialogue_font_size).y+4
+	if "{" in dialogue_source: text_height+=dialogue_font_size*.35 # Glyphs are taller than letters.
 	dialogue_label.size.y=maxf(52,text_height)
 	dialogue_panel.size.y=maxf(speaker_label.position.y+38,dialogue_label.size.y+36)
 
@@ -394,8 +472,9 @@ func _move_dialogue(target: Vector2, slot: int, dt: float) -> void:
 		dialogue_panel.position=dialogue_panel.position.lerp(bubble_follow_target,1-exp(-7*dt))
 
 func advance_text() -> bool:
-	if dialogue_label.visible_characters<full_text.length():
-		dialogue_label.visible_characters=full_text.length()
+	var revealed:=dialogue_label.visible_characters<0 or dialogue_label.visible_characters>=dialogue_label.get_total_character_count()
+	if char_count<full_text.length() and not revealed:
+		dialogue_label.visible_characters=-1
 		char_count=full_text.length()
 		return false
 	return true
@@ -412,7 +491,7 @@ func _process(dt: float) -> void:
 		water_gauge_scale=1+.025*water_activity*(.5+.5*sin(time*TAU*2.1))+.065*empty_strength
 		water_gauge_offset=Vector2(sin(time*48)*3.5,sin(time*61)*1.2)*empty_strength
 	var cinematic: bool=game.intro!=null and game.intro.active
-	prompt_panel.visible=not cinematic and not prompt_label.text.is_empty() and not game.dialogue_active and not game.paused
+	prompt_panel.visible=not cinematic and not prompt_source.is_empty() and not game.dialogue_active and not game.paused
 	toast_panel.visible=not cinematic and not toast_label.text.is_empty() and not game.paused and not game.dialogue_active
 	footer.visible=not cinematic and not touch_mode and not game.paused and not game.dialogue_active and game.elapsed<28
 	if game.paused: dialogue_panel.hide()
@@ -423,7 +502,7 @@ func _process(dt: float) -> void:
 		while char_count<full_text.length() and text_clock<=0:
 			var ch:=full_text[char_count]
 			char_count+=1
-			dialogue_label.visible_characters=char_count
+			dialogue_label.visible_characters=_visible_markup_count(char_count)
 			var delay:=.026 if ch not in ".!? ," else .09
 			if ch in ".!?": delay=.22
 			text_clock+=delay/TEXT_SPEED
@@ -452,6 +531,7 @@ func _layout_viewport() -> void:
 	menu_button.size=Vector2(294,60) if touch_mode else Vector2(472,54)
 	prompt_panel.size.x=minf(540,size.x-32)
 	prompt_label.size.x=prompt_panel.size.x-32
+	prompt_rich.size.x=prompt_panel.size.x-32
 	prompt_panel.position=Vector2((size.x-prompt_panel.size.x)*.5,size.y-93)
 	toast_panel.position=Vector2((size.x-toast_panel.size.x)*.5,85 if touch_mode else 109)
 	footer.position=Vector2((size.x-footer.size.x)*.5,size.y-35)
@@ -476,7 +556,8 @@ func _draw() -> void:
 	if not game or not game.truck: return
 	_draw_water()
 	if not game.paused:
-		if not (OS.has_feature("web") and touch_portrait) or map_open: _draw_map()
+		# Only the full town map (Tab / north button); no always-on minimap.
+		if map_open: _draw_map()
 		if game.phone_ringing() or (game.dialogue_active and dialogue_panel.phone_mode):
 			var phone_center:=_phone_center()
 			draw_circle(phone_center+Vector2(0,3),29,Color(INK,.2))

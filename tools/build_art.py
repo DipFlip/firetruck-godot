@@ -66,9 +66,6 @@ box('Bumper',(0,.27,-2.22),(2.12,.25,.3),silver,.08)
 box('Grille',(0,.6,-2.204),(.78,.3,.04),dark)
 for y in [.51,.6,.69]:box('GrilleSlat',(0,y,-2.233),(.7,.025,.025),silver,.005)
 for x in [-1,1]:
-    for z in [-1.3,.85,1.65]:
-        # Shaped fender caps rather than a box that hides the tires.
-        box('Fender',(x,.28,z),(.23,.2,.99),red,.08)
     box('CabWindow',(x,1.45,-1.26),(.04,.65,1.0),glass,.1)
     box('DoorTrim',(x,1,-1.3),(.045,.08,1.2),ivory,.01)
     box('DoorHandle',(x*1.025,1.0,-.88),(.05,.08,.21),silver,.02)
@@ -92,6 +89,44 @@ for z in range(8):box('LadderRung',(0,1.78,-.07+z*.26),(1.24,.065,.06),silver,.0
 cyl('HoseReel',(1.0,1.15,.58),.26,.1,'384f56','X')
 cyl('HoseReelHub',(1.08,1.15,.58),.1,.04,'d9b879','X')
 text('TruckNumber','04',(0,1.08,2.011),.45,ivory)
+# Wheel wells: shallow arches trimmed from the lower body edge give tires room
+# to travel while the body leans, with a thick rounded fender lip over each.
+WELL=.62;WHEEL_Y=-.25
+cutters=[]
+for x in [-1,1]:
+    for z in [-1.3,.85,1.65]:
+        bpy.ops.mesh.primitive_cylinder_add(vertices=40,radius=WELL,depth=.5,location=g((x*1.0,WHEEL_Y,z)))
+        c=bpy.context.object;c.rotation_euler=(0,math.pi/2,0)
+        bpy.ops.object.transform_apply(location=False,rotation=True,scale=False);cutters.append(c)
+bpy.ops.object.select_all(action='DESELECT')
+for c in cutters:c.select_set(True)
+bpy.context.view_layer.objects.active=cutters[0];bpy.ops.object.join();cutter=bpy.context.object
+for o in list(bpy.context.scene.objects):
+    if o.type!='MESH' or o==cutter or o.name.split('.')[0] not in ('TankBody','Cab','Step'):continue
+    mod=o.modifiers.new('Wheel well','BOOLEAN');mod.operation='DIFFERENCE';mod.object=cutter;mod.solver='EXACT'
+    bpy.context.view_layer.objects.active=o;bpy.ops.object.modifier_apply(modifier=mod.name)
+bpy.data.objects.remove(cutter,do_unlink=True)
+def fender(points,x):
+    cu=bpy.data.curves.new('FenderCurve','CURVE');cu.dimensions='3D'
+    sp=cu.splines.new('POLY');sp.points.add(len(points)-1)
+    for i,p in enumerate(points):sp.points[i].co=(*g((0,p[0],p[1])),1)
+    cu.bevel_depth=.085;cu.bevel_resolution=5;cu.use_fill_caps=True
+    o=bpy.data.objects.new('Fender',cu);bpy.context.scene.collection.objects.link(o)
+    bpy.ops.object.select_all(action='DESELECT');o.select_set(True);bpy.context.view_layer.objects.active=o
+    bpy.ops.object.convert(target='MESH');o=bpy.context.object
+    # Wide across the tire tread, round in section.
+    o.scale=(2.6,1,1);bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
+    o.location=(x,0,0);bpy.ops.object.transform_apply(location=True,rotation=False,scale=False)
+    return finish(o,'Fender',red)
+R=WELL+.06
+def arc(zc,a,b,n=14):return [(WHEEL_Y+R*math.sin(a+(b-a)*i/n),zc+R*math.cos(a+(b-a)*i/n)) for i in range(n+1)]
+# Lips stop where the arc meets the body's lower edge.
+low=math.asin((-.16-WHEEL_Y)/R)
+for x in [-1,1]:
+    fender(arc(-1.3,low,math.pi-low,22),x*.86)
+    # One continuous lip over the rear tandem.
+    top=arc(1.65,low,math.pi/2,10)+arc(.85,math.pi/2,math.pi-low,10)
+    fender(top,x*.86)
 # Export the actual roof ladder separately, hinged at its rear end.
 ladder_parts=[o for o in bpy.context.scene.objects if o.name.startswith(('LadderRail','LadderRung'))]
 bpy.ops.object.select_all(action='DESELECT')
@@ -103,6 +138,7 @@ bpy.ops.object.origin_set(type='ORIGIN_CURSOR');ladder.location=(0,0,0)
 bpy.ops.export_scene.gltf(filepath=os.path.join(OUT,'roof_ladder.glb'),export_format='GLB',use_selection=True,export_yup=True)
 bpy.ops.object.delete(use_global=False)
 export('engine_body')
+if os.environ.get('ART_ONLY')=='truck':raise SystemExit
 # Wheel built around the actual X axle. Visible lug nuts make rotation readable.
 cyl('Tire',(0,0,0),.48,.32,dark,'X')
 cyl('Sidewall',(.17,0,0),.385,.02,'1e3038','X')

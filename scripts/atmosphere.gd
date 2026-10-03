@@ -12,6 +12,16 @@ var fire_light: OmniLight3D
 var fountain_drops: Array[MeshInstance3D]=[]
 
 const ROAD_REACH:=79.6
+var road_material: Material
+
+# Centre-line dashes stop before the zebra crossings at each junction.
+func _dash_in_crossing(node: MeshInstance3D) -> bool:
+	if node.scale.y>.03 or maxf(node.scale.x,node.scale.z)>1.6 or minf(node.scale.x,node.scale.z)>.2: return false
+	for line in [-36.0,0.0,36.0]:
+		var along:=node.position.z if is_equal_approx(node.position.x,line) else node.position.x if is_equal_approx(node.position.z,line) else INF
+		for junction in [-36.0,0.0,36.0]:
+			if absf(along-junction)<TownSidewalks.ROAD_HALF+TownSidewalks.RADIUS+TownSidewalks.WIDTH+1.0: return true
+	return false
 
 func _ready() -> void:
 	seed(421)
@@ -27,10 +37,11 @@ func _ready() -> void:
 				material.set_shader_parameter("variation",0.13)
 				material.set_shader_parameter("meadow",true)
 				child.material_override=material
-			elif child.scale.y<.2 and child.scale.y>.1 and maxf(child.scale.x,child.scale.z)>120:
-				# Curbs follow the longer streets.
-				if child.scale.z>120: child.scale.z=ROAD_REACH*2-1
-				else: child.scale.x=ROAD_REACH*2-1
+			elif (child.scale.y<.2 and child.scale.y>.1 and maxf(child.scale.x,child.scale.z)>120) or (is_equal_approx(child.scale.x,.7) and is_equal_approx(child.scale.z,2.0) and child.position.y<.12) or _dash_in_crossing(child):
+				# Square-ended pavement strips and offset crossings are rebuilt by
+				# TownSidewalks with rounded corners and aligned zebras.
+				town.remove_child(child)
+				child.queue_free()
 			elif child.scale.y<.2 and child.scale.x*child.scale.z>20 and child.material_override is StandardMaterial3D and child.material_override.albedo_color.g>child.material_override.albedo_color.r and child.material_override.albedo_color.g>child.material_override.albedo_color.b*1.12:
 				# Garden slabs introduced sharp raised seams in the continuous felt.
 				town.remove_child(child)
@@ -45,6 +56,11 @@ func _ready() -> void:
 				material.set_shader_parameter("grain_scale",18.0)
 				material.set_shader_parameter("variation",0.045)
 				child.material_override=material
+				road_material=material
+	var pavements:=TownSidewalks.new()
+	pavements.road_material=road_material
+	add_child(pavements)
+	pavements.build()
 	var water:=ShaderMaterial.new()
 	water.shader=preload("res://shaders/pool.gdshader")
 	town.pool_water.material_override=water
@@ -81,14 +97,6 @@ func _ready() -> void:
 		TownProps.cylinder(self,p+Vector3.UP*.42,.46,.84,Color("b48868"))
 		TownProps.ball(self,p+Vector3.UP*.99,Vector3(1.1,1.1,1.1),Color("779569"))
 		for i in range(4): _flower(p+Vector3(randf_range(-.4,.4),.9,randf_range(-.4,.4)),Color("d59886"))
-	# Curbstone joins are visual only, so the drive surface remains smooth.
-	for street in [-36,0,36]:
-		for n in range(-36,37):
-			if absf(n*2.2)+1.06>ROAD_REACH-.5: continue
-			if absf(n*2.2)<8 or absf(absf(n*2.2)-36)<8: continue
-			for side in [-1,1]:
-				TownProps.box(self,Vector3(street+side*4.1,.13,n*2.2),Vector3(.18,.18,2.12),Color("c5bca7")).set_meta("batch_static",true)
-				TownProps.box(self,Vector3(n*2.2,.13,street+side*4.1),Vector3(2.12,.18,.18),Color("c5bca7")).set_meta("batch_static",true)
 	# Centre-line dashes continue over the new road ends.
 	for line in [-36,0,36]:
 		for n in range(15,20):

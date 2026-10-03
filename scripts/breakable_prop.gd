@@ -75,6 +75,10 @@ func _physics_process(dt: float) -> void:
 	if loose:
 		if freeze and age<respawn_seconds: freeze=false
 		age+=dt
+		# Once it has started to topple, a prop also lands on the raised road,
+		# curb and paving surfaces instead of sinking through to the ground slab.
+		# Enabling this at the base would lift it out of the paving instead.
+		if age>.3 and age<respawn_seconds: collision_mask=27
 		if age>respawn_seconds-2: _opacity(clampf((respawn_seconds-age)/2,0,1))
 		if age>=respawn_seconds:
 			freeze=true

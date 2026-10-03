@@ -45,7 +45,7 @@ func _physics_process(_dt: float) -> void:
 		var jobs: Array=[[TownLayout.DOG.x,TownLayout.DOG.z],[TownLayout.POOL.x,TownLayout.POOL.z]]
 		JavaScriptBridge.eval("window.firetruckMapSetup(%s)" % JSON.stringify({"hydrants":hydrants,"jobs":jobs}))
 	map_clock+=_dt
-	if bool(state.portrait) and map_clock>=.1:
+	if false and map_clock>=.1: # The portrait deck minimap is retired.
 		map_clock=0
 		var p: Vector3=game.truck.position
 		var objective: Vector3=game.objective()
