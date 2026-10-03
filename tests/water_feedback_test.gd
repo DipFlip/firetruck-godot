@@ -69,6 +69,7 @@ func run() -> void:
 	game.truck.water=20
 	await frames(65)
 	check(hose.active and hose.hydrant==hydrant and game.truck.water>20,"Refilling starts within the enlarged radius from the truck centre")
+	check(game.sounds.loop_active.refill and game.sounds.loop_levels.refill>.5,"Connected water flow brings up the soft refill loop")
 	check(hose.points[16].distance_to(hydrant.global_position)>6.75,"The rear hose socket can be outside the activation radius while refilling")
 	game.truck.heading=-PI/2
 	await frames(8)
@@ -92,6 +93,7 @@ func run() -> void:
 	for segment in hose.segments:
 		if segment.visible: visible_segments+=1
 	check(hose.visible and not hose.active and game.truck.water==20 and visible_segments>0 and visible_segments<hose.segments.size(),"The hose grows from the truck before water starts refilling")
+	check(not game.sounds.loop_active.refill,"Hose deployment is silent until water actually flows")
 	check(hose.tip.distance_to(hose.points[16])<hose.points[0].distance_to(hose.points[16]),"The extending coupling starts near the rear socket instead of at the hydrant")
 	pause()
 	var extension: float=hose.extension
@@ -114,9 +116,11 @@ func run() -> void:
 	check(hose.points[16].distance_to(rear)>1,"The rear connection follows truck rotation")
 	pause()
 	var flow_time:=hose.time
+	var audio_gain: float=game.sounds.loop_levels.refill
 	var pulse_pose:=hydrant.meshes[0].transform
 	await frames(20)
 	check(hose.time==flow_time and hydrant.meshes[0].transform.is_equal_approx(pulse_pose),"Pause freezes water travelling through the refill hose and the hydrant pulse")
+	check(game.sounds.loop_levels.refill==audio_gain and (DisplayServer.get_name()=="headless" or game.sounds.loops.refill.stream_paused),"Pause also freezes and pauses the refill sound")
 	pause()
 	game.truck.freeze=true
 	game.truck.position=Vector3(-3,.85,20)
@@ -138,6 +142,7 @@ func run() -> void:
 	check(game.truck.water==100 and hose.visible and not hose.active and hose.extension>0,"A full tank triggers visible hose retraction")
 	await frames(240)
 	check(game.truck.water==100 and not hose.active and not hose.visible and hydrant.meshes[0].transform.is_equal_approx(original),"A full tank disconnects the hose and restores the hydrant's normal shape")
+	check(not game.sounds.loop_active.refill and game.sounds.loop_levels.refill<.001 and not game.sounds.loops.refill.playing,"A full tank fades the refill sound to silence")
 	check(not game.hud.prompt_label.text.to_lower().contains("tank") and not game.hud.prompt_label.text.to_lower().contains("refilling"),"Tank status uses the gauge without full, empty or refill popups")
 	game.truck.water=20
 	await frames(55)

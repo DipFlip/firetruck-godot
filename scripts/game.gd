@@ -641,6 +641,7 @@ func _water_hit(point: Vector3, amount: float) -> bool:
 		_discover_barbecue()
 		consumed = true
 		fire_feedback=1.0
+		sounds.fire_hit(amount)
 		fire_progress=minf(1,fire_progress+amount*(0.22/0.60))
 		town.fire_amount=1-fire_progress
 		if fire_progress>=1:

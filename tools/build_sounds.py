@@ -62,6 +62,19 @@ def bake(kind, variant, duration):
             for j in range(4):
                 age=t-.16-j*.13
                 if age>0: y += math.sin(TAU*(650+240*j)*age)*math.exp(-age*35)*.12
+        elif kind in ('refill', 'fire_sizzle'):
+            if kind == 'refill':
+                # Pressurised water with a soft pump note and little glugs.
+                y = low*(.72+.12*math.sin(TAU*2*t)) + math.sin(TAU*84*shift*t)*.06
+                for j in range(5):
+                    age=t-(.10+j*.17)
+                    if 0<age<.09:
+                        phase=TAU*(310*age-850*age*age)
+                        y += math.sin(phase)*math.sin(math.pi*age/.09)**2*.055
+            else:
+                # Damp, diffuse hot-grill hiss; no sharp impact or tonal squeal.
+                y = low*.85+n*.08
+                y *= .80+.12*math.sin(TAU*3*t)+.08*math.sin(TAU*7*t)
         elif kind == 'clean':
             for j,f in enumerate((523.25,659.25,783.99,1046.5)):
                 age=t-j*.09
@@ -96,7 +109,7 @@ def bake(kind, variant, duration):
 
 if __name__=='__main__':
     OUT.mkdir(parents=True,exist_ok=True)
-    durations={'voice':.065,'dodge':.27,'woof':.48,'meow':.75,'bird':.56,'wood':.50,'fence':.38,'metal':.62,'brick':.43,'bush':.48,'car_bump':.35,'splash':.86,'clean':.8,'honk':.3,'chuff':.34,'whistle':1.18,'ringtone':3.,'engine':1.}
+    durations={'voice':.065,'dodge':.27,'woof':.48,'meow':.75,'bird':.56,'wood':.50,'fence':.38,'metal':.62,'brick':.43,'bush':.48,'car_bump':.35,'splash':.86,'clean':.8,'honk':.3,'chuff':.34,'whistle':1.18,'ringtone':3.,'engine':1.,'refill':1.,'fire_sizzle':1.}
     for kind,duration in durations.items():
         for variant in range(1 if kind in ('ringtone','engine') else 3): bake(kind,variant,duration)
     print('Baked',len(list(OUT.glob('*.wav'))),'original sound clips')

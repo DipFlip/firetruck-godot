@@ -106,6 +106,25 @@ func run() -> void:
 		var sound: String={"tree":"wood","lamp":"metal","fence":"fence","bush":"bush"}[kind]
 		var before:=count(sound)
 		check(prop.knock(Vector3.RIGHT*20) and count(sound)>before,"Toppling "+kind+" plays its material-specific sound")
+	# Successful fire hits sustain one voice; misses and short gaps never spam it.
+	await place(TownLayout.FIRE+Vector3(0,1,7))
+	game.sounds.set_process(false)
+	game._water_hit(TownLayout.FIRE+Vector3.UP*1.6,.01)
+	game.sounds._process(.05)
+	var sizzles:=count("fire_sizzle")
+	for i in 20:
+		game._water_hit(TownLayout.FIRE+Vector3.UP*1.6,.01)
+		game.sounds._process(.05)
+	check(sizzles>0 and count("fire_sizzle")==sizzles and game.sounds.loop_levels.fire_sizzle>.9,"Water hitting fire sustains one hiss instead of restarting a sound per droplet")
+	if DisplayServer.get_name()!="headless": check(game.sounds.loops.fire_sizzle.playing,"The steam loop actually plays through the native audio player")
+	game.sounds._process(.14)
+	game._water_hit(TownLayout.FIRE+Vector3.UP*1.6,.01)
+	game.sounds._process(.02)
+	check(count("fire_sizzle")==sizzles,"A brief gap in water contact keeps the existing hiss without restarting it")
+	game._water_hit(TownLayout.FIRE+Vector3(20,1,20),.01)
+	for i in 30: game.sounds._process(.05)
+	check(not game.sounds.loop_active.fire_sizzle and game.sounds.loop_levels.fire_sizzle<.001 and not game.sounds.loops.fire_sizzle.playing,"Missing the fire lets the steam hiss fade to silence")
+	game.sounds.set_process(true)
 	var dog:=count("woof")
 	await place(TownLayout.DOG+Vector3(0,1,7))
 	game._water_hit(TownLayout.DOG+Vector3.UP*.7,20)
@@ -162,10 +181,18 @@ func run() -> void:
 	var camera_start: Vector3=game.camera.position
 	var angle_start: Basis=game.camera.basis
 	game.intro.update(1.3)
-	check(camera_start.distance_to(game.camera.position)>12 and not angle_start.is_equal_approx(game.camera.basis) and game.intro.title.reveal>0,"The wide opening shot flies along a curve while the town name is written")
+	check(camera_start.distance_to(game.camera.position)>6 and angle_start.is_equal_approx(game.camera.basis) and game.intro.title.reveal>0,"The wide opening shot dollies without rotating while the town name is written")
 	await capture("/tmp/firedriver-town-intro.png")
 	game.intro.update(1.9)
 	await capture("/tmp/firedriver-dog-intro.png")
+	for index in [1,2]:
+		game.intro.clock=index*2+.15
+		game.intro.update(0)
+		var start_position: Vector3=game.camera.position
+		var start_basis: Basis=game.camera.basis
+		var start_size: float=game.camera.size
+		game.intro.update(1.5)
+		check(game.camera.position.distance_to(start_position)>2 and start_basis.is_equal_approx(game.camera.basis) and is_equal_approx(start_size,game.camera.size),"Intro shot %d translates with a fixed lens and angle" % index)
 	game.intro.finish()
 	game.set_process(false)
 	game.camera.position=TownLayout.FIRE+Vector3(-6,5,7)

@@ -3,7 +3,7 @@ extends Node
 
 # One reusable bank for quiet, varied local Foley. No per-particle audio nodes
 # or sample generation in the frame loop, including the browser build.
-const LEVELS:={"bird":-25.0,"dodge":-22.0,"woof":-21.0,"meow":-23.0,"wood":-18.0,"fence":-21.0,"metal":-22.0,"brick":-19.0,"bush":-24.0,"car_bump":-20.0,"splash":-20.0,"clean":-22.0,"honk":-24.0,"chuff":-25.0,"whistle":-25.0}
+const LEVELS:={"bird":-25.0,"dodge":-22.0,"woof":-21.0,"meow":-23.0,"wood":-18.0,"fence":-21.0,"metal":-22.0,"brick":-19.0,"bush":-24.0,"car_bump":-20.0,"splash":-20.0,"clean":-22.0,"honk":-24.0,"chuff":-25.0,"whistle":-25.0,"refill":-25.0,"fire_sizzle":-24.0}
 var game: Node3D
 var bank: Dictionary={}
 var players: Array[AudioStreamPlayer]=[]
@@ -16,6 +16,10 @@ var was_ringing:=false
 var truck_velocity:=Vector3.ZERO
 var in_pool:=false
 var cat_time:=4.0
+var loops: Dictionary={}
+var loop_levels: Dictionary={"refill":0.0,"fire_sizzle":0.0}
+var loop_active: Dictionary={"refill":false,"fire_sizzle":false}
+var fire_contact_until:=-1.0
 
 func _ready() -> void:
 	name="TownAudio"
@@ -35,6 +39,12 @@ func _ready() -> void:
 	ringtone.stream=load("res://assets/audio/town/ringtone_0.wav")
 	ringtone.volume_db=-24
 	add_child(ringtone)
+	for kind in ["refill","fire_sizzle"]:
+		var player:=AudioStreamPlayer.new()
+		player.playback_type=AudioServer.PLAYBACK_TYPE_STREAM
+		player.volume_db=-80
+		add_child(player)
+		loops[kind]=player
 	# Baked houses retain editable box colliders even though their art is batched.
 	for building in game.town.get_children():
 		for child in building.get_children():
@@ -86,8 +96,12 @@ func _physics_process(_dt: float) -> void:
 func _process(dt: float) -> void:
 	for player in players: player.stream_paused=game.paused
 	ringtone.stream_paused=game.paused
+	for player in loops.values(): player.stream_paused=game.paused
 	if game.paused: return
 	time+=dt
+	var refilling: bool=game.refill_hose!=null and game.refill_hose.active and game.truck.water<game.truck.tank_capacity
+	_update_loop("refill",refilling,game.truck.global_position,dt)
+	_update_loop("fire_sizzle",time<fire_contact_until,TownLayout.FIRE+Vector3.UP*1.6,dt)
 	var ringing: bool=game.phone_ringing()
 	if ringing and not was_ringing:
 		counts.ringtone=int(counts.get("ringtone",0))+1
@@ -102,3 +116,26 @@ func _process(dt: float) -> void:
 	if cat_time<=0:
 		cat_time=rng.randf_range(9,15)
 		if not game.cat_rescued and not game.rescue_running: play("meow",game.town.cat.global_position,.7,3)
+
+func fire_hit(amount: float) -> void:
+	if game.paused or amount<=0: return
+	# Renew a short contact window, rather than restarting audio per droplet.
+	fire_contact_until=time+.12
+
+func _update_loop(kind: String, active: bool, at: Vector3, dt: float) -> void:
+	var distance: float=game.truck.global_position.distance_to(at)
+	active=active and distance<42
+	var player: AudioStreamPlayer=loops[kind]
+	if active and float(loop_levels[kind])<.001:
+		counts[kind]=int(counts.get(kind,0))+1
+		var clip: AudioStreamWAV=bank[kind][rng.randi_range(0,2)]
+		clip.loop_mode=AudioStreamWAV.LOOP_FORWARD
+		clip.loop_end=clip.data.size()/2
+		player.stream=clip
+		player.pitch_scale=rng.randf_range(.97,1.03)
+		if DisplayServer.get_name()!="headless": player.play()
+	loop_active[kind]=active
+	var gain:=lerpf(float(loop_levels[kind]),1.0 if active else 0.0,1-exp(-10*dt))
+	loop_levels[kind]=gain
+	player.volume_db=float(LEVELS[kind])+linear_to_db(maxf(.00001,gain))-20*log(1+distance/12)/log(10)
+	if not active and gain<.001: player.stop()

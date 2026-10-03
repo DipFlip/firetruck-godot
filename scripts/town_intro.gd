@@ -43,27 +43,28 @@ func update(dt: float) -> void:
 	if clock>=LENGTH: finish(); return
 	shot=mini(2,int(clock/2))
 	var t:=fmod(clock,2)/2
-	var flight:=smoothstep(0,1,t)
+	var flight:=t
 	var focus: Vector3
 	var offset: Vector3
 	match shot:
 		0:
-			focus=Vector3(-5,1,-5).lerp(Vector3(4,1,3),flight)
-			offset=Vector3(116,125,117).cubic_interpolate(Vector3(73,120,148),Vector3(130,128,94),Vector3(44,120,159),flight)
+			focus=Vector3(-7,1,-5).lerp(Vector3(5,1,3),flight)
+			offset=Vector3(100,124,136)
 			var aspect: float=game.hud.size.x/maxf(1,game.hud.size.y)
-			game.camera.size=maxf(155,225/aspect)-smoothstep(0,1,t)*5
+			game.camera.size=maxf(142,206/aspect)
 		1:
-			focus=TownLayout.DOG+Vector3.UP*.7
-			offset=Vector3(11,7.4,6).cubic_interpolate(Vector3(5.5,6.8,11.5),Vector3(13,8,1),Vector3(1,6,13),flight)
-			focus+=Vector3(-.7,0,.1).lerp(Vector3(.6,.15,-.2),flight)
+			focus=TownLayout.DOG+Vector3(-2,.7,.4).lerp(Vector3(2,.7,-.4),flight)
+			offset=Vector3(8.5,7.2,9)
 			game.camera.size=10.5
 		2:
-			focus=game.railway.engine.position+Vector3(0,1.3,0)
-			offset=Vector3(18,10,11).cubic_interpolate(Vector3(9,7.5,19),Vector3(22,11,4),Vector3(3,7,21),flight)
+			focus=game.railway.engine.position+Vector3(-3,1.3,.6).lerp(Vector3(3,1.3,-.6),flight)
+			offset=Vector3(14,9,16)
 			game.camera.size=19
 	title.reveal=smoothstep(.3,3.5,clock)
 	title.opacity=smoothstep(.2,.7,clock)*(1-smoothstep(5.4,LENGTH,clock))
 	title.queue_redraw()
+	# Camera and its look target translate together, like a physical dolly.
+	# Each shot keeps one lens size and viewing angle throughout the travel.
 	game.camera.position=focus+offset
 	game.camera.look_at(focus)
 	game.camera.v_offset=0
