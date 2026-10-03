@@ -69,8 +69,9 @@ func _physics_process(_dt: float) -> void:
 			Input.action_press("jump")
 			_send("jump")
 		else: Input.action_release("jump")
-	if game.dialogue_active!=last_talking:
-		last_talking=game.dialogue_active
+	var talking: bool=game.dialogue_active and not game.pool_basin.contains_truck()
+	if talking!=last_talking:
+		last_talking=talking
 		JavaScriptBridge.eval("window.firetruckDialogue(%s)" % ("true" if last_talking else "false"))
 
 func _send(action: String) -> void:

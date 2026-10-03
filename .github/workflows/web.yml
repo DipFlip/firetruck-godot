@@ -27,6 +27,8 @@ jobs:
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/dialogue_dock_test.gd
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/visibility_guards_test.gd
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/ladder_test.gd
+          "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/cannon_aim_test.gd
+          "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/town_feedback_test.gd
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/town_additions_test.gd
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/car_wash_assist_test.gd
       - uses: actions/upload-artifact@v5

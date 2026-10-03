@@ -177,6 +177,7 @@ func run() -> void:
 		var nearest:=Vector2(local.x,local.z-clampf(local.z,-1.25,1.25))
 		clearance=minf(clearance,nearest.length())
 		if i==12: await capture("pedestrian-dodge")
+	check(int(game.sounds.counts.get("dodge",0))>0,"Pedestrians give an audible reaction when dodging")
 	check(highest>.65 and absf(walker.node.position.x)>2,"Pedestrians visibly jump sideways before an approaching truck arrives")
 	check(clearance>1.5,"Pedestrians remain outside the truck silhouette throughout the encounter")
 	game.queue_free()

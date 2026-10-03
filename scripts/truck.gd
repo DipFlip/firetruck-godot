@@ -15,6 +15,9 @@ const WATER_SPEED := 22.0 # Nozzle speed relative to the moving truck.
 const WATER_GRAVITY := 26.0
 const WATER_LIFETIME := 1.15
 const AIM_RANGE := 15.0
+const FREE_SPRAY_REACH:=12.0
+const FREE_SPRAY_DROP:=2.3
+const CANNON_TURN_SECONDS:=.15
 const WATER_COLORS := [Color("83cada"),Color("9bdce7"),Color("b1e6ed"),Color("cbf0f2"),Color("e0f5f4")]
 var spray_pulse := 0
 var jump_blocked_until_release := false
@@ -35,6 +38,9 @@ var body_materials: Array[ShaderMaterial]=[]
 var body_squash:=1.0
 var wheel_rig: Node3D
 var cannon: Node3D
+var cannon_turn_from:=Quaternion.IDENTITY
+var cannon_turn_target:=Quaternion.IDENTITY
+var cannon_turn_elapsed:=CANNON_TURN_SECONDS
 var wheels: Array[Node3D] = []
 var wheel_steers: Array[Node3D] = []
 var wheel_rest_positions: Array[Vector3] = []
@@ -289,6 +295,10 @@ func reset_truck() -> void:
 	wheel_rig.rotation=Vector3.ZERO
 	wheel_rig.position=Vector3.ZERO
 	cannon.position=CANNON_MOUNT
+	cannon.quaternion=Quaternion.IDENTITY
+	cannon_turn_from=Quaternion.IDENTITY
+	cannon_turn_target=Quaternion.IDENTITY
+	cannon_turn_elapsed=CANNON_TURN_SECONDS
 	if not ladder_busy: ladder.position=LADDER_MOUNT
 	reset_physics_interpolation()
 	body_squash=1.0
@@ -391,9 +401,9 @@ func _physics_process(dt: float) -> void:
 		wheels[i].rotation.x=wheel_travel
 		wheel_steers[i].rotation.y=steering if front_axles[i] else 0.0
 	for i in lights.size(): lights[i].material_override = TownProps.material(Color("92efff") if sin(elapsed*9+i*PI)>0 else Color("47738d"),true)
-	_update_aim()
 	if not Input.is_action_pressed("spray"): pointer_spray_blocked=false
 	spray_requested = enabled and (automated_spray if use_automation else touch_aim.length()>.12 or (Input.is_action_pressed("spray") and not pointer_spray_blocked) or Input.is_action_pressed("aim_up") or Input.is_action_pressed("aim_down") or Input.is_action_pressed("aim_left") or Input.is_action_pressed("aim_right"))
+	_update_aim(dt)
 	spraying=water>0 and spray_requested
 	empty_spray_cooldown=maxf(0,empty_spray_cooldown-dt)
 	if not spray_requested: empty_spray_cooldown=0
@@ -496,26 +506,43 @@ func _setup_body_squash(node: Node3D) -> void:
 	for child in node.get_children():
 		if child is Node3D: _setup_body_squash(child)
 
-func _update_aim() -> void:
+func world_aim_direction(stick: Vector2) -> Vector3:
+	if not camera: return -global_basis.z
+	var right:=camera.global_basis.x
+	right.y=0
+	var forward:=-camera.global_basis.z
+	forward.y=0
+	return (right.normalized()*stick.x-forward.normalized()*stick.y).normalized()
+
+func mouse_aim_direction(pointer: Vector2) -> Vector3:
+	# Treat the truck's on-screen centre as the centre of a virtual stick.
+	# Cursor distance, scene depth, rooftops and camera zoom never set range.
+	var center:=camera.unproject_position(get_global_transform_interpolated().origin)
+	var stick:=pointer-center
+	if stick.length()<8:
+		var resting:=-cannon.global_basis.z
+		resting.y=0
+		return resting.normalized()
+	return world_aim_direction(stick.normalized())
+
+func _update_aim(dt: float=1.0/60) -> void:
 	if not camera: return
-	var origin := cannon.global_position
+	if not spray_requested:
+		# Keep the turret's local pose. Its truck parent supplies idle rotation;
+		# moving the pointer while driving cannot lock it to a compass heading.
+		assisted=false
+		cannon_turn_from=cannon.quaternion
+		cannon_turn_target=cannon.quaternion
+		cannon_turn_elapsed=CANNON_TURN_SECONDS
+		spray_direction=-cannon.global_basis.z
+		return
+	var origin:=cannon.global_position
 	if use_automation:
-		aim_point = automated_aim
+		aim_point=automated_aim
 	else:
-		var mouse := get_viewport().get_mouse_position()
-		var ray_origin := camera.project_ray_origin(mouse)
-		var ray_direction := camera.project_ray_normal(mouse)
-		var query := PhysicsRayQueryParameters3D.create(ray_origin,ray_origin+ray_direction*200,3,[get_rid()])
-		var hit := get_world_3d().direct_space_state.intersect_ray(query)
-		if hit: aim_point = hit.position
-		else:
-			var intersection = Plane(Vector3.UP,0.5).intersects_ray(ray_origin,ray_direction)
-			if intersection != null: aim_point = intersection
-		var keys := touch_aim if touch_aim.length()>.12 else Input.get_vector("aim_left","aim_right","aim_up","aim_down")
-		if keys.length()>0:
-			var f := -camera.global_basis.z
-			f.y=0
-			aim_point = origin+(camera.global_basis.x*keys.x-f.normalized()*keys.y).normalized()*12
+		var stick:=touch_aim if touch_aim.length()>.12 else Input.get_vector("aim_left","aim_right","aim_up","aim_down")
+		var direction:=world_aim_direction(stick) if stick.length()>.01 else mouse_aim_direction(get_viewport().get_mouse_position())
+		aim_point=origin+direction*FREE_SPRAY_REACH+Vector3.DOWN*FREE_SPRAY_DROP
 	# Like the browser prototype, select a nearby target ahead of the nozzle,
 	# then solve the arc. This changes the shot, never the collision result.
 	assisted=false
@@ -531,11 +558,23 @@ func _update_aim() -> void:
 	# Free spray retains the truck's momentum and naturally travels farther.
 	# Assisted shots compensate for it so moving past a job still hits the target.
 	var shot:=solve_shot(origin,aim_point,linear_velocity if assisted else Vector3.ZERO)
-	spray_direction=shot.get("direction",Vector3.ZERO)
-	if spray_direction==Vector3.ZERO:
-		spray_direction=(aim_point-origin).normalized()
-	if spray_direction.length()<.1: spray_direction=Vector3.FORWARD
-	cannon.look_at(origin+spray_direction,Vector3.FORWARD if absf(spray_direction.y)>.98 else Vector3.UP)
+	var direction: Vector3=shot.get("direction",Vector3.ZERO)
+	if direction==Vector3.ZERO: direction=(aim_point-origin).normalized()
+	if direction.length()<.1: direction=-global_basis.z
+	_turn_cannon(direction,dt)
+	# Recoil and water follow the actual barrel throughout the short turn.
+	spray_direction=-cannon.global_basis.z
+
+func _turn_cannon(direction: Vector3, dt: float) -> void:
+	var up:=Vector3.FORWARD if absf(direction.y)>.98 else Vector3.UP
+	var target:=(global_basis.inverse()*Basis.looking_at(direction,up)).get_rotation_quaternion().normalized()
+	if target.angle_to(cannon_turn_target)>.0001:
+		cannon_turn_from=cannon.quaternion
+		cannon_turn_target=target
+		cannon_turn_elapsed=0
+	cannon_turn_elapsed=minf(CANNON_TURN_SECONDS,cannon_turn_elapsed+dt)
+	cannon.quaternion=cannon_turn_from.slerp(cannon_turn_target,cannon_turn_elapsed/CANNON_TURN_SECONDS)
+
 
 func solve_shot(origin: Vector3, target: Vector3, inherited_velocity: Vector3=Vector3.ZERO) -> Dictionary:
 	# Solve target-origin-v*t+0.5*g*t² = direction*(nozzle_length+speed*t).

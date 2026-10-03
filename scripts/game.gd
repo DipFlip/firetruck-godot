@@ -25,7 +25,8 @@ var stream: AudioStreamGenerator
 var playback: AudioStreamGeneratorPlayback
 var audio_phase := 0.0
 var audio_clock := 0.0
-var call_timer := 1.5
+const PHONE_RING_SECONDS:=3.0
+var call_timer := PHONE_RING_SECONDS
 var barbecue_discovered := false
 var barbecue_notice_time := 0.0
 var barbecue_briefed := false
@@ -79,6 +80,8 @@ var conversation_pan:=0.0
 var railway: NorthlineRailway
 var dog_puddle: DogPuddle
 var intro: TownIntro
+var sounds: TownAudio
+var barbecue: Barbecue
 
 func _ready() -> void:
 	# Frame-driven scenery and camera are not physics-interpolated a second time.
@@ -86,6 +89,7 @@ func _ready() -> void:
 	_setup_input()
 	_setup_light()
 	town=$MapleBay
+	town.people[3].position=TownLayout.OLIVER
 	truck=FireEngine.new()
 	truck.name="Engine04"
 	truck.position=Vector3(0,1,12)
@@ -130,6 +134,12 @@ func _ready() -> void:
 	add_child(marker)
 	job_label=TownProps.label(self,Vector3(12,4,-7),"01  /  A CAT IN A TREE",28)
 	_setup_audio()
+	sounds=TownAudio.new()
+	sounds.game=self
+	add_child(sounds)
+	barbecue=Barbecue.new()
+	barbecue.town=town
+	add_child(barbecue)
 	atmosphere=TownAtmosphere.new()
 	atmosphere.game=self
 	add_child(atmosphere)
@@ -316,7 +326,7 @@ func _update_dispatch(dt: float) -> void:
 		barbecue_call_delay=maxf(0,barbecue_call_delay-dt)
 		if barbecue_call_delay==0 and not rescue_running and not rewards.playing_reward():
 			barbecue_call_delay=-1
-			barbecue_ring_timer=1.2
+			barbecue_ring_timer=PHONE_RING_SECONDS
 	elif barbecue_ring_timer>=0:
 		barbecue_ring_timer=maxf(0,barbecue_ring_timer-dt)
 		# A finished rescue thank-you can hand the channel to the next call.
@@ -365,6 +375,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			truck.pointer_spray_blocked=true
 			get_viewport().set_input_as_handled()
 			return
+	# In the basin Space is always a jump, including while Oliver's previous
+	# conversation is still visible. The mobile jump control uses this path too.
+	if event.is_action_pressed("jump") and pool_basin.contains_truck():
+		if dialogue_actor==town.people[3]: end_dialogue()
+		return
 	if (event.is_action_pressed("continue") or event.is_action_pressed("jump")) and (dialogue_active or _nearest_npc()>=0):
 		if event.is_action_pressed("jump"):
 			truck.jump_blocked_until_release=true
@@ -384,6 +399,7 @@ func interact() -> void:
 func _nearest_npc() -> int:
 	var index:=-1
 	var nearest:=9.0
+	if pool_basin and pool_basin.contains_truck(): return -1
 	var actors:=_npc_actors()
 	for i in actors.size():
 		if not actors[i].visible: continue
@@ -421,6 +437,7 @@ func _pointer_talk(point: Vector2) -> bool:
 	return false
 
 func _proximity_talk() -> void:
+	if pool_basin and pool_basin.contains_truck(): return
 	var positions := [TownLayout.MAYA,TownLayout.LEO,TownLayout.JUNE,TownLayout.OLIVER]
 	for i in positions.size():
 		var distance: float=truck.global_position.distance_to(positions[i])
@@ -441,6 +458,7 @@ func _talk_to_npc(i: int, manual: bool=false) -> bool:
 			elif stage==1 and (not rescued or manual):
 				talk("MAYA  /  MAPLE GREEN","Oh, thank goodness! Pippin climbed up there and forgot how to be a cat. "+_ladder_instruction()+". Drive its tip close to Pippin. He'll hop on and climb down. Gently, please!",1)
 				rescued=true
+				sounds.play("meow",town.cat.global_position,.85,3)
 			else: return false
 		1:
 			if fire_progress>=1:
@@ -681,13 +699,13 @@ func _setup_audio() -> void:
 	if DisplayServer.get_name()=="headless": return
 	audio=AudioStreamPlayer.new()
 	audio.playback_type=AudioServer.PLAYBACK_TYPE_STREAM
-	stream=AudioStreamGenerator.new()
-	stream.mix_rate=22050
-	stream.buffer_length=0.12
-	audio.stream=stream
+	var engine_loop:=load("res://assets/audio/town/engine_0.wav") as AudioStreamWAV
+	engine_loop.loop_mode=AudioStreamWAV.LOOP_FORWARD
+	engine_loop.loop_end=engine_loop.data.size()/2
+	audio.stream=engine_loop
+	audio.volume_db=-38
 	add_child(audio)
 	audio.play()
-	playback=audio.get_stream_playback()
 	music=AudioStreamPlayer.new()
 	music.playback_type=AudioServer.PLAYBACK_TYPE_STREAM
 	var song: AudioStreamMP3=load("res://assets/audio/song.mp3")
@@ -707,22 +725,16 @@ func _setup_audio() -> void:
 func _audio_update(dt: float) -> void:
 	hose_volume=lerpf(hose_volume,1.0 if truck.spraying and not paused else 0.0,1-exp(-10*dt))
 	if water_audio: water_audio.volume_db=linear_to_db(maxf(0.00001,hose_volume*0.063))
-	if not playback: return
-	var count:=playback.get_frames_available()
-	var speed:=truck.linear_velocity.length()
-	for i in count:
-		audio_clock+=1.0/22050.0
-		audio_phase+=TAU*(48+speed*4)/22050.0
-		var sample: float=sin(audio_phase)*0.018+sin(audio_phase*2)*0.006
-		if phone_ringing() and fmod(audio_clock,0.5)<0.22: sample+=sin(audio_clock*TAU*740)*0.035
-		if paused: sample=0
-		playback.push_frame(Vector2(sample,sample))
+	if audio:
+		audio.stream_paused=paused
+		audio.pitch_scale=lerpf(audio.pitch_scale,1+truck.linear_velocity.length()*.045,1-exp(-3*dt))
 
 
 func _on_cat_ladder_reached(engine: FireEngine) -> void:
 	if rescue_running or cat_rescued: return
 	if dialogue_active: end_dialogue()
 	rescue_running=true
+	sounds.play("meow",town.cat.global_position,1.0,1.0)
 	truck.enabled=false
 	truck.charge=0
 	truck.linear_velocity=Vector3.ZERO

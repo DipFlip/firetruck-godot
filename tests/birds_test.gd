@@ -71,6 +71,7 @@ func run() -> void:
 	game.truck.position=bird.node.position+Vector3(0,1,8.5)
 	game.truck.linear_velocity=Vector3.ZERO
 	await frames(2)
+	check(int(game.sounds.counts.get("bird",0))>0,"A startled bird plays a wing-flutter reaction")
 	check(bird.mode=="flee","Birds take off before the truck reaches the old close-range trigger")
 	await frames(30)
 	check(bird.node.position.y>2 and bird.open>.95,"Takeoff quickly gains height and unfolds the wings")

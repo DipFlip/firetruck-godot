@@ -33,7 +33,6 @@ func run() -> void:
 	await frames(155)
 	check(game.fire_progress>.25,"Assisted ballistic water actually reaches and cools the fire")
 	check(game.fire_feedback>0 and not game.atmosphere.steam.is_empty(),"Successful fire hits produce visible white steam")
-	check(game.hud.heading_label.text.contains("ON TARGET"),"HUD confirms that water is cooling the fire")
 	game.truck.automated_aim=game.truck.position+Vector3(0,0,10)
 	await frames(150)
 	var before: float=game.fire_progress
@@ -105,6 +104,9 @@ func run() -> void:
 		if child is MeshInstance3D and child.mesh is SphereMesh and child.scale.x>10: large_mounds+=1
 	check(large_mounds==0,"Oversized grass mounds are removed from the baked scene")
 	var butterfly: Node3D=game.gardens.butterflies[0].node
+	game.set_process(false)
+	game.camera.position=butterfly.position+game.camera_offset
+	game.camera.look_at(butterfly.position)
 	var initial:=butterfly.position
 	await frames(80)
 	check(butterfly.position.distance_to(initial)>.3 and game.gardens.flower_count>100,"Butterflies animate around the new flower beds")

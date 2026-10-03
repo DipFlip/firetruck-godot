@@ -73,3 +73,7 @@ func set_fill(value: float) -> void:
 	game.town.pool_water.position.y=lerpf(EMPTY_Y,FULL_Y,progress)
 	game.town.pool_water.visible=progress>.001
 	game.town.pool_water.material_override.set_shader_parameter("depth",progress)
+
+func contains_truck() -> bool:
+	var local: Vector3=game.truck.global_position-TownLayout.POOL
+	return absf(local.x)<4.7 and absf(local.z)<2.7

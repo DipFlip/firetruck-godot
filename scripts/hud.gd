@@ -214,7 +214,8 @@ void fragment(){
 	start.pressed.connect(func(): game.get_tree().reload_current_scene())
 	main_menu.hide()
 	voice=AudioStreamPlayer.new()
-	voice.volume_db=-17
+	voice.volume_db=-24
+	voice.playback_type=AudioServer.PLAYBACK_TYPE_STREAM
 	add_child(voice)
 	_make_syllables()
 
@@ -459,31 +460,16 @@ func _layout_viewport() -> void:
 	pause_panel.position=(size-pause_panel.size*pause_scale)*.5
 
 func _speak() -> void:
-	if syllables.is_empty() or DisplayServer.get_name()=="headless": return
-	var pitches: Dictionary={"DISPATCH":1.04,"MAYA":1.32,"LEO":0.8,"JUNE":1.18,"OLIVER":0.96}
-	voice.pitch_scale=float(pitches.get(speaker_key,1.0))*voice_random.randf_range(0.91,1.1)
+	if syllables.is_empty() or voice.playing or DisplayServer.get_name()=="headless": return
+	var pitches: Dictionary={"DISPATCH":1.04,"MAYA":1.16,"LEO":0.86,"JUNE":1.08,"OLIVER":.96,"ROWAN":.92}
+	voice.pitch_scale=float(pitches.get(speaker_key,1.0))*voice_random.randf_range(.96,1.04)
 	voice.stream=syllables[voice_random.randi_range(0,syllables.size()-1)]
 	voice.play()
 
 func _make_syllables() -> void:
-	# Short voiced chirps: glottal harmonics plus a moving vowel formant, not TTS.
-	for syllable in range(7):
-		var wav:=AudioStreamWAV.new()
-		wav.format=AudioStreamWAV.FORMAT_16_BITS
-		wav.mix_rate=22050
-		var data:=PackedByteArray()
-		var frames:=int(22050*0.074)
-		data.resize(frames*2)
-		for i in frames:
-			var t:=float(i)/22050
-			var u:=float(i)/frames
-			var pitch:=185.0+syllable*24.0+sin(u*PI)*46
-			var phase:=TAU*pitch*t
-			var envelope:=sin(PI*u)*minf(1,u*14)
-			var sample: float=(sin(phase)*0.48+sin(phase*2.02)*0.2+sin(phase*3.01)*0.12+sin(TAU*(680+syllable*170)*t)*0.10)*envelope
-			data.encode_s16(i*2,int(sample*23000))
-		wav.data=data
-		syllables.append(wav)
+	# Baked voiced harmonics have continuous phase and soft attack/release.
+	# Never restart a playing syllable: cutting its waveform caused clicks.
+	for i in 3: syllables.append(load("res://assets/audio/town/voice_%d.wav" % i))
 
 func _draw() -> void:
 	if game and game.intro and game.intro.active: return

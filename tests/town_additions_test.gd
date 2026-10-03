@@ -22,7 +22,7 @@ func run() -> void:
 	check(game.intro.active and game.truck.freeze and game.call_timer==1.5 and game.intro.shot==0 and game.camera.size>140,"Intro freezes driving and dispatch while showing almost the whole town")
 	var splashing:=false
 	for drop in game.dog_puddle.drops: splashing=splashing or drop.age<.6
-	check(game.intro.overlay.get_child_count()==1 and game.intro.overlay.get_child(0)==game.intro.shade,"The intro views have no caption or hint text")
+	check(game.intro.title.reveal>0 and game.intro.title.total_length>0 and game.intro.overlay.get_child_count()==2,"The intro writes only the town name over the moving views")
 	await frames(90)
 	for drop in game.dog_puddle.drops: splashing=splashing or drop.age<.6
 	check(splashing,"The dog splashes real visible droplets in its puddle")
@@ -128,8 +128,8 @@ func run() -> void:
 	var moving: float=rail.engine.position.x
 	await frames(150)
 	check(rail.engine.position.x>moving+4 and rail.smoke.any(func(cloud): return cloud.age<2.8),"The running train moves under engine power and puffs smoke")
-	await frames(2400)
-	check(rail.direction<0 and rail.engine.position.x<NorthlineRailway.RIGHT_END,"The train waits at the terminus and then returns along its track")
+	await frames(5600)
+	check(rail.direction<0 and rail.engine.global_basis.x.x<-.9 and rail.engine.position.x<NorthlineRailway.RIGHT_END,"The train leaves town and returns with its front rotated toward travel")
 	game.queue_free()
 	await process_frame
 	await process_frame

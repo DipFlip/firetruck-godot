@@ -59,6 +59,7 @@ func knock(velocity: Vector3) -> bool:
 	var planar:=Vector3(velocity.x,0,velocity.z)
 	if loose or planar.length()<impact_speed or (protected_cat_tree and not game.cat_rescued): return false
 	loose=true
+	game.sounds.prop_impact(kind,global_position,planar.length())
 	appearing=false
 	age=0
 	freeze=false

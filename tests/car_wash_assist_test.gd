@@ -41,6 +41,7 @@ func run() -> void:
 		await frames(1)
 		game.life._physics_process(1.0/60)
 		for other in game.life.cars: other.node.freeze=true
+	check(int(game.sounds.counts.get("clean",0))>0 and int(game.sounds.counts.get("honk",0))>0,"A completed real hose wash plays its clean chime and friendly honk")
 	check(car.honk_count==1 and not game.rewards.sparkles.is_empty(),"A real off-centre hose stream washes the car and produces a honk and sparkles")
 	game.truck.automated_spray=false
 	car.wash_time=0

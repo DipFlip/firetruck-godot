@@ -90,6 +90,7 @@ func run() -> void:
 				var road:=game.get_world_3d().direct_space_state.intersect_ray(query)
 				if road: min_tire_clearance=minf(min_tire_clearance,wheel.global_position.y-.34-road.position.y)
 	check(moving,"All three cars keep circulating through repeated corners for a minute")
+	print("Measured lowest traffic tire clearance: ",min_tire_clearance)
 	check(min_tire_clearance>=-.005 and min_tire_clearance<.08,"Town car tires clear the roads and ramps without floating above them")
 	game.set_process(true)
 	game.life.set_physics_process(false)

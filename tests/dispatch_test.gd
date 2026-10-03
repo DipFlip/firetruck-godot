@@ -41,7 +41,7 @@ func run() -> void:
 	game=load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	game.truck.use_automation=true
-	await frames(110)
+	await frames(200)
 	var panel: SpeechFrame=game.hud.dialogue_panel
 	check(game.dialogue_active and panel.phone_mode and game.hud.portrait.visible and game.hud.speaker_key=="DISPATCH","Initial dispatch retains the operator portrait in its speech bubble")
 	var corner: Vector2=game.hud.get_viewport_rect().size-panel.size-Vector2(26,120)
@@ -72,7 +72,7 @@ func run() -> void:
 	check(not game.phone_ringing() and not game.barbecue_call_sent and not game.dialogue_active,"No early barbecue call or immediate dispatch interrupts the exploration interval")
 	await frames(20)
 	check(game.phone_ringing() and not game.barbecue_call_sent,"Phone rings after the 20-second delay before dispatch speaks")
-	await frames(80)
+	await frames(200)
 	check(game.barbecue_call_sent and game.hud.speaker_key=="DISPATCH" and game.stage==2 and game.hud.full_text.contains("barbecue") and not game.hud.full_text.contains("pool"),"The follow-up calls in only the still-undiscovered barbecue")
 	close_dialogue()
 	await frames(1800)

@@ -2,8 +2,8 @@ class_name NorthlineRailway
 extends Node3D
 
 const TRACK_Z:=-63.0
-const LEFT_END:=-56.0
-const RIGHT_END:=56.0
+const LEFT_END:=-130.0
+const RIGHT_END:=130.0
 const RESISTANCE:=67.0
 var game: Node3D
 var engine: RigidBody3D
@@ -29,15 +29,18 @@ var clock:=0.0
 var puff_clock:=0.0
 var chuff_clock:=0.0
 var crossings: Array[MeshInstance3D]=[]
+var offstage:=false
+var turns:=0
+var last_crossing:=99
 
 func _ready() -> void:
 	name="NorthlineRailway"
 	_clear_corridor()
 	var tracks:=Node3D.new()
 	add_child(tracks)
-	TownProps.box(tracks,Vector3(0,.045,TRACK_Z),Vector3(138,.08,3.4),Color("9e9d87"))
-	for z in [-.98,.98]: TownProps.box(tracks,Vector3(0,.13,TRACK_Z+z),Vector3(138,.12,.13),Color("667d83"))
-	for x in range(-68,69,2):
+	TownProps.box(tracks,Vector3(0,.045,TRACK_Z),Vector3(160,.08,3.4),Color("9e9d87"))
+	for z in [-.98,.98]: TownProps.box(tracks,Vector3(0,.13,TRACK_Z+z),Vector3(160,.12,.13),Color("667d83"))
+	for x in range(-80,81,2):
 		TownProps.box(tracks,Vector3(x,.085,TRACK_Z),Vector3(.30,.09,2.7),Color("857461"))
 	for x in [-36,0,36]:
 		TownProps.box(tracks,Vector3(x,.07,TRACK_Z),Vector3(8,.05,7),Color("7c8984"))
@@ -49,6 +52,7 @@ func _ready() -> void:
 			cross=TownProps.box(tracks,p+Vector3.UP*2.2,Vector3(.12,.16,1.25),Color("eaf4ef"))
 			cross.rotation.x=-.65
 			crossings.append(TownProps.ball(self,p+Vector3.UP*1.75,Vector3(.20,.20,.20),Color("e78970")))
+	_make_tunnels(tracks)
 	for child in tracks.get_children():
 		if child is MeshInstance3D: child.set_meta("batch_static",true)
 	TownProps.batch_decorations(tracks)
@@ -82,7 +86,7 @@ func _ready() -> void:
 	for x in [-.10,.10]: TownProps.ball(driver,Vector3(x,1.78,-.42),Vector3(.23,.075,.055),Color("694f3f"))
 	driver_guard=game.interactions._visibility_guard("RailwayDriverSpace",driver.position)
 	sound=AudioStreamPlayer3D.new()
-	sound.stream=_chuff()
+	sound.stream=load("res://assets/audio/town/chuff_0.wav")
 	sound.playback_type=AudioServer.PLAYBACK_TYPE_STREAM
 	sound.volume_db=-23
 	sound.max_distance=50
@@ -242,11 +246,8 @@ func _physics_process(dt: float) -> void:
 				var seated:=TownProps.person(engine,Vector3(-2.6,1.5,.9),Color("7199ad"))
 				seated.scale=Vector3.ONE*.48
 		else:
-			wait=maxf(0,wait-dt)
-			if wait==0 and (engine.position.x>RIGHT_END and direction>0 or engine.position.x<LEFT_END and direction<0):
-				wait=4.5
-				direction=-direction
-		var desired:=direction*3.6 if boarded and wait==0 else .45 if not boarded else 0.0
+			_update_route(dt)
+		var desired:=direction*3.6 if boarded and not offstage else .45 if not boarded else 0.0
 		engine.apply_central_force(Vector3((desired-engine.linear_velocity.x)*engine.mass*2.6,0,0))
 		puff_clock-=dt
 		if puff_clock<=0:
@@ -255,8 +256,8 @@ func _physics_process(dt: float) -> void:
 		chuff_clock-=dt
 		if chuff_clock<=0:
 			chuff_clock=.6 if absf(engine.linear_velocity.x)>.8 else 1.0
-			if DisplayServer.get_name()!="headless": sound.play()
-	for wheel in wheels: wheel.rotation.z-=engine.linear_velocity.x*dt/.48
+			if not offstage: game.sounds.play("chuff",engine.global_position,.9,.15)
+	for wheel in wheels: wheel.rotation.z-=engine.linear_velocity.x*direction*dt/.48
 	for light in crossings:
 		light.material_override=TownProps.material(Color("ef927b") if started and wait==0 and sin(clock*6)>0 else Color("925d53"),started and wait==0)
 	for cloud in smoke:
@@ -270,6 +271,7 @@ func _physics_process(dt: float) -> void:
 
 func _start_engine() -> void:
 	started=true
+	game.sounds.play("whistle",engine.global_position,1.0,2.0)
 	_release_push()
 	boarding_time=.001
 	driver_from=driver.position
@@ -284,23 +286,49 @@ func _puff() -> void:
 	for cloud in smoke:
 		if cloud.age<2.8: continue
 		cloud.age=0
-		cloud.mesh.position=engine.position+Vector3(2.15,3.85,0)
+		cloud.mesh.position=engine.global_transform*Vector3(2.15,3.85,0)
 		cloud.velocity=Vector3(-engine.linear_velocity.x*.15,1.2,.3)
 		break
 
-func _chuff() -> AudioStreamWAV:
-	var wav:=AudioStreamWAV.new()
-	wav.format=AudioStreamWAV.FORMAT_16_BITS
-	wav.mix_rate=22050
-	var bytes:=PackedByteArray()
-	bytes.resize(6615*2)
-	var rng:=RandomNumberGenerator.new()
-	rng.seed=713
-	var low:=0.0
-	for i in 6615:
-		var t:=float(i)/wav.mix_rate
-		low=lerpf(low,rng.randf_range(-1,1),.16)
-		var value: float=(low*.8+sin(t*TAU*90)*.13)*sin(PI*t/.3)*exp(-t*6)
-		bytes.encode_s16(i*2,int(value*20000))
-	wav.data=bytes
-	return wav
+func _update_route(dt: float) -> void:
+	# The hidden continuation sits behind the railway tunnels, avoiding a
+	# locomotive floating beyond the terrain while it travels out of view.
+	engine.visible=not offstage and absf(engine.position.x)<80
+	if offstage:
+		wait=maxf(0,wait-dt)
+		# Wait outside the playable town, then re-enter with the boiler leading.
+		if wait<=0 and not TownProps.near_view(game.camera,engine.position,12):
+			direction=-direction
+			engine.rotation.y=PI if direction<0 else 0.0
+			engine.linear_velocity=Vector3.ZERO
+			engine.angular_velocity=Vector3.ZERO
+			engine.reset_physics_interpolation()
+			offstage=false
+			turns+=1
+			engine.visible=absf(engine.position.x)<80
+			engine.collision_layer=2
+			last_crossing=99
+		return
+	var passed_end:=engine.position.x>RIGHT_END if direction>0 else engine.position.x<LEFT_END
+	if passed_end and not TownProps.near_view(game.camera,engine.position,12):
+		offstage=true
+		wait=4.5
+		engine.hide()
+		engine.collision_layer=0
+		engine.linear_velocity=Vector3.ZERO
+		return
+	for crossing in [-36,0,36]:
+		if absf(engine.position.x-crossing)<9 and last_crossing!=crossing:
+			last_crossing=crossing
+			game.sounds.play("whistle",engine.global_position,.65,3.0)
+
+func _make_tunnels(tracks: Node3D) -> void:
+	for side in [-1,1]:
+		var mouth:=Vector3(side*73.0,0,TRACK_Z)
+		TownProps.ball(tracks,Vector3(side*84.0,2.0,TRACK_Z),Vector3(24,13,21),Color("88a66b"))
+		TownProps.ball(tracks,mouth+Vector3(side*.08,2.3,0),Vector3(.12,7.0,7.2),Color("273c42"))
+		for z in [-3.5,3.5]: TownProps.box(tracks,mouth+Vector3(0,.65,z),Vector3(.95,1.4,.70),Color("9faaa3"))
+		for i in 12:
+			var angle: float=i*PI/11
+			var stone:=TownProps.box(tracks,mouth+Vector3(0,1.3+sin(angle)*3.5,cos(angle)*3.5),Vector3(.96,.64,1.08),Color("aeb9ad") if i%2==0 else Color("99a99f"))
+			stone.rotation.x=-PI/2-angle

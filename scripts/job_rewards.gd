@@ -48,6 +48,7 @@ func celebrate(job: String, at: Vector3, speaker: String, words: String) -> void
 	if game.dialogue_active and game.hud.speaker_key==speaker: game.end_dialogue()
 	pending.append({"speaker":speaker,"words":words,"remaining":THANK_YOU_DELAY})
 	if DisplayServer.get_name()!="headless": sound.play()
+	if job=="dog": game.sounds.play("woof",game.town.dog.global_position,1.0,2.0)
 	sparkle_burst(at,28,3.4 if job=="pool" else 1.1,.55 if job=="pool" else 1.0)
 
 func sparkle_burst(at: Vector3, count: int=12, radius: float=1.1, squash: float=1.0) -> void:

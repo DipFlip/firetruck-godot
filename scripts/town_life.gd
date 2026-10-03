@@ -12,7 +12,7 @@ var honk_stream: AudioStreamWAV
 
 func _ready() -> void:
 	physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_ON
-	honk_stream=_make_honk()
+	honk_stream=load("res://assets/audio/town/honk_0.wav")
 	# Lanes circulate around separate blocks, leaving the centre of junctions clear.
 	_car([Vector3(1.8,0,28),Vector3(1.8,0,34.2),Vector3(34.2,0,34.2),Vector3(34.2,0,1.8),Vector3(1.8,0,1.8)],Color("e5bd72"),0)
 	_car([Vector3(-34.2,0,-15),Vector3(-34.2,0,-1.8),Vector3(-1.8,0,-1.8),Vector3(-1.8,0,-34.2),Vector3(-34.2,0,-34.2)],Color("91afb4"),1)
@@ -126,8 +126,8 @@ func _car(path: Array, color: Color, index: int) -> void:
 	body.axis_lock_angular_x=true
 	body.axis_lock_angular_z=true
 	var material:=PhysicsMaterial.new()
-	material.friction=.035
-	material.bounce=.12
+	material.friction=.06
+	material.bounce=.04
 	body.physics_material_override=material
 	add_child(body)
 	body.position=path[0]+Vector3.UP*.12
@@ -187,7 +187,8 @@ func _physics_process(dt: float) -> void:
 				car.wash_time=0.0
 				car.wash_cooldown=8.0
 				car.honk_count+=1
-				if DisplayServer.get_name()!="headless": car.honk.play()
+				game.sounds.play("clean",body.global_position,1.0,.35)
+				game.sounds.play("honk",body.global_position,.8,1.4)
 				game.rewards.sparkle_burst(body.global_position+Vector3.UP*1.25,12,1.4)
 		else: car.wash_time=maxf(0,car.wash_time-dt*.5)
 		if _recover_traffic(car,dt): continue
@@ -208,19 +209,23 @@ func _physics_process(dt: float) -> void:
 		for ramp in game.ramps.ramps: obstacles_exclude.append(ramp.get_rid())
 		var query:=PhysicsRayQueryParameters3D.create(body.position+Vector3.UP*.7,body.position+Vector3.UP*.7+direction*4,3,obstacles_exclude)
 		if get_world_3d().direct_space_state.intersect_ray(query): yield_now=true
-		var relative: Vector3=game.truck.linear_velocity-body.linear_velocity
-		if to_truck.length()<4.2 and relative.length()>1.5 and relative.dot(-to_truck)>0:
-			car.coast=2.0
 		car.coast=maxf(0,car.coast-dt)
 		var planar:=Vector3(body.linear_velocity.x,0,body.linear_velocity.z)
 		car.speed=planar.length()
-		# Leave collision momentum alone briefly, then gently steer back to the lane.
+		# Tire grip remains active during a bump. Damp across the axle much more
+		# strongly than along the wheel direction; cars are still pushable.
+		var lateral:=body.global_basis.x
+		var slip:=planar.dot(lateral)
+		if absf(body.position.y)<.65:
+			body.apply_central_force(-lateral*slip*body.mass*7.5)
+			if car.coast>0: body.apply_central_force(-planar*body.mass*.9)
+		# Briefly accept forward impact momentum before resuming lane steering.
 		if car.coast<=0:
 			var desired: Vector3=direction*(0.0 if yield_now else car.cruise)
 			var force: Vector3=((desired-planar)*2.8+desired*body.linear_damp)*body.mass
 			body.apply_central_force(force.limit_length(body.mass*8))
 			var error:=wrapf(atan2(-direction.x,-direction.z)-body.rotation.y,-PI,PI)
-			body.apply_torque(Vector3.UP*(error*7-body.angular_velocity.y*3))
+			body.apply_torque(Vector3.UP*(error*10-body.angular_velocity.y*3.5))
 		if not TownProps.near_view(game.camera,body.position,4): continue
 		for wheel in car.wheels:
 			wheel.rotation.x-=car.speed*dt/.34
@@ -230,6 +235,13 @@ func _physics_process(dt: float) -> void:
 			var center: Vector3=wheel.global_position
 			var support:=PhysicsRayQueryParameters3D.create(center+Vector3.UP*.5,center+Vector3.DOWN,9,[body.get_rid(),game.truck.get_rid()])
 			var road:=get_world_3d().direct_space_state.intersect_ray(support)
+			# A tire reaches a raised crossing before its hub does. Include its
+			# leading contact patch so the first frame at an edge stays clear.
+			var leading:=Vector3(body.linear_velocity.x,0,body.linear_velocity.z).normalized()*.36
+			support.from+=leading
+			support.to+=leading
+			var next_road:=get_world_3d().direct_space_state.intersect_ray(support)
+			if next_road and next_road.normal.y>.5 and (road.is_empty() or next_road.position.y>road.position.y): road=next_road
 			if road and road.normal.y>.5:
 				var clearance: Vector3=wheel.get_parent().to_local(Vector3(center.x,road.position.y+.355,center.z))
 				wheel.position.y=maxf(.32,clearance.y)
@@ -290,6 +302,7 @@ func _update_ground_birds(dt: float) -> void:
 			bird.terrain_ready=true
 		var danger:=minf(Vector2(node.position.x-truck.x,node.position.z-truck.z).length(),Vector2(node.position.x-ahead.x,node.position.z-ahead.z).length())<BIRD_FLEE_RADIUS
 		if bird.mode!="flee" and danger:
+			game.sounds.play("bird",node.global_position,.85,.35)
 			bird.mode="flee"
 			bird.age=0.0
 			bird.from=node.position
@@ -411,20 +424,6 @@ func clear_start_area() -> void:
 			walker.next=(i+1)%walker.path.size()
 			walker.node.reset_physics_interpolation()
 			break
-
-func _make_honk() -> AudioStreamWAV:
-	var wav:=AudioStreamWAV.new()
-	wav.format=AudioStreamWAV.FORMAT_16_BITS
-	wav.mix_rate=22050
-	var bytes:=PackedByteArray()
-	bytes.resize(int(.65*wav.mix_rate)*2)
-	for i in bytes.size()/2:
-		var t:=float(i)/wav.mix_rate
-		var envelope:=smoothstep(0,.025,t)*(1-smoothstep(.42,.65,t))
-		var sample: float=(sin(TAU*349.23*t)+.6*sin(TAU*440*t)+.15*sin(TAU*698.46*t))*.24*envelope
-		bytes.encode_s16(i*2,int(sample*32767))
-	wav.data=bytes
-	return wav
 
 func _recover_traffic(car: Dictionary, dt: float) -> bool:
 	var body: RigidBody3D=car.node
@@ -573,6 +572,7 @@ func _begin_dodge(walker: Dictionary, danger: Dictionary) -> void:
 	if best==-INF: return
 	walker.from=person.position
 	walker.to=chosen
+	game.sounds.play("dodge",person.global_position,.8,.4)
 	walker.hop=0.0
 	walker.cooldown=.9
 	person.rotation.y=atan2(-travel.x,-travel.z)

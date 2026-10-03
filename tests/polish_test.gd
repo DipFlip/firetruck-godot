@@ -10,7 +10,7 @@ func check(ok: bool, text: String) -> void:
 func run() -> void:
 	game=load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
-	await frames(130)
+	await frames(220)
 	check(game.hud.char_count>0 and game.hud.char_count<game.hud.full_text.length(),"Dialogue reveals progressively")
 	game.interact()
 	check(game.dialogue_active and game.hud.char_count==game.hud.full_text.length(),"First continue reveals the line without dismissing it")
@@ -31,7 +31,7 @@ func run() -> void:
 	game.talk("MAYA  /  MAPLE GREEN","Pippin! Oh, thank goodness you're here.",1)
 	await frames(10)
 	check(game.hud.portrait.texture is AtlasTexture and game.hud.portrait.texture.region.position.x>0,"Maya uses her own portrait")
-	check(game.hud.syllables.size()==7 and game.hud.syllables[0].data.size()>1000,"Dialogue voice has generated vowel syllables")
+	check(game.hud.syllables.size()==3 and game.hud.syllables[0].data.size()>1000,"Dialogue voice uses three smooth baked vowel syllables")
 	game.talk("OLIVER  /  POOL PARTY","Can you help with the pool?",4)
 	check(game.hud.portrait.texture.resource_path.ends_with("oliver.png"),"Oliver has a distinct portrait")
 	check(game.town.people[0].get_node_or_null("Eyes")!=null,"Neighbours have animated facial features")
