@@ -70,6 +70,7 @@ func run() -> void:
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	game=load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
+	game.intro.finish()
 	game.truck.use_automation=true
 	game.truck.freeze=true
 	game.barbecue_call_delay=-1

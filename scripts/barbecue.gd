@@ -5,6 +5,7 @@ var town: LittleTown
 
 func _ready() -> void:
 	name="KettleBarbecue"
+	set_meta("toy_arrival","drop")
 	position=TownLayout.FIRE
 	# Replace the two old stacked drums, keeping the fire target unchanged.
 	for child in town.get_children():

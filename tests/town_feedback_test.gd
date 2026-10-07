@@ -179,20 +179,41 @@ func run() -> void:
 	game.intro.start()
 	game.intro.update(.25)
 	var camera_start: Vector3=game.camera.position
-	var angle_start: Basis=game.camera.basis
-	game.intro.update(1.3)
-	check(camera_start.distance_to(game.camera.position)>6 and angle_start.is_equal_approx(game.camera.basis) and game.intro.title.reveal>0,"The wide opening shot dollies without rotating while the town name is written")
+	game.intro.update(2.1)
+	check(camera_start.distance_to(game.camera.position)>3 and game.camera.size>140 and game.travel.mat.visible and game.intro.title.reveal>0,"The wide opening follows the loose printed carpet while the town name is written")
 	await capture("/tmp/firedriver-town-intro.png")
-	game.intro.update(1.9)
+	game.intro.update(5.25)
 	await capture("/tmp/firedriver-dog-intro.png")
-	for index in [1,2]:
-		game.intro.clock=index*2+.15
-		game.intro.update(0)
-		var start_position: Vector3=game.camera.position
-		var start_basis: Basis=game.camera.basis
-		var start_size: float=game.camera.size
-		game.intro.update(1.5)
-		check(game.camera.position.distance_to(start_position)>2 and start_basis.is_equal_approx(game.camera.basis) and is_equal_approx(start_size,game.camera.size),"Intro shot %d translates with a fixed lens and angle" % index)
+	var border_start:=PlayMatTravel.tour_focus(11.8,false)
+	var border_end:=PlayMatTravel.tour_focus(13.4,false)
+	check(absf(border_start.x+80)<2 and absf(border_end.x+80)<4 and border_end.z-border_start.z>65,"The opening sweep travels along the western perimeter cascade")
+	check(PlayMatTravel.tour_focus(17.0,false).distance_to(Vector3(-12,1,13))<5,"The perimeter sweep curves inward for a close station view")
+	for is_race in [false,true]:
+		var smooth:=true
+		for knot in [9.8,11.8,13.1,14.5,15.8,17.0,18.5,20.1]:
+			var before: Vector3=(PlayMatTravel.tour_focus(knot,is_race)-PlayMatTravel.tour_focus(knot-.001,is_race))/.001
+			var after: Vector3=(PlayMatTravel.tour_focus(knot+.001,is_race)-PlayMatTravel.tour_focus(knot,is_race))/.001
+			smooth=smooth and before.distance_to(after)<.8
+		check(smooth,"The %s camera follows a continuous curve without jumps at tour waypoints" % ("race" if is_race else "town"))
+	game.intro.clock=11.8
+	game.intro.update(0)
+	var border_basis: Basis=game.camera.basis
+	var border_size: float=game.camera.size
+	game.intro.clock=17.0
+	game.intro.update(0)
+	check(not game.camera.basis.is_equal_approx(border_basis) and game.camera.size<border_size,"The camera turns into town and moves closer to highlight the buildings")
+	game.intro.clock=12
+	game.intro.update(0)
+	check(game.intro.title.reveal>.3 and game.intro.title.reveal<.8 and game.intro.title.opacity==1,"The title continues writing across the tour rather than finishing in the opening")
+	game.intro.clock=21.0
+	game.intro.update(0)
+	check(game.intro.title.reveal==1 and game.intro.title.opacity==1,"The finished town name holds for several seconds before truck handover")
+	game.intro.clock=21.499
+	game.intro.update(0)
+	var before_handover: Transform3D=game.camera.transform
+	var before_lens: float=game.camera.size
+	game.intro.update(.001)
+	check(game.camera.position.distance_to(before_handover.origin)<.05 and absf(game.camera.size-before_lens)<.01,"The intro tour hands over without a camera or lens jump")
 	game.intro.finish()
 	game.set_process(false)
 	game.camera.position=TownLayout.FIRE+Vector3(-6,5,7)

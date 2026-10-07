@@ -98,14 +98,14 @@ for x in [-1,1]:
         bpy.ops.mesh.primitive_cylinder_add(vertices=40,radius=WELL,depth=.5,location=g((x*1.0,WHEEL_Y,z)))
         c=bpy.context.object;c.rotation_euler=(0,math.pi/2,0)
         bpy.ops.object.transform_apply(location=False,rotation=True,scale=False);cutters.append(c)
-bpy.ops.object.select_all(action='DESELECT')
-for c in cutters:c.select_set(True)
-bpy.context.view_layer.objects.active=cutters[0];bpy.ops.object.join();cutter=bpy.context.object
+# Cut one closed cylinder at a time. The overlapping tandem cutters are not
+# a valid joined boolean volume; joining them erased the tank's wall faces.
 for o in list(bpy.context.scene.objects):
-    if o.type!='MESH' or o==cutter or o.name.split('.')[0] not in ('TankBody','Cab','Step'):continue
-    mod=o.modifiers.new('Wheel well','BOOLEAN');mod.operation='DIFFERENCE';mod.object=cutter;mod.solver='EXACT'
-    bpy.context.view_layer.objects.active=o;bpy.ops.object.modifier_apply(modifier=mod.name)
-bpy.data.objects.remove(cutter,do_unlink=True)
+    if o.type!='MESH' or o.name.split('.')[0] not in ('TankBody','Cab','Step'):continue
+    for cutter in cutters:
+        mod=o.modifiers.new('Wheel well','BOOLEAN');mod.operation='DIFFERENCE';mod.object=cutter;mod.solver='EXACT'
+        bpy.context.view_layer.objects.active=o;bpy.ops.object.modifier_apply(modifier=mod.name)
+for cutter in cutters:bpy.data.objects.remove(cutter,do_unlink=True)
 def fender(points,x):
     cu=bpy.data.curves.new('FenderCurve','CURVE');cu.dimensions='3D'
     sp=cu.splines.new('POLY');sp.points.add(len(points)-1)

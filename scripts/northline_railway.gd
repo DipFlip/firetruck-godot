@@ -7,6 +7,7 @@ const RIGHT_END:=130.0
 const RESISTANCE:=67.0
 var game: Node3D
 var engine: RigidBody3D
+var roof_hinge: Node3D
 var driver: Node3D
 var driver_guard: StaticBody3D
 var wheels: Array[Node3D]=[]
@@ -40,12 +41,17 @@ func _ready() -> void:
 	_clear_corridor()
 	var tracks:=Node3D.new()
 	add_child(tracks)
-	TownProps.box(tracks,Vector3(0,.045,TRACK_Z),Vector3(160,.08,3.4),Color("9e9d87"))
-	for z in [-.98,.98]: TownProps.box(tracks,Vector3(0,.13,TRACK_Z+z),Vector3(160,.12,.13),Color("667d83"))
-	for x in range(-80,81,2):
+	# Cut the bed and rails at the streets instead of covering the same asphalt
+	# with a second near-coplanar road patch. North and south share one surface.
+	for ends in [Vector2(-80,-40.3),Vector2(-31.7,-4.3),Vector2(4.3,31.7),Vector2(40.3,80)]:
+		var length: float=ends.y-ends.x
+		var centre: float=(ends.x+ends.y)*.5
+		TownProps.box(tracks,Vector3(centre,.045,TRACK_Z),Vector3(length,.08,3.4),Color("9e9d87"))
+		for z in [-.98,.98]: TownProps.box(tracks,Vector3(centre,.13,TRACK_Z+z),Vector3(length,.12,.13),Color("667d83"))
+	for x in range(-78,79,2):
+		if absf(x)<4.3 or absf(x-36)<4.3 or absf(x+36)<4.3: continue
 		TownProps.box(tracks,Vector3(x,.085,TRACK_Z),Vector3(.30,.09,2.7),Color("857461"))
 	for x in [-36,0,36]:
-		TownProps.box(tracks,Vector3(x,.07,TRACK_Z),Vector3(8,.05,7),Color("7c8984"))
 		for side in [-1,1]:
 			var p:=Vector3(x+side*5,.0,TRACK_Z+3.0)
 			var art:=Node3D.new()
@@ -143,9 +149,15 @@ func _make_engine() -> void:
 		TownProps.box(engine,Vector3(-2.8,3.31,z),Vector3(2.4,.20,.18),teal)
 		for x in [-3.9,-1.7]:
 			TownProps.box(engine,Vector3(x,2.72,z),Vector3(.20,1.3,.18),teal)
-		TownProps.box(engine,Vector3(-2.8,2.70,signf(z)*1.40),Vector3(1.8,.94,.035),Color("b2d9dd"))
 	TownProps.box(engine,Vector3(-3.95,2.5,0),Vector3(.18,1.8,2.5),teal)
-	TownProps.box(engine,Vector3(-2.8,3.52,0),Vector3(2.9,.24,3.05),dark)
+	roof_hinge=Node3D.new()
+	roof_hinge.name="HingedCabRoof"
+	engine.add_child(roof_hinge)
+	roof_hinge.position=Vector3(-4.25,3.52,0)
+	TownProps.box(roof_hinge,Vector3(1.45,0,0),Vector3(2.9,.24,3.05),dark)
+	for z in [-1,1]:
+		var hinge:=TownProps.cylinder(engine,roof_hinge.position+Vector3(0,0,z),.13,.38,brass)
+		hinge.rotation.x=PI/2
 	var boiler:=TownProps.cylinder(engine,Vector3(.65,2.05,0),.95,4.6,teal)
 	boiler.rotation.z=PI/2
 	for x in [-.8,1.5]:
@@ -243,22 +255,29 @@ func _physics_process(dt: float) -> void:
 			talk_to_driver(true)
 		elif hint_pending and game.dialogue_actor==driver and game.hud.char_count==game.hud.full_text.length():
 			game.end_dialogue()
-		if assist_time>=1.0: _start_engine()
+		if assist_time>=.35: _start_engine()
 	else:
 		if not boarded:
 			boarding_time+=dt
-			var door: Vector3=engine.position+Vector3(-2.9,.12,1.65)
-			driver.position=driver_from.lerp(door,smoothstep(0,1,clampf((boarding_time-.65)/1.3,0,1)))
-			driver.position.y+=sin(clampf((boarding_time-1.6)/.6,0,1)*PI)*.65
-			if boarding_time>=2.4:
+			# Open a real rear-hinged roof, hop over the sill, then settle inside.
+			roof_hinge.rotation.z=1.85*smoothstep(0,.45,boarding_time)*(1-smoothstep(1.65,2.25,boarding_time))
+			var t:=smoothstep(.45,1.65,boarding_time)
+			var seat: Vector3=engine.position+Vector3(-2.8,.78,.91)
+			driver.position=driver_from.lerp(seat,t)+Vector3.UP*sin(t*PI)*4.0
+			driver.rotation.y=lerp_angle(0,PI,t)
+			driver.rotation.x=-.17*smoothstep(1.55,2.25,boarding_time)
+			driver.get_node("ArmLeft").rotation.x=-1.15*smoothstep(1.55,2.25,boarding_time)
+			driver.get_node("ArmRight").rotation.x=-1.15*smoothstep(1.55,2.25,boarding_time)
+			for arm_name in ["ArmLeft","ArmRight"]:
+				driver.get_node(arm_name).position.y=lerpf(1.35,1.72,smoothstep(1.55,2.25,boarding_time))
+			if boarding_time>=2.3:
 				boarded=true
-				driver.hide()
+				driver.reparent(engine,true)
+				roof_hinge.rotation.z=0
 				if game.dialogue_actor==driver: game.end_dialogue()
-				var seated:=TownProps.person(engine,Vector3(-2.6,1.5,.9),Color("7199ad"))
-				seated.scale=Vector3.ONE*.48
 		else:
 			_update_route(dt)
-		var desired:=direction*3.6 if boarded and not offstage else .45 if not boarded else 0.0
+		var desired:=direction*3.6 if boarded and not offstage else 0.0
 		engine.apply_central_force(Vector3((desired-engine.linear_velocity.x)*engine.mass*2.6,0,0))
 		puff_clock-=dt
 		if puff_clock<=0:

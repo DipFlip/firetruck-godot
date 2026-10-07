@@ -1,0 +1,33 @@
+{
+  "browser_lap": {
+    "checks": [
+      "R does not recover or move the truck",
+      "Ordinary truck acceleration and steering complete the winding circuit",
+      "Actual browser motion follows the bridge within 8 cm and flat asphalt within 5 mm per frame",
+      "The return carpet swap finishes in under four seconds including telemetry delay",
+      "The updated WebGL build has no console errors"
+    ],
+    "lap": {
+      "seconds": 46.633333333332,
+      "surface_error": 0.00656307189078764,
+      "flat_height_step": 0.000452816486358643,
+      "frames": 2846
+    },
+    "errors": []
+  },
+  "start_gate": {
+    "checks": [
+      "Start screen remains visible after loading and a long wait",
+      "Intro, missions and truck stay at their initial state until Start",
+      "The shell has not started gameplay automatically",
+      "A delayed Start begins from the rolled-carpet opening",
+      "The intro clock advances only after Start",
+      "Pressing Start before loading completes also begins at the opening",
+      "No game or browser console errors: "
+    ],
+    "delayedStart": 0.158327,
+    "earlyStart": 0.2397,
+    "heldSeconds": 27,
+    "errors": []
+  }
+}

@@ -74,6 +74,7 @@ var interactions: TownInteractions
 var refill_hose: RefillHose
 var web_controls: WebControls
 var loading:=false
+var pool_shader_warmed:=false
 var batched_decorations:=0
 var merged_scenery:=0
 var conversation_pan:=0.0
@@ -84,6 +85,7 @@ var sounds: TownAudio
 var barbecue: Barbecue
 var miniature: MiniatureLook
 var playroom: Playroom
+var travel: PlayMatTravel
 var controls: ControlPrompts
 
 func _ready() -> void:
@@ -199,6 +201,9 @@ func _ready() -> void:
 	animated.append_array(atmosphere.fountain_drops)
 	animated.append_array(atmosphere.embers)
 	merged_scenery=TownProps.merge_fixed_geometry(town,animated)+TownProps.merge_fixed_geometry(atmosphere,animated)
+	travel=PlayMatTravel.new()
+	travel.game=self
+	add_child(travel)
 	web_controls=WebControls.new()
 	web_controls.game=self
 	add_child(web_controls)
@@ -212,7 +217,7 @@ func _ready() -> void:
 		intro.call_deferred("start")
 
 func _setup_input() -> void:
-	var bindings := {"left":KEY_A,"right":KEY_D,"forward":KEY_W,"back":KEY_S,"jump":KEY_SPACE,"brake":KEY_SHIFT,"interact":KEY_E,"continue":KEY_ENTER,"recover":KEY_R,"pause":KEY_ESCAPE,"aim_left":KEY_LEFT,"aim_right":KEY_RIGHT,"aim_up":KEY_UP,"aim_down":KEY_DOWN,"map":KEY_TAB,"music":KEY_M}
+	var bindings := {"left":KEY_A,"right":KEY_D,"forward":KEY_W,"back":KEY_S,"jump":KEY_SPACE,"brake":KEY_SHIFT,"interact":KEY_E,"continue":KEY_ENTER,"pause":KEY_ESCAPE,"aim_left":KEY_LEFT,"aim_right":KEY_RIGHT,"aim_up":KEY_UP,"aim_down":KEY_DOWN,"map":KEY_TAB,"music":KEY_M}
 	for action in bindings:
 		if not InputMap.has_action(action): InputMap.add_action(action)
 		var event:=InputEventKey.new()
@@ -278,6 +283,7 @@ func objective() -> Vector3:
 	return TownLayout.FIRE
 
 func navigation_active() -> bool:
+	if travel and (travel.in_race or travel.active): return false
 	return stage>0 and stage<4 or railway!=null and railway.briefed and not railway.started
 
 func talk(speaker: String, words: String, next: int) -> void:
@@ -286,6 +292,9 @@ func talk(speaker: String, words: String, next: int) -> void:
 	var index: int={"MAYA":0,"LEO":1,"JUNE":2,"OLIVER":3}.get(speaker.get_slice("  /",0),-1)
 	dialogue_actor=town.people[index] if index>=0 else null
 	if speaker.begins_with("ROWAN") and railway: dialogue_actor=railway.driver
+	if travel and travel.in_race:
+		var race_index:=ToyRaceTrack.NAMES.find(speaker.get_slice("  /",0))
+		dialogue_actor=travel.race.people[race_index] if race_index>=0 else null
 	dialogue_seen_in_view=false
 	dialogue_out_of_view_time=0
 	if dialogue_actor: camera_subject=dialogue_actor
@@ -313,6 +322,7 @@ func _set_conversation_camera(active: bool) -> void:
 	camera_transition_time=0.0
 
 func phone_ringing() -> bool:
+	if travel and (travel.in_race or travel.active): return false
 	if intro and intro.active: return false
 	return call_timer>0 or barbecue_ring_timer>=0
 
@@ -331,8 +341,11 @@ func _check_barbecue_discovery(dt: float) -> void:
 	# Talking to Leo or spraying the fire still discovers it immediately.
 	var close:=truck.global_position.distance_to(TownLayout.FIRE)<8
 	var speed:=Vector2(truck.linear_velocity.x,truck.linear_velocity.z).length()
+	if not close or speed>5:
+		barbecue_notice_time=0
+		return
 	var query:=PhysicsRayQueryParameters3D.create(truck.cannon.global_position,TownLayout.FIRE+Vector3.UP*1.7,1,[truck.get_rid()])
-	if not close or speed>5 or not get_world_3d().direct_space_state.intersect_ray(query).is_empty():
+	if not get_world_3d().direct_space_state.intersect_ray(query).is_empty():
 		barbecue_notice_time=0
 		return
 	barbecue_notice_time+=dt
@@ -364,7 +377,7 @@ func _update_dispatch(dt: float) -> void:
 			hud.auto_close_delay=-1 # Keep the job visible until acknowledged or discovered.
 
 func _unhandled_input(event: InputEvent) -> void:
-	if loading or in_main_menu: return
+	if loading or in_main_menu or (travel and travel.active): return
 	if event is InputEventKey and event.echo: return
 	if intro and intro.active:
 		if event.is_action_pressed("jump") or event.is_action_pressed("continue") or (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed):
@@ -392,7 +405,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		end_dialogue()
 		if rescue_running: _cancel_cat_rescue()
 		truck.reset_truck()
-		toast("Back at the station. Ready when you are.")
+		if travel and travel.in_race:
+			travel.race.running=false
+			travel.race.checkpoint=0
+			travel.race.checkpoint_flag.hide()
+		toast("Back at the paddock." if travel and travel.in_race else "Back at the station. Ready when you are.")
 	if event.is_action_pressed("interact"):
 		if truck.ladder_deployed: truck.retract_ladder()
 		else: truck.extend_ladder()
@@ -403,7 +420,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	# In the basin Space is always a jump, including while Oliver's previous
 	# conversation is still visible. The mobile jump control uses this path too.
-	if event.is_action_pressed("jump") and pool_basin.contains_truck():
+	if event.is_action_pressed("jump") and not (travel and travel.in_race) and pool_basin.contains_truck():
 		if dialogue_actor==town.people[3]: end_dialogue()
 		return
 	if (event.is_action_pressed("continue") or event.is_action_pressed("jump")) and (dialogue_active or _nearest_npc()>=0):
@@ -436,6 +453,7 @@ func _nearest_npc() -> int:
 	return index
 
 func _npc_actors() -> Array[Node3D]:
+	if travel and travel.in_race: return travel.race.people
 	var actors: Array[Node3D]=[]
 	actors.append_array(town.people)
 	if railway and not railway.boarded: actors.append(railway.driver)
@@ -474,6 +492,7 @@ func _proximity_talk() -> void:
 		railway.talk_to_driver()
 
 func _talk_to_npc(i: int, manual: bool=false) -> bool:
+	if travel and travel.in_race: return travel.race.talk_to_person(i)
 	if i==4: return railway.talk_to_driver(manual)
 	if paused or rescue_running or rewards.waiting_for(["MAYA","LEO","JUNE","OLIVER"][i]): return false
 	match i:
@@ -505,7 +524,7 @@ func _talk_to_npc(i: int, manual: bool=false) -> bool:
 func _process(dt: float) -> void:
 	if not is_instance_valid(truck): return
 	_audio_update(dt)
-	if paused: return
+	if paused or loading or (travel and travel.active): return
 	if intro and intro.active:
 		intro.update(dt)
 		return
@@ -544,6 +563,15 @@ func _process(dt: float) -> void:
 		elif dialogue_seen_in_view:
 			dialogue_out_of_view_time+=dt
 			if dialogue_out_of_view_time>.7: end_dialogue()
+	if travel and travel.in_race:
+		marker.hide()
+		job_label.hide()
+		if toast_time>0:
+			toast_time-=dt
+			if toast_time<=0: hud.toast_label.text=""
+		travel.race.proximity_talk()
+		hud.set_prompt("Talk to neighbour" if _nearest_npc()>=0 else "")
+		return
 	_check_barbecue_discovery(dt)
 	_update_dispatch(dt)
 	if toast_time>0:
@@ -617,6 +645,7 @@ func return_to_main_menu() -> void:
 	hud.main_menu.show()
 
 func _assisted_water_target(origin: Vector3, requested: Vector3) -> Variant:
+	if travel and travel.in_race: return travel.race.aim_target(origin,requested)
 	var aim:=Vector3(requested.x-origin.x,0,requested.z-origin.z).normalized()
 	if aim.length()<.1: return null
 	var targets: Array[Dictionary]=[]
@@ -660,7 +689,8 @@ func _assisted_water_target(origin: Vector3, requested: Vector3) -> Variant:
 	return best
 
 func _water_hit(point: Vector3, amount: float) -> bool:
-	if paused: return false
+	if paused or (travel and travel.active): return false
+	if travel and travel.in_race: return travel.race.water_hit(point,amount)
 	var consumed := life.water_hit(point,amount)
 	if dog_puddle: consumed=dog_puddle.water_hit(point,amount) or consumed
 	if fire_progress<1 and point.distance_to(TownLayout.FIRE+Vector3.UP*1.8)<1.8:
@@ -853,3 +883,5 @@ func _exit_tree() -> void:
 	TownProps.softened_materials.clear()
 	TownProps.effect_shaders.clear()
 	TownProps.rounded_mesh=null
+	TownProps.sphere_mesh=null
+	TownProps.cylinder_meshes.clear()

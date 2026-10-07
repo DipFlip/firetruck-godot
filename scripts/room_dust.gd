@@ -31,7 +31,7 @@ func _ready() -> void:
 	if RenderingServer.get_current_rendering_method()=="gl_compatibility": boost=1.6
 	material_override=dust
 	cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	custom_aabb=AABB(Vector3(-400,-50,-400),Vector3(800,150,800))
+	custom_aabb=AABB(Vector3(-400,-50,-400),Vector3(1200,150,800))
 
 func _process(dt: float) -> void:
 	var camera: Camera3D=game.camera

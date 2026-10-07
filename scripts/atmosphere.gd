@@ -55,6 +55,13 @@ func _ready() -> void:
 				material.set_shader_parameter("base_color",Color("50636d"))
 				material.set_shader_parameter("grain_scale",18.0)
 				material.set_shader_parameter("variation",0.045)
+				# Rounded toy cubes pull the asphalt back from its nominal edge,
+				# leaving green seams beside the exact sidewalk corner fills.
+				var slab:=BoxMesh.new()
+				slab.size=Vector3.ONE
+				child.mesh=slab
+				child.scale.y=.055
+				child.position.y=.0275
 				child.material_override=material
 				road_material=material
 	var pavements:=TownSidewalks.new()
@@ -65,7 +72,7 @@ func _ready() -> void:
 	water.shader=preload("res://shaders/pool.gdshader")
 	town.pool_water.material_override=water
 	# Footpaths and hedges lead the eye through each front garden.
-	for garden in [Vector3(18,0,19),Vector3(-19,0,-20),Vector3(19,0,-20),Vector3(-48,0,18),Vector3(49,0,18),Vector3(49,0,-29),Vector3(-49,0,-22),Vector3(18,0,49),Vector3(-19,0,49)]:
+	for garden in [Vector3(18,0,19),Vector3(-19,0,-20),Vector3(19,0,-20),Vector3(-48,0,18),Vector3(49,0,18),Vector3(49,0,-25),Vector3(-49,0,-22),Vector3(18,0,49),Vector3(-19,0,49)]:
 		for row in range(5):
 			for col in range(2):
 				# Bend Rose Cottage's path beside Oliver instead of over the pool.
@@ -139,11 +146,15 @@ func _ready() -> void:
 	fire_light.light_energy=0.5
 
 func _flower(p: Vector3, color: Color) -> void:
-	TownProps.cylinder(self,p+Vector3.UP*.22,.025,.44,Color("718d60")).set_meta("batch_static",true)
+	var parts: Array[MeshInstance3D]=[]
+	parts.append(TownProps.cylinder(self,p+Vector3.UP*.22,.025,.44,Color("718d60")))
 	for i in range(5):
 		var a:=i*TAU/5
-		TownProps.ball(self,p+Vector3(cos(a)*.09,.47,sin(a)*.09),Vector3(.15,.09,.15),color).set_meta("batch_static",true)
-	TownProps.ball(self,p+Vector3.UP*.49,Vector3(.10,.07,.10),Color("f0d493")).set_meta("batch_static",true)
+		parts.append(TownProps.ball(self,p+Vector3(cos(a)*.09,.47,sin(a)*.09),Vector3(.15,.09,.15),color))
+	parts.append(TownProps.ball(self,p+Vector3.UP*.49,Vector3(.10,.07,.10),Color("f0d493")))
+	for part in parts:
+		part.set_meta("batch_static",true)
+		part.set_meta("toy_pivot",p)
 
 func _process(dt: float) -> void:
 	if game.paused: return

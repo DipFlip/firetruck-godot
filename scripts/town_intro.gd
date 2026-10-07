@@ -1,7 +1,7 @@
 class_name TownIntro
 extends Node
 
-const LENGTH:=6.0
+const LENGTH:=24.0
 var game: Node3D
 var active:=false
 var clock:=0.0
@@ -33,46 +33,58 @@ func start() -> void:
 	game.truck.freeze=true
 	game.truck.enabled=false
 	game.truck.charge=0
+	game.truck.hide()
+	game.marker.hide()
+	game.job_label.hide()
 	game.camera.far=450
 	overlay.show()
 	if OS.has_feature("web"): JavaScriptBridge.eval("window.firetruckIntro(true)")
+	if game.travel:
+		# The emergency begins after control is handed to the player.
+		game.town.fire_amount=0
+		for flame in game.town.flames: flame.hide()
+		for smoke in game.atmosphere.smoke: smoke.hide()
+		for ember in game.atmosphere.embers: ember.hide()
+		game.atmosphere.fire_light.light_energy=0
+		game.travel.suspend_maple()
+		game.travel.set_world_visible(true)
+		game.travel.begin_assembly(false)
+		game.travel.mat.show_mat(false,1)
+
 	update(0)
 
 func update(dt: float) -> void:
 	clock+=dt
 	if clock>=LENGTH: finish(); return
-	shot=mini(2,int(clock/2))
-	var t:=fmod(clock,2)/2
-	var flight:=t
-	var focus: Vector3
-	var offset: Vector3
-	match shot:
-		0:
-			focus=Vector3(-7,1,-5).lerp(Vector3(5,1,3),flight)
-			offset=Vector3(100,124,136)
-			var aspect: float=game.hud.size.x/maxf(1,game.hud.size.y)
-			game.camera.size=maxf(142,206/aspect)
-		1:
-			focus=TownLayout.DOG+Vector3(-2,.7,.4).lerp(Vector3(2,.7,-.4),flight)
-			offset=Vector3(8.5,7.2,9)
-			game.camera.size=10.5
-		2:
-			focus=game.railway.engine.position+Vector3(-3,1.3,.6).lerp(Vector3(3,1.3,-.6),flight)
-			offset=Vector3(14,9,16)
-			game.camera.size=19
-	title.reveal=smoothstep(.3,3.5,clock)
-	title.opacity=smoothstep(.2,.7,clock)*(1-smoothstep(5.4,LENGTH,clock))
+	shot=0 if clock<6.5 else 1 if clock<10.5 else 2 if clock<14.5 else 3 if clock<18.5 else 4
+	if game.travel:
+		game.travel.mat.show_mat(false,1-smoothstep(.15,4.3,clock))
+		game.travel.mat.visible=clock<22.3
+		if clock>=4.3: game.travel.mat.position.y=lerpf(.14,-.08,smoothstep(21.5,22.3,clock))
+		game.travel.grow_assembly(PlayMatTravel.arrival_progress(clock))
+		game.travel.assembly_camera(clock,false)
+		if clock>=21.5:
+			var t:=smoothstep(21.5,LENGTH,clock)
+			var target: Vector3=game.truck.global_position
+			var focus:=PlayMatTravel.tour_focus(21.5,false).lerp(target,t)
+			game.camera.position=focus+PlayMatTravel.cinematic_offset(Vector3(19,15,22).lerp(game.camera_offset,t))
+			game.camera.look_at(focus)
+			game.camera.size=lerpf(game.travel.tour_lens(21.5,false),25.8,t)
+			game.truck.show()
+	title.reveal=smoothstep(2.0,19.0,clock)
+	title.opacity=smoothstep(1.4,2.2,clock)*(1-smoothstep(22.0,23.7,clock))
 	title.queue_redraw()
-	# Camera and its look target translate together, like a physical dolly.
-	# Each shot keeps one lens size and viewing angle throughout the travel.
-	game.camera.position=focus+offset
-	game.camera.look_at(focus)
-	game.camera.v_offset=0
-	shade.color.a=maxf(1-smoothstep(0,.10,t),smoothstep(.90,1,t)) if shot<2 else 1-smoothstep(0,.10,t)
+	shade.color.a=0
 
 func finish() -> void:
 	if not active: return
 	active=false
+	if game.travel:
+		game.travel.finish_assembly()
+		game.travel.mat.hide()
+		game.travel.set_world_visible(true)
+		game.travel.resume_maple()
+		game.town.fire_amount=1-game.fire_progress
 	overlay.hide()
 	if OS.has_feature("web"): JavaScriptBridge.eval("window.firetruckIntro(false)")
 	game.dog_puddle.clock=.8
@@ -84,6 +96,7 @@ func finish() -> void:
 	game.camera.look_at(game.truck.position)
 	game.camera.size=25.8
 	game.camera.far=250
+	game.truck.show()
 	game.truck.freeze=false
 	game.truck.enabled=true
 	game.truck.jump_blocked_until_release=true

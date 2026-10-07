@@ -91,6 +91,7 @@ func _process(dt: float) -> void:
 			s.mesh.hide()
 			free_stars.append(s.mesh)
 			sparkles.remove_at(i)
+	if game.travel and game.travel.in_race: return
 	for reward in pending: reward.remaining=maxf(0,reward.remaining-dt)
 	if game.dialogue_active or game.rescue_running: return
 	for i in pending.size():

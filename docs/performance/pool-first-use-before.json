@@ -1,0 +1,130 @@
+{
+  "results": [
+    {
+      "pass": 0,
+      "frames": 45,
+      "medianMs": 8.30000000000291,
+      "p95Ms": 9.60000000000582,
+      "maxMs": 641.3999999999942,
+      "firstTenMs": [
+        2.4999999880819814,
+        641.3999999999942,
+        8.60000000000582,
+        7.599999999991269,
+        9.10000000000582,
+        7.899999999994179,
+        8.80000000000291,
+        8.30000000000291,
+        8.30000000000291,
+        7.19999999999709
+      ]
+    },
+    {
+      "pass": 1,
+      "frames": 121,
+      "medianMs": 8.30000000000291,
+      "p95Ms": 9.69999999999709,
+      "maxMs": 10,
+      "firstTenMs": [
+        5.000000023836037,
+        8.400000000008731,
+        8.39999999999418,
+        7.80000000000291,
+        7.30000000000291,
+        8.39999999999418,
+        8.60000000000582,
+        9.80000000000291,
+        6.7999999999883585,
+        9.900000000008731
+      ]
+    },
+    {
+      "pass": 2,
+      "frames": 121,
+      "medianMs": 8.30000000000291,
+      "p95Ms": 10,
+      "maxMs": 10.39999999999418,
+      "firstTenMs": [
+        -0.20000002384767868,
+        10.10000000000582,
+        7.899999999994179,
+        8.5,
+        8.200000000011642,
+        8.099999999991269,
+        8.69999999999709,
+        7.30000000000291,
+        7.900000000008731,
+        10
+      ]
+    }
+  ],
+  "telemetry": {
+    "batched": 772,
+    "camera_size": 18.7999992370605,
+    "cat_carried": false,
+    "charge": 0,
+    "dialogue_font": 19,
+    "dialogue_lines": 4,
+    "dialogue_rect": [
+      12,
+      99.0995025634766,
+      435,
+      148
+    ],
+    "dialogue_revealed": 119,
+    "dialogue_text": "The kids are coming over, and the pool is empty! Could you fill it? Spray into the tiled pool and watch the water rise.",
+    "draw_calls": 501,
+    "fps": 120,
+    "height": 0.790301918983459,
+    "intro": false,
+    "intro_shot": 2,
+    "ladder": false,
+    "loading": false,
+    "logical_view": [
+      459,
+      664
+    ],
+    "merged_scenery": 142,
+    "neighbours": [
+      {
+        "visible": false,
+        "x": 1725.85107421875,
+        "y": -414.070709228516
+      },
+      {
+        "visible": false,
+        "x": 2756.63525390625,
+        "y": -134.659225463867
+      },
+      {
+        "visible": false,
+        "x": 81.1594009399414,
+        "y": -1020.81842041016
+      },
+      {
+        "visible": true,
+        "x": 211.822296142578,
+        "y": 318.367126464844
+      }
+    ],
+    "objects": 651,
+    "pages": 1,
+    "paused": false,
+    "scenery_cached": true,
+    "speaker": "OLIVER",
+    "speed": 0,
+    "talking": true,
+    "train_boarded": false,
+    "train_position": [
+      -14,
+      -63
+    ],
+    "train_push_locked": false,
+    "train_started": false,
+    "truck_position": [
+      14.5877780914307,
+      60.8075752258301
+    ],
+    "water": 100
+  }
+}

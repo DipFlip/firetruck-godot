@@ -1,0 +1,139 @@
+{
+  "results": [
+    {
+      "pass": 0,
+      "frames": 121,
+      "medianMs": 8.299999999999272,
+      "p95Ms": 9.69999999999709,
+      "maxMs": 10.200000000000728,
+      "firstTenMs": [
+        0.699999988079071,
+        9.400000000001455,
+        7,
+        9.69999999999709,
+        8,
+        8.400000000001455,
+        8.200000000000728,
+        8.5,
+        8.299999999999272,
+        7.400000000001455
+      ]
+    },
+    {
+      "pass": 1,
+      "frames": 122,
+      "medianMs": 8.299999999999272,
+      "p95Ms": 9.700000000000728,
+      "maxMs": 10.299999999999272,
+      "firstTenMs": [
+        -0.10000003576351446,
+        9.400000000001455,
+        8,
+        7.799999999999272,
+        8.200000000000728,
+        8.299999999999272,
+        9.200000000000728,
+        8.299999999999272,
+        8.299999999999272,
+        7.299999999999272
+      ]
+    },
+    {
+      "pass": 2,
+      "frames": 121,
+      "medianMs": 8.299999999999272,
+      "p95Ms": 9.900000000001455,
+      "maxMs": 10.299999999999272,
+      "firstTenMs": [
+        4.700000000000728,
+        6.700000000000728,
+        9.899999999997817,
+        7.299999999999272,
+        8.5,
+        9.200000000000728,
+        8.299999999999272,
+        7.400000000001455,
+        9.400000000001455,
+        6.599999999998545
+      ]
+    }
+  ],
+  "telemetry": {
+    "batched": 772,
+    "best_lap": 0,
+    "camera_size": 18.7999992370605,
+    "cat_carried": false,
+    "charge": 0,
+    "dialogue_font": 19,
+    "dialogue_lines": 4,
+    "dialogue_rect": [
+      12,
+      99.0995330810547,
+      435,
+      148
+    ],
+    "dialogue_revealed": 119,
+    "dialogue_text": "The kids are coming over, and the pool is empty! Could you fill it? Spray into the tiled pool and watch the water rise.",
+    "draw_calls": 494,
+    "fps": 121,
+    "height": 0.790301918983459,
+    "intro": false,
+    "intro_shot": 2,
+    "ladder": false,
+    "lap_running": false,
+    "lap_time": 0,
+    "loading": false,
+    "logical_view": [
+      459,
+      664
+    ],
+    "merged_scenery": 142,
+    "neighbours": [
+      {
+        "visible": false,
+        "x": 1725.85107421875,
+        "y": -414.070709228516
+      },
+      {
+        "visible": false,
+        "x": 2756.63525390625,
+        "y": -134.659225463867
+      },
+      {
+        "visible": false,
+        "x": 81.1594009399414,
+        "y": -1020.81872558594
+      },
+      {
+        "visible": true,
+        "x": 211.822296142578,
+        "y": 318.367065429688
+      }
+    ],
+    "north_exit_open": false,
+    "objects": 644,
+    "pages": 1,
+    "paused": false,
+    "race_checkpoint": 0,
+    "scenery_cached": true,
+    "speaker": "OLIVER",
+    "speed": 0,
+    "talking": true,
+    "train_boarded": false,
+    "train_position": [
+      -14,
+      -63
+    ],
+    "train_push_locked": false,
+    "train_started": false,
+    "transition": false,
+    "transition_clock": 0,
+    "truck_position": [
+      14.5877780914307,
+      60.8075752258301
+    ],
+    "warmup_pool": true,
+    "water": 100,
+    "world": "maple_bay"
+  }
+}

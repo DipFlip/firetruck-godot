@@ -11,7 +11,7 @@ const STICK_DEADZONE:=.22
 # Godot's JOY_BUTTON_A/B/X/Y are the south/east/west/north face buttons.
 const PAD_BUTTONS:={"jump":JOY_BUTTON_A,"interact":JOY_BUTTON_B,"brake":JOY_BUTTON_X,"map":JOY_BUTTON_Y,"pause":JOY_BUTTON_START,"recover":JOY_BUTTON_BACK,"continue":JOY_BUTTON_A}
 const PAD_FACE:={JOY_BUTTON_A:"south",JOY_BUTTON_B:"east",JOY_BUTTON_X:"west",JOY_BUTTON_Y:"north"}
-const KEY_NAMES:={"jump":"Space","interact":"E","brake":"Shift","map":"Tab","pause":"Esc","recover":"R","continue":"Enter","spray":"click","drive":"WASD","aim":"the mouse"}
+const KEY_NAMES:={"jump":"Space","interact":"E","brake":"Shift","map":"Tab","pause":"Esc","recover":"Recover","continue":"Enter","spray":"click","drive":"WASD","aim":"the mouse"}
 const TOUCH_NAMES:={"jump":"'jump'","interact":"'ladder'","brake":"'brake'","map":"'map'","pause":"pause","continue":"'talk'","spray":"the hose stick","drive":"the drive stick","aim":"the hose stick"}
 const PAD_STICKS:={"spray":"the right stick","aim":"the right stick","drive":"the left stick"}
 

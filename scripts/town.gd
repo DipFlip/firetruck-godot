@@ -19,7 +19,9 @@ func _ready() -> void:
 		_gather_foliage()
 		TownProps.apply_toy_finish(self)
 		for art in foliage: TownProps.soften_toy_shine(art)
-		for person in people: TownProps.soften_toy_shine(person)
+		for person in people:
+			person.set_meta("toy_arrival","drop")
+			TownProps.soften_toy_shine(person)
 		return
 	seed(42)
 	TownProps.box(self,Vector3(0,-0.5,0),Vector3(160,1,160),Color("8ea57c"),true)
@@ -57,7 +59,7 @@ func _ready() -> void:
 	cat = _animal(Vector3(17,2.93,-7.2),Color("edc382"),true)
 	cat.rotation.y=PI
 	people.append(TownProps.person(self,TownLayout.MAYA,Color("ecb354")))
-	TownProps.house(self,Vector3(49,0,-29),Color("76a3a1"),"LEO'S COTTAGE",5)
+	TownProps.house(self,Vector3(49,0,-25),Color("76a3a1"),"LEO'S COTTAGE",5)
 	# Barbecue yard, deliberately open toward the road.
 	TownProps.box(self,TownLayout.FIRE+Vector3(0,0.06,-2),Vector3(9,0.12,14),Color("c5cd9c"))
 	TownProps.cylinder(self,TownLayout.FIRE+Vector3.UP*0.7,0.65,1.2,Color("465763"))
@@ -73,7 +75,7 @@ func _ready() -> void:
 	TownProps.box(self,TownLayout.POOL+Vector3.UP*0.35,Vector3(10,0.7,6),Color("eee6ce"),true)
 	pool_water = TownProps.box(self,TownLayout.POOL+Vector3.UP*0.72,Vector3(8.8,0.08,4.8),Color("5eb8cc"))
 	people.append(TownProps.person(self,TownLayout.OLIVER,Color("e99869")))
-	for pos in [Vector3(-6,0,12),Vector3(6,0,-29),Vector3(30,0,6),Vector3(-30,0,30),Vector3(41,0,-12),Vector3(7,0,55),Vector3(-41,0,-9)]:
+	for pos in [Vector3(-5,.1,12),Vector3(5,.1,-29),Vector3(31,.1,6),Vector3(-30.5,.1,30.5),Vector3(41,.1,-12),Vector3(5,.1,55),Vector3(-41,.1,-9)]:
 		hydrants.append(pos)
 		TownProps.cylinder(self,pos+Vector3(0,0.5,0),0.25,1,Color("dd6950"))
 		TownProps.ball(self,pos+Vector3(0,1,0),Vector3(0.6,0.4,0.6),Color("f0bd69"))

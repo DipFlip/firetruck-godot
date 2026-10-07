@@ -4,7 +4,7 @@ extends Node3D
 # Pavements wrap each block with rounded corners and a low curb. They stop at
 # junctions, where the road surface fills the corner radius and zebra
 # crossings continue the pavement lines across the street.
-const LINES:=[-82.0,-36.0,0.0,36.0,82.0] # Outer entries sit inside the toy-block wall.
+const LINES:=[-79.5,-36.0,0.0,36.0,79.5] # Outer entries sit inside the toy-block wall.
 const ROAD_HALF:=4.0
 const WIDTH:=2.0
 const RADIUS:=3.0

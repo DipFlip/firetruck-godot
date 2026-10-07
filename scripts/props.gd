@@ -153,9 +153,20 @@ static func label(parent: Node3D, pos: Vector3, words: String, size: int = 40) -
 	l.outline_modulate = Color("253e47")
 	return l
 
+static func toy_group(parent: Node3D, at: Vector3, arrival: String, title: String) -> Node3D:
+	var toy:=Node3D.new()
+	toy.name=title
+	toy.set_meta("toy_arrival",arrival)
+	toy.set_meta("toy_kind",title)
+	parent.add_child(toy)
+	toy.position=at
+	return toy
+
 static func tree(parent: Node3D, pos: Vector3, size: float = 1.0) -> Node3D:
 	var root:=Node3D.new()
 	root.name="GardenTree"
+	root.set_meta("toy_kind","GardenTree")
+	root.set_meta("toy_arrival","drop")
 	parent.add_child(root)
 	root.position=pos
 	var art:=model("res://assets/models/tree_%d.glb" % (1 if pos.x<0 and pos.z>0 else 0),root)
@@ -167,6 +178,7 @@ static func tree(parent: Node3D, pos: Vector3, size: float = 1.0) -> Node3D:
 static func house(parent: Node3D, pos: Vector3, color: Color, title: String, height: float = 5.0) -> void:
 	var root:=Node3D.new()
 	root.name=title.to_pascal_case()
+	root.set_meta("toy_arrival","grow")
 	parent.add_child(root)
 	root.position=pos
 	var file:="cottage"
@@ -179,6 +191,7 @@ static func house(parent: Node3D, pos: Vector3, color: Color, title: String, hei
 static func person(parent: Node3D, pos: Vector3, shirt: Color) -> Node3D:
 	var p:=Node3D.new()
 	p.name="Neighbour"
+	p.set_meta("toy_arrival","drop")
 	parent.add_child(p)
 	p.position=pos
 	var skin:=Color("d9a17b")
@@ -251,21 +264,67 @@ static func batch_decorations(root: Node3D) -> int:
 		if not groups.has(key): groups[key]=[]
 		groups[key].append(child)
 	for meshes in groups.values():
-		if meshes.size()<2: continue
+		if meshes.size()<2:
+			lock_wood_grain(meshes[0])
+			continue
 		var batch:=MultiMeshInstance3D.new()
 		var instances:=MultiMesh.new()
 		instances.transform_format=MultiMesh.TRANSFORM_3D
+		instances.use_custom_data=true
 		instances.mesh=meshes[0].mesh
 		instances.instance_count=meshes.size()
 		batch.multimesh=instances
 		batch.material_override=meshes[0].material_override
 		root.add_child(batch)
+		var pivots: Array[Vector3]=[]
 		for i in meshes.size():
 			instances.set_instance_transform(i,meshes[i].transform)
+			pivots.append(meshes[i].get_meta("toy_pivot",Vector3.INF))
+			var size: Vector3=meshes[i].basis.get_scale().abs()
+			instances.set_instance_custom_data(i,Color(size.x,size.y,size.z,grain_seed(meshes[i].position)))
 			meshes[i].hide()
 			meshes[i].queue_free()
 			count+=1
+		batch.set_meta("toy_pivots",pivots)
 	return count
+
+# Store a rest-pose seed, never a moving world-space origin. MultiMeshes use
+# custom data; the few single wooden pieces keep their own material values.
+static func grain_seed(at: Vector3) -> float:
+	return fposmod(at.dot(Vector3(17.13,39.71,53.27))*.0137,1.0)
+
+static func lock_wood_grain(node: MeshInstance3D) -> void:
+	var paint:=node.material_override as ShaderMaterial
+	if not paint or paint.shader!=preload("res://shaders/wood.gdshader"): return
+	paint=paint.duplicate()
+	paint.set_shader_parameter("grain_seed",grain_seed(node.position))
+	paint.set_shader_parameter("rest_dimensions",node.basis.get_scale().abs())
+	node.material_override=paint
+
+# Find the whole authored toy, so its windows, wheels and eyes arrive together.
+# Imported editable town scenes also predate the explicit arrival metadata.
+static func assembly_owner(node: Node3D, limit: Node3D) -> Node3D:
+	var owner: Node3D
+	var ancestor: Node3D=node
+	while ancestor:
+		if ancestor.has_meta("toy_arrival") or ancestor is RigidBody3D or ancestor.name=="GardenTree" or ancestor.name=="Neighbour": owner=ancestor
+		for child in ancestor.get_children() if ancestor.get_child_count()<8 else []:
+			if child is Node3D and child.scene_file_path.get_file().get_basename() in ["cottage","peach_house","station","bakery"]:
+				ancestor.set_meta("toy_arrival","grow")
+				owner=ancestor
+		if ancestor==limit: break
+		ancestor=ancestor.get_parent() as Node3D
+	return owner
+
+static func assembly_ink(node: MeshInstance3D, root: Node3D) -> Vector3:
+	var owner:=assembly_owner(node,root)
+	var inverse:=root.global_transform.affine_inverse()
+	var at: Vector3=inverse*(owner.global_position if owner else node.global_position)
+	var size: Vector3=node.global_basis*node.mesh.get_aabb().size
+	if node.has_meta("toy_pivot"): at=node.get_meta("toy_pivot")
+	var kind:=2 if owner and owner.get_meta("toy_arrival","")=="grow" or node.has_meta("assembly_group") else 3
+	if not owner and not node.has_meta("toy_pivot") and absf(size.y)<.35: kind=1
+	return Vector3(at.x,at.z,kind)
 
 # Bake fixed geometry into small material groups. Original nodes remain as
 # collision/query references; actors and shader-driven geometry are excluded.
@@ -274,13 +333,13 @@ static func merge_fixed_geometry(root: Node3D, excluded: Array[Node3D], cache_na
 	_collect_fixed(root,excluded,meshes)
 	if cache_name.is_empty(): cache_name=root.get_script().resource_path.get_file().get_basename()
 	var cache_path: String="res://assets/scenery/"+cache_name+".scn"
-	var signature: Array=[]
+	var signature: Array=["toy-arrival-vertices-v1"]
 	for node in meshes:
 		var palette: Array=[]
 		for surface in node.mesh.get_surface_count():
 			var paint: Material=node.get_active_material(surface)
 			palette.append([paint.albedo_color,paint.roughness,paint.metallic,paint.transparency] if paint is StandardMaterial3D else paint.resource_path if paint else "")
-		signature.append([node.mesh.resource_path,str(node.mesh.get_aabb()),str(palette),node.cast_shadow,str(root.global_transform.affine_inverse()*node.global_transform)])
+		signature.append([node.mesh.resource_path,str(node.mesh.get_aabb()),str(palette),node.cast_shadow,str(root.global_transform.affine_inverse()*node.global_transform),assembly_ink(node,root)])
 	var fingerprint:=var_to_bytes(signature).hex_encode().sha256_text()
 	if not bake_scenery and ResourceLoader.exists(cache_path):
 		var cached: Node3D=load(cache_path).instantiate()
@@ -345,7 +404,7 @@ static func merge_fixed_geometry(root: Node3D, excluded: Array[Node3D], cache_na
 			if not material_keys.has(material): material_keys[material]=_material_signature(material)
 			var key:="%s/%s/%s/%s" % [material_keys[material],surface_mesh.surface_get_format(surface_index),node.cast_shadow,cell]
 			if not groups.has(key): groups[key]={"material":material,"shadow":node.cast_shadow,"parts":[]}
-			groups[key].parts.append({"node":node,"mesh":surface_mesh,"surface":surface_index,"original_surface":surface,"transform":transform})
+			groups[key].parts.append({"node":node,"mesh":surface_mesh,"surface":surface_index,"original_surface":surface,"transform":transform,"ink":assembly_ink(node,root)})
 	var merged: Dictionary={}
 	var eligible: Dictionary={}
 	for group in groups.values():
@@ -355,10 +414,11 @@ static func merge_fixed_geometry(root: Node3D, excluded: Array[Node3D], cache_na
 		if parts.is_empty(): continue
 		var builder:=SurfaceTool.new()
 		builder.begin(Mesh.PRIMITIVE_TRIANGLES)
-		for part in parts: _append_transformed(builder,part.mesh,part.surface,part.transform)
+		for part in parts: _append_transformed(builder,part.mesh,part.surface,part.transform,part.ink)
 		builder.set_material(group.material)
 		var batch:=MeshInstance3D.new()
 		batch.name="FixedSceneryBatch"
+		batch.set_meta("assembly_vertices",true)
 		var importer:=ImporterMesh.new()
 		importer.add_surface(Mesh.PRIMITIVE_TRIANGLES,builder.commit_to_arrays(),[],{},group.material)
 		importer.generate_lods(60,25,[])
@@ -395,13 +455,23 @@ static func merge_fixed_geometry(root: Node3D, excluded: Array[Node3D], cache_na
 
 # SurfaceTool.append_from applies the same basis to normals as positions.
 # Thin paving and nonuniform building parts need inverse-transpose normals.
-static func _append_transformed(builder: SurfaceTool, mesh: ArrayMesh, surface: int, transform: Transform3D) -> void:
+static func _append_transformed(builder: SurfaceTool, mesh: ArrayMesh, surface: int, transform: Transform3D, ink: Vector3) -> void:
 	var arrays:=mesh.surface_get_arrays(surface)
 	var vertices: PackedVector3Array=arrays[Mesh.ARRAY_VERTEX]
 	var normals: PackedVector3Array=arrays[Mesh.ARRAY_NORMAL]
 	var normal_basis:=transform.basis.inverse().transposed()
 	for i in vertices.size(): vertices[i]=transform*vertices[i]
 	for i in normals.size(): normals[i]=(normal_basis*normals[i]).normalized()
+	# UV2 carries an immutable toy pivot; opaque vertex alpha carries its type.
+	# These are used only by the cinematic shader, preserving normal batching.
+	var pivots:=PackedVector2Array()
+	pivots.resize(vertices.size())
+	pivots.fill(Vector2(ink.x,ink.y))
+	arrays[Mesh.ARRAY_TEX_UV2]=pivots
+	var colours: PackedColorArray=arrays[Mesh.ARRAY_COLOR] if arrays[Mesh.ARRAY_COLOR]!=null else PackedColorArray()
+	if colours.is_empty(): colours.resize(vertices.size()); colours.fill(Color.WHITE)
+	for i in colours.size(): colours[i].a=ink.z/4.0
+	arrays[Mesh.ARRAY_COLOR]=colours
 	arrays[Mesh.ARRAY_VERTEX]=vertices
 	arrays[Mesh.ARRAY_NORMAL]=normals
 	if arrays[Mesh.ARRAY_TANGENT]!=null:

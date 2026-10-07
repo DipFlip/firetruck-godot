@@ -9,6 +9,8 @@ uniform bool bent = false;
 uniform vec2 bend_centre = vec2(1.9,0.0);
 uniform bool cut_pool = false;
 uniform vec4 pool_hole = vec4(0.0);
+uniform float grain_seed = 0.37;
+uniform vec3 rest_dimensions = vec3(0.0);
 varying vec3 world;
 varying vec3 wood_position;
 varying vec3 dimensions;
@@ -23,9 +25,10 @@ float noise(vec2 p){
 void vertex(){
  world=(MODEL_MATRIX*vec4(VERTEX,1.0)).xyz;
  dimensions=vec3(length(MODEL_MATRIX[0].xyz),length(MODEL_MATRIX[1].xyz),length(MODEL_MATRIX[2].xyz));
+ if(INSTANCE_CUSTOM.x>0.0) dimensions=INSTANCE_CUSTOM.xyz;
+ else if(rest_dimensions.x>0.0) dimensions=rest_dimensions;
  wood_position=VERTEX*dimensions;
- // An independent origin for every toy piece, also after spatial batching.
- piece_seed=hash(dot(MODEL_MATRIX[3].xyz,vec3(17.13,39.71,53.27)));
+ piece_seed=INSTANCE_CUSTOM.x>0.0 ? INSTANCE_CUSTOM.w : grain_seed;
 }
 void fragment(){
  if(cut_pool && world.x>pool_hole.x && world.z>pool_hole.y && world.x<pool_hole.z && world.z<pool_hole.w){discard;}

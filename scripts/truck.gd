@@ -8,6 +8,8 @@ signal empty_spray
 
 var hit_receiver: Callable
 var drive_guide: Callable
+var drive_surface: Callable
+var surface_sample: Dictionary={}
 var train_push_z:=NAN
 var aim_assist: Callable
 var assisted := false
@@ -277,10 +279,13 @@ func _update_ladder(dt: float) -> void:
 			if area is LadderEvent and _ladder_path_clear(area.dock_position()):
 				if area.try_activate(self): break
 
+var world_origin:=Vector3.ZERO
+var recovery_spawn:=Vector3(0,1,12)
+
 func reset_truck() -> void:
 	train_push_z=NAN
 	axis_lock_linear_z=false
-	global_position = Vector3(0,1.0,12)
+	global_position = world_origin+recovery_spawn
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	heading = 0
@@ -316,6 +321,18 @@ func drive_input() -> Vector2:
 	return touch_drive if touch_drive.length()>.01 else Input.get_vector("left","right","forward","back")
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+	if drive_surface.is_valid():
+		surface_sample=drive_surface.call(state.transform.origin)
+		var surface_y: float=surface_sample.height+.8
+		var gradient: Vector2=surface_sample.gradient
+		var slope_velocity: float=gradient.dot(Vector2(state.linear_velocity.x,state.linear_velocity.z))
+		var gap: float=state.transform.origin.y-surface_y
+		# Preserve deliberate jumps and free falls. Grounded motion follows the
+		# continuous height profile instead of striking each triangle's edge.
+		if gap<.16 and state.linear_velocity.y<slope_velocity+1.8:
+			var velocity:=state.linear_velocity
+			velocity.y=slope_velocity-gap/state.step
+			state.linear_velocity=velocity
 	if is_nan(train_push_z): return
 	# Constrain only sideways motion. Forward contact forces, hose recoil,
 	# vertical suspension and gravity stay with the physics solver.
@@ -333,9 +350,12 @@ func _physics_process(dt: float) -> void:
 	var ground_hit:=get_world_3d().direct_space_state.intersect_ray(probe)
 	ground_distance=global_position.y-ground_hit.position.y if ground_hit else INF
 	ground_normal=ground_hit.normal if ground_hit else Vector3.UP
+	if drive_surface.is_valid() and not surface_sample.is_empty():
+		ground_distance=global_position.y-float(surface_sample.height)
+		ground_normal=surface_sample.normal
 	# The level rigid body rests higher on a slope because its two spherical
 	# supports are separated. Account for that geometry when detecting contact.
-	support_height=(.8+absf(ground_normal.dot(global_basis.z))*1.1)/maxf(.4,ground_normal.y)
+	support_height=.8 if drive_surface.is_valid() else (.8+absf(ground_normal.dot(global_basis.z))*1.1)/maxf(.4,ground_normal.y)
 	grounded = ground_distance<=support_height+.3
 	var braking:=enabled and Input.is_action_pressed("brake")
 	brake_engagement=lerpf(brake_engagement,1.0 if braking else 0.0,1-exp(-10*dt))
@@ -429,7 +449,7 @@ func _physics_process(dt: float) -> void:
 			emission_clock -= 0.018
 			_emit_drop()
 	_update_drops(dt)
-	if global_position.y < -8 or absf(global_position.x)>85 or absf(global_position.z)>85: reset_truck()
+	if global_position.y < -8 or absf(global_position.x-world_origin.x)>87 or absf(global_position.z-world_origin.z)>87: reset_truck()
 
 func _emit_empty_sputter() -> void:
 	# A few weak, cosmetic drops: no recoil, water budget or mission hits.
@@ -441,7 +461,8 @@ func _emit_empty_sputter() -> void:
 func _update_suspension(dt: float, acceleration_local: Vector3, forward_speed: float) -> void:
 	# Contact is tighter than the forgiving gameplay jump probe, so impact
 	# compression happens at the road rather than while still falling toward it.
-	var touching:=ground_distance<support_height+.09 and linear_velocity.y<2.8
+	var contact_speed:=linear_velocity.dot(ground_normal) if drive_surface.is_valid() else linear_velocity.y
+	var touching:=ground_distance<support_height+.09 and contact_speed<2.8
 	if touching and not suspension_grounded and previous_velocity.y < -2:
 		var impact: float=absf(previous_velocity.y)
 		suspension_velocity-=minf(4.5,impact*.65)
@@ -480,6 +501,14 @@ func _update_suspension(dt: float, acceleration_local: Vector3, forward_speed: f
 		var axle:=wheel_steers[i]
 		axle.position=wheel_rest_positions[i]
 		var center:=axle.global_position
+		if drive_surface.is_valid() and not surface_sample.is_empty():
+			var normal: Vector3=surface_sample.normal
+			var offset:=center-global_position
+			var tire_surface: float=surface_sample.height-(normal.x*offset.x+normal.z*offset.z)/normal.y
+			var correction:=tire_surface+.494/normal.y+.002-center.y
+			if touching or correction>0:
+				axle.global_position=center+Vector3.UP*minf(correction,WHEEL_LIFT_LIMIT)
+			continue
 		var forward:=(-axle.global_basis.z*Vector3(1,0,1)).normalized()
 		var side: Vector3=(axle.global_basis.x*Vector3(1,0,1)).normalized()
 		var tire_y: float=-INF

@@ -1,4 +1,8 @@
 async page => {
+ if(await page.evaluate(()=>!!window.firetruckQA)) {
+  await page.evaluate(()=>{Object.assign(window.firetruckQA,{action:"pose",x:0,z:12});window.firetruckQA.sequence++;});
+  await page.waitForTimeout(1500);
+ }
  const t=await page.evaluate(()=>JSON.parse(window.firetruckTouch.telemetry));
  if(t.intro) await page.keyboard.press('Space');
  await page.waitForTimeout(1500);

@@ -70,30 +70,8 @@ func run() -> void:
 	check(min_clearance>=-.01,"All six tires clear the visible paving during a moving skid")
 	shot("intersection-tracks")
 	game.end_dialogue()
-	check(game.ramps.ramps.size()==4,"Four rigid neighbourhood ramps are available")
-	var upward_speeds: Array[float]=[]
-	for ramp_index in game.ramps.ramps.size():
-		var ramp: StaticBody3D=game.ramps.ramps[ramp_index]
-		await place(ramp.global_transform*Vector3(0,1,12))
-		game.truck.heading=ramp.rotation.y
-		game.truck.rotation.y=ramp.rotation.y
-		var max_up:=0.0
-		var flew:=false
-		var direction: Vector3=-ramp.global_basis.z
-		for i in 240:
-			var forward: Vector3=-game.camera.global_basis.z
-			forward.y=0
-			game.truck.automated_drive=Vector2(direction.dot(game.camera.global_basis.x),-direction.dot(forward.normalized()))
-			await frames(1)
-			max_up=maxf(max_up,game.truck.linear_velocity.y)
-			var local: Vector3=ramp.to_local(game.truck.global_position)
-			if local.z < -5 and game.truck.position.y>1.6 and not game.truck.grounded:
-				flew=true
-				if ramp_index==0: shot("ramp-flight")
-				break
-		upward_speeds.append(max_up)
-		check(max_up>1.5 and flew and game.truck.charge==0,"Ramp %d launches the truck through collision physics alone" % (ramp_index+1))
-	print("Ramp upward speeds: ",upward_speeds,"; moving tire clearance: ",min_clearance)
+	check(game.ramps.ramps.is_empty(),"Experimental jump ramps are absent from Maple Bay")
+	print("Moving tire clearance: ",min_clearance)
 	game.queue_free()
 	await process_frame
 	await process_frame

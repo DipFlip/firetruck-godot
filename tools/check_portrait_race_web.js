@@ -1,0 +1,33 @@
+async page => {
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('http://localhost:8064/?qa=travel&touch&review=portrait-oct6');
+ await page.getByRole('button',{name:'Start',exact:true}).click();
+ await page.waitForFunction(()=>window.firetruckTouch?.telemetry && !JSON.parse(window.firetruckTouch.telemetry).loading,{},{timeout:60000});
+ const telemetry=()=>page.evaluate(()=>JSON.parse(window.firetruckTouch.telemetry));
+ await page.waitForFunction(()=>JSON.parse(window.firetruckTouch.telemetry).intro_shot>=1);
+ await page.waitForTimeout(700);
+ await page.screenshot({path:'output/playwright/portrait-intro-buildings.png'});
+ await page.keyboard.press('Space');
+ const command=async(action,args={})=>{await page.evaluate(({action,args})=>{Object.assign(window.firetruckQA,args,{action});window.firetruckQA.sequence++;},{action,args});await page.waitForTimeout(250);};
+ await command('start_train');
+ await page.waitForFunction(()=>JSON.parse(window.firetruckTouch.telemetry).north_exit_open);
+ await command('pose',{x:0,z:-74,value:0});
+ await command('pose',{x:0,z:-83,value:0});
+ await page.waitForFunction(()=>{const t=JSON.parse(window.firetruckTouch.telemetry);return t.world==='race_track'&&t.transition_clock>7.1;},{},{timeout:35000});
+ await page.screenshot({path:'output/playwright/portrait-race-camp-assembly.png'});
+ await page.waitForFunction(()=>!JSON.parse(window.firetruckTouch.telemetry).transition,{},{timeout:35000});
+ await command('pose',{x:-17,z:-69,value:0});
+ await page.keyboard.press('Enter');
+ await page.waitForFunction(()=>{const t=JSON.parse(window.firetruckTouch.telemetry);return t.talking&&t.speaker==='KIT';});
+ await page.waitForTimeout(1500);
+ await page.screenshot({path:'output/playwright/portrait-race-conversation.png'});
+ const t=await telemetry();
+ if(!t.dialogue_text.includes('Sky Bridge'))throw Error('Kit does not explain the new course');
+ if(t.dialogue_rect[0]<0||t.dialogue_rect[0]+t.dialogue_rect[2]>t.logical_view[0]+2)throw Error('Conversation extends beyond portrait viewport');
+ await command('pose',{x:0,z:4,value:7.85});
+ await page.waitForTimeout(800);
+ await page.screenshot({path:'output/playwright/portrait-race-bridge.png'});
+ const frames=await page.evaluate(()=>new Promise(resolve=>{const times=[];let last=performance.now(),begin=last;const tick=now=>{times.push(now-last);last=now;if(now-begin<2000)requestAnimationFrame(tick);else resolve(times);};requestAnimationFrame(tick);}));
+ frames.sort((a,b)=>a-b);
+ return {checks:['Portrait intro and race assembly inspected','Kit dialogue fits portrait viewport','Bridge driving view inspected'],frameMsMedian:frames[Math.floor(frames.length*.5)],frameMsP95:frames[Math.floor(frames.length*.95)],telemetry:await telemetry()};
+}

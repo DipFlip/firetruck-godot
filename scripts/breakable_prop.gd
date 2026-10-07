@@ -153,3 +153,38 @@ func _home_clear() -> bool:
 	for walker in game.life.walkers:
 		if walker.node.global_position.distance_to(home.origin)<radius+1: return false
 	return true
+
+# Both mats create the same breakable body before scenery batching. Keeping
+# it under its own world makes arrival animation, suspension and respawn local.
+static func from_parts(parent: Node3D, owner_game: Node3D, prop_kind: String, origin: Vector3, parts: Array, size: Vector3, center: Vector3, threshold: float, weight: float, prop_radius: float) -> BreakableProp:
+	var prop:=BreakableProp.new()
+	prop.game=owner_game
+	prop.kind=prop_kind
+	prop.name=prop_kind.to_pascal_case()
+	prop.impact_speed=threshold
+	prop.mass=weight
+	prop.radius=prop_radius
+	parent.add_child(prop)
+	prop.global_position=origin
+	for part in parts:
+		_remove_static(part)
+		part.reparent(prop)
+	var collision:=CollisionShape3D.new()
+	var box:=BoxShape3D.new()
+	box.size=size
+	collision.shape=box
+	collision.position=center
+	prop.add_child(collision)
+	prop.spawn_shape=box
+	prop.spawn_offset=center
+	prop.center_of_mass_mode=RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
+	prop.center_of_mass=center
+	prop.finish_setup()
+	return prop
+
+static func _remove_static(node: Node) -> void:
+	for child in node.get_children():
+		if child is StaticBody3D:
+			node.remove_child(child)
+			child.queue_free()
+		else: _remove_static(child)

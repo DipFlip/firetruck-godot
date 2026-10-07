@@ -13,10 +13,14 @@ void fragment() {
  float blur = clamp(distance_out/0.26,0.0,1.3)*strength;
  vec2 radius = SCREEN_PIXEL_SIZE*3.6*blur;
  vec3 color = texture(town_image,SCREEN_UV).rgb*0.40;
+ if (blur > 0.02) {
  color += texture(town_image,SCREEN_UV+vec2(radius.x,radius.y)).rgb*0.15;
  color += texture(town_image,SCREEN_UV+vec2(-radius.x,radius.y)).rgb*0.15;
  color += texture(town_image,SCREEN_UV+vec2(radius.x,-radius.y)).rgb*0.15;
  color += texture(town_image,SCREEN_UV-radius).rgb*0.15;
+ } else {
+ color /= 0.40;
+ }
  // Very light lens shading, with no raised blacks or white colour wash.
  vec2 edge = (SCREEN_UV-0.5)*2.0;
  color *= 1.0-0.045*dot(edge,edge);

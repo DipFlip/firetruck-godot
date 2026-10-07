@@ -1,0 +1,205 @@
+{
+  "checks": [
+    "The rollout is held at its opening frame until Start",
+    "Start begins with the fully rolled mat",
+    "The camera handoff returns responsive truck control",
+    "The first race rollout and full camera tour restore responsive control",
+    "The short return rolls up and swaps the complete carpet",
+    "Both introductions and the short return have no browser/game console errors"
+  ],
+  "captures": [
+    {
+      "world": "maple",
+      "clock": 0.4544
+    },
+    {
+      "world": "maple",
+      "clock": 1.1051
+    },
+    {
+      "world": "maple",
+      "clock": 2.4062
+    },
+    {
+      "world": "maple",
+      "clock": 3.7064
+    },
+    {
+      "world": "maple",
+      "clock": 5.21760000000001
+    },
+    {
+      "world": "maple",
+      "clock": 6.73330000000001
+    },
+    {
+      "world": "maple",
+      "clock": 8.24977300000005
+    },
+    {
+      "world": "maple",
+      "clock": 9.54910900000008
+    },
+    {
+      "world": "maple",
+      "clock": 11.4990190000001
+    },
+    {
+      "world": "maple",
+      "clock": 12.3738930000002
+    },
+    {
+      "world": "maple",
+      "clock": 13.4571860000002
+    },
+    {
+      "world": "maple",
+      "clock": 14.3237690000002
+    },
+    {
+      "world": "maple",
+      "clock": 15.4067540000002
+    },
+    {
+      "world": "maple",
+      "clock": 16.4899320000002
+    },
+    {
+      "world": "maple",
+      "clock": 17.5736100000002
+    },
+    {
+      "world": "maple",
+      "clock": 18.4403260000003
+    },
+    {
+      "world": "maple",
+      "clock": 19.5235450000003
+    },
+    {
+      "world": "maple",
+      "clock": 20.6068230000003
+    },
+    {
+      "world": "maple",
+      "clock": 21.9068590000003
+    },
+    {
+      "world": "maple",
+      "clock": 22.9902370000003
+    },
+    {
+      "world": "maple",
+      "clock": 23.6401590000003
+    },
+    {
+      "world": "race",
+      "clock": 0.591643
+    },
+    {
+      "world": "race",
+      "clock": 1.241551
+    },
+    {
+      "world": "race",
+      "clock": 2.324951
+    },
+    {
+      "world": "race",
+      "clock": 3.407627
+    },
+    {
+      "world": "race",
+      "clock": 4.49114500000002
+    },
+    {
+      "world": "race",
+      "clock": 5.57392300000004
+    },
+    {
+      "world": "race",
+      "clock": 7.09031700000009
+    },
+    {
+      "world": "race",
+      "clock": 8.82346900000015
+    },
+    {
+      "world": "race",
+      "clock": 10.3401630000002
+    },
+    {
+      "world": "race",
+      "clock": 13.3730630000003
+    },
+    {
+      "world": "race",
+      "clock": 14.4563410000003
+    },
+    {
+      "world": "race",
+      "clock": 15.5395190000004
+    },
+    {
+      "world": "race",
+      "clock": 16.4063390000004
+    },
+    {
+      "world": "race",
+      "clock": 17.2736470000004
+    },
+    {
+      "world": "race",
+      "clock": 18.5733320000004
+    },
+    {
+      "world": "race",
+      "clock": 19.4402520000004
+    },
+    {
+      "world": "race",
+      "clock": 20.5235300000004
+    },
+    {
+      "world": "race",
+      "clock": 21.6068080000004
+    },
+    {
+      "world": "race",
+      "clock": 22.6902170000004
+    },
+    {
+      "world": "race",
+      "clock": 23.9901220000005
+    },
+    {
+      "world": "race",
+      "clock": 24.8566370000005
+    },
+    {
+      "world": "race",
+      "clock": 25.7231640000005
+    }
+  ],
+  "errors": [],
+  "native_camera": {
+    "sample_interval_seconds": 0.05,
+    "orientations": [
+      "landscape",
+      "portrait"
+    ],
+    "worlds": [
+      "maple",
+      "race",
+      "short_return"
+    ],
+    "near_plane_intersections": 0,
+    "minimum_conservative_clearance": 36.9170410148799
+  },
+  "geometry": {
+    "closed_sheet_thickness": 0.9,
+    "triangles": 52640,
+    "outward_triangle_winding_and_separate_normals": "pass",
+    "shared_mesh": "deformed on GPU only while rolling; flat gameplay skips deformation"
+  }
+}

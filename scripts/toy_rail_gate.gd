@@ -9,6 +9,7 @@ var train_near:=false
 
 func _ready() -> void:
 	name="WoodenRailwayPortal"
+	set_meta("toy_arrival","drop")
 	var wood:=Playroom.wood_finish(Color("d5b282"))
 	var supports:=Node3D.new()
 	add_child(supports)

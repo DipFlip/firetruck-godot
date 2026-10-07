@@ -18,17 +18,22 @@ func run() -> void:
 	for car in game.life.cars: check(car.node.position.distance_to(game.truck.position)>11,"Cars start well clear of the player")
 	for walker in game.life.walkers: check(walker.node.position.distance_to(game.truck.position)>11,"Walkers start well clear of the player")
 	game.intro.start()
-	await frames(50)
-	check(game.intro.active and game.truck.freeze and game.call_timer==1.5 and game.intro.shot==0 and game.camera.size>140,"Intro freezes driving and dispatch while showing almost the whole town")
+	await frames(150)
+	check(game.intro.active and game.truck.freeze and game.call_timer==1.5 and game.intro.shot==0 and game.camera.size>140,"Intro freezes driving and dispatch while the loose printed mat unfolds")
 	var splashing:=false
 	for drop in game.dog_puddle.drops: splashing=splashing or drop.age<.6
 	check(game.intro.title.reveal>0 and game.intro.title.total_length>0 and game.intro.overlay.get_child_count()==2,"The intro writes only the town name over the moving views")
-	await frames(90)
+	await frames(300)
 	for drop in game.dog_puddle.drops: splashing=splashing or drop.age<.6
-	check(splashing,"The dog splashes real visible droplets in its puddle")
-	check(game.intro.shot==1,"The second cinematic shot shows Biscuit splashing")
-	await frames(225)
-	check(not game.intro.active and not game.truck.freeze and game.truck.enabled,"The six-second intro restores the driving camera and controls")
+	check(game.intro.shot>=1 and game.camera.size<60,"Close cinematic views show the scenery being assembled")
+	game.intro.finish()
+	game.truck.position=TownLayout.DOG+Vector3(3,1,3)
+	game.dog_puddle.clock=0
+	await frames(45)
+	for drop in game.dog_puddle.drops: splashing=splashing or drop.age<.6
+	check(splashing,"The dog splashes real visible droplets after assembly resumes")
+	await frames(540)
+	check(not game.intro.active and not game.truck.freeze and game.truck.enabled,"The paced intro restores the driving camera and controls")
 	game.intro.start()
 	await frames(5)
 	var event:=InputEventAction.new()
@@ -124,7 +129,7 @@ func run() -> void:
 	game.truck.linear_velocity=Vector3.ZERO
 	game.truck.reset_physics_interpolation()
 	await frames(180)
-	check(rail.boarded and not rail.driver.visible and rail.driver_guard.collision_layer==0,"The driver climbs aboard and releases the outside personal-space zone")
+	check(rail.boarded and rail.driver.visible and rail.driver.get_parent()==rail.engine and absf(rail.roof_hinge.rotation.z)<.001 and rail.driver_guard.collision_layer==0,"The visible conductor jumps through the hinged roof, rides in the cab, and releases the outside personal-space zone")
 	var moving: float=rail.engine.position.x
 	await frames(150)
 	check(rail.engine.position.x>moving+4 and rail.smoke.any(func(cloud): return cloud.age<2.8),"The running train moves under engine power and puffs smoke")

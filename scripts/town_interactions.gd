@@ -109,35 +109,6 @@ func _parts(parent: Node3D, center: Vector3, half: Vector3) -> Array[Node3D]:
 	return result
 
 func add_prop(kind: String, origin: Vector3, parts: Array, size: Vector3, center: Vector3, threshold: float, weight: float, radius: float) -> BreakableProp:
-	var prop:=BreakableProp.new()
-	prop.game=game
-	prop.kind=kind
-	prop.name=kind.to_pascal_case()
-	prop.impact_speed=threshold
-	prop.mass=weight
-	prop.radius=radius
-	add_child(prop)
-	prop.global_position=origin
-	for part in parts:
-		_remove_static(part)
-		part.reparent(prop)
-	var collision:=CollisionShape3D.new()
-	var box:=BoxShape3D.new()
-	box.size=size
-	collision.shape=box
-	collision.position=center
-	prop.add_child(collision)
-	prop.spawn_shape=box
-	prop.spawn_offset=center
-	prop.center_of_mass_mode=RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
-	prop.center_of_mass=center
-	prop.finish_setup()
+	var prop:=BreakableProp.from_parts(self,game,kind,origin,parts,size,center,threshold,weight,radius)
 	props.append(prop)
 	return prop
-
-func _remove_static(node: Node) -> void:
-	for child in node.get_children():
-		if child is StaticBody3D:
-			node.remove_child(child)
-			child.queue_free()
-		else: _remove_static(child)

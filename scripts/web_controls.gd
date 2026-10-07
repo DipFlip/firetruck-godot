@@ -7,6 +7,15 @@ var jump_down:=false
 var sequences: Dictionary={}
 var last_view:=Vector2.ZERO
 var last_talking:=false
+var qa: JavaScriptObject
+var qa_sequence:=0
+var qa_lap_target:=RaceCourse.STEPS+1
+var qa_driving:=false
+var qa_drive_frames:=0
+var qa_surface_error:=0.0
+var qa_flat_step:=0.0
+var qa_previous_height:=.85
+var qa_previous_surface:=.055
 var telemetry_clock:=0.0
 var map_clock:=0.0
 var map_initialized:=false
@@ -16,19 +25,36 @@ func _ready() -> void:
 	process_mode=Node.PROCESS_MODE_ALWAYS
 	if OS.has_feature("web"):
 		state=JavaScriptBridge.get_interface("firetruckTouch")
+		if bool(state.testing): qa=JavaScriptBridge.get_interface("firetruckQA")
 	else: set_physics_process(false)
 
 func _physics_process(_dt: float) -> void:
 	if state==null: return
 	if bool(state.testing):
+		_qa_update()
+		if qa_driving:
+			var local: Vector3=game.truck.global_position-ToyRaceTrack.ORIGIN
+			var surface:=RaceCourse.surface_at(local)
+			qa_drive_frames+=1
+			if qa_drive_frames>30:
+				qa_surface_error=maxf(qa_surface_error,absf(local.y-surface.height-.8))
+				if surface.height<.06 and absf(surface.height-qa_previous_surface)<.001 and surface.gradient.length()<.001:
+					qa_flat_step=maxf(qa_flat_step,absf(local.y-qa_previous_height))
+			qa_previous_height=local.y
+			qa_previous_surface=surface.height
 		telemetry_clock+=_dt
 		if telemetry_clock>.2:
 			telemetry_clock=0
 			var neighbours: Array=[]
-			for actor in game.town.people:
+			for actor in game._npc_actors():
 				var screen: Vector2=game.camera.unproject_position(actor.global_position+Vector3.UP*1.3)
 				neighbours.append({"x":screen.x,"y":screen.y,"visible":game.npc_in_view(actor)})
-			state.telemetry=JSON.stringify({"neighbours":neighbours,"speaker":game.hud.speaker_key,"truck_position":[game.truck.position.x,game.truck.position.z],"dialogue_revealed":game.hud.char_count,"dialogue_font":game.hud.dialogue_font_size,"dialogue_rect":[game.hud.dialogue_panel.position.x,game.hud.dialogue_panel.position.y,game.hud.dialogue_panel.size.x,game.hud.dialogue_panel.size.y],"logical_view":[game.hud.size.x,game.hud.size.y],"speed":game.truck.linear_velocity.length(),"water":game.truck.water,"ladder":game.truck.ladder_deployed,"charge":game.truck.charge,"height":game.truck.position.y,"paused":game.paused,"talking":game.dialogue_active,"fps":Engine.get_frames_per_second(),"loading":game.loading,"draw_calls":Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),"objects":Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),"dialogue_lines":game.hud.dialogue_label.get_line_count(),"dialogue_text":game.hud.full_text,"pages":game.hud.dialogue_pages.size(),"batched":game.batched_decorations,"merged_scenery":game.merged_scenery,"scenery_cached":game.town.has_node("BakedScenery"),"camera_size":game.camera.size,"cat_carried":game.town.cat_cuddling,"train_push_locked":game.railway.push_locked,"intro":game.intro.active,"intro_shot":game.intro.shot,"train_started":game.railway.started,"train_boarded":game.railway.boarded,"train_position":[game.railway.engine.position.x,game.railway.engine.position.z]})
+			var race_gates: Array=[]
+			for i in 4:
+				var point:=RaceCourse.gate_position(i)
+				var direction:=RaceCourse.gate_direction(i)
+				race_gates.append({"x":point.x,"y":point.y+.85,"z":point.z,"dx":direction.x,"dz":direction.y})
+			state.telemetry=JSON.stringify({"world":"race_track" if game.travel.in_race else "maple_bay","transition":game.travel.active,"transition_clock":game.travel.clock,"lap_running":game.travel.race.running,"lap_time":game.travel.race.lap_time,"race_checkpoint":game.travel.race.checkpoint,"race_gates":race_gates,"loose_race_props":game.travel.race.props.filter(func(prop): return prop.loose).size(),"last_lap":game.travel.race.last_time,"surface_error":qa_surface_error,"flat_height_step":qa_flat_step,"race_drive_frames":qa_drive_frames,"best_lap":game.travel.race.best_time,"north_exit_open":game.travel.gate_opening>=.99,"warmup_pool":game.pool_shader_warmed,"neighbours":neighbours,"speaker":game.hud.speaker_key,"truck_position":[game.truck.position.x,game.truck.position.z],"dialogue_revealed":game.hud.char_count,"dialogue_font":game.hud.dialogue_font_size,"dialogue_rect":[game.hud.dialogue_panel.position.x,game.hud.dialogue_panel.position.y,game.hud.dialogue_panel.size.x,game.hud.dialogue_panel.size.y],"logical_view":[game.hud.size.x,game.hud.size.y],"speed":game.truck.linear_velocity.length(),"water":game.truck.water,"ladder":game.truck.ladder_deployed,"charge":game.truck.charge,"height":game.truck.position.y,"paused":game.paused,"talking":game.dialogue_active,"fps":Engine.get_frames_per_second(),"loading":game.loading,"draw_calls":Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),"objects":Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),"dialogue_lines":game.hud.dialogue_label.get_line_count(),"dialogue_text":game.hud.full_text,"pages":game.hud.dialogue_pages.size(),"batched":game.batched_decorations,"merged_scenery":game.merged_scenery,"scenery_cached":game.town.has_node("BakedScenery"),"camera_size":game.camera.size,"cat_carried":game.town.cat_cuddling,"train_push_locked":game.railway.push_locked,"intro":game.intro.active,"intro_shot":game.intro.shot,"intro_clock":game.intro.clock,"game_clock":game.elapsed,"train_started":game.railway.started,"train_boarded":game.railway.boarded,"train_position":[game.railway.engine.position.x,game.railway.engine.position.z]})
 	game.hud.touch_mode=bool(state.enabled)
 	game.hud.touch_portrait=bool(state.portrait)
 	var view:=Vector2(float(state.width),float(state.height))
@@ -85,3 +111,61 @@ func _send(action: String) -> void:
 static func logical_size(view: Vector2) -> Vector2i:
 	var ui_scale:=clampf(minf(view.x/1000.0,view.y/700.0),.85,1.5)
 	return Vector2i((view/ui_scale).round())
+
+# Opt-in local gameplay probes for repeatable browser rendering checks.
+# The normal shell has no command object; ?qa=travel explicitly enables it.
+func _qa_update() -> void:
+	if qa==null or game.loading or int(qa.sequence)==qa_sequence: return
+	qa_sequence=int(qa.sequence)
+	match str(qa.action):
+		"pose":
+			if game.intro.active: game.intro.finish()
+			if game.travel.active: return
+			game.end_dialogue()
+			var x:=float(qa.x)
+			var z:=float(qa.z)
+			if not is_finite(x) or not is_finite(z) or absf(x)>84 or absf(z)>84: return
+			game.truck.global_position=game.truck.world_origin+Vector3(x,float(qa.value) if float(qa.value)>0 else .82,z)
+			game.truck.linear_velocity=Vector3.ZERO
+			game.truck.angular_velocity=Vector3.ZERO
+			game.truck.reset_physics_interpolation()
+			game.camera_focus=game.truck.global_position
+			game.camera.global_position=game.camera_focus+game.camera_offset
+			game.camera.look_at(game.camera_focus)
+		"start_train":
+			game.railway.started=true
+			game.railway.boarded=true
+		"drive_race":
+			if not game.travel.in_race or game.travel.active: return
+			qa_driving=true
+			qa_lap_target=RaceCourse.STEPS+1
+			qa_drive_frames=0
+			qa_surface_error=0
+			qa_flat_step=0
+			game.travel.race.last_time=0
+			game.travel.race.previous=Vector2(-4,-54)
+			game.truck.heading=-PI/2
+			game.truck.rotation.y=-PI/2
+			game.truck.top_speed=15
+			game.truck.drive_guide=_qa_race_guide
+		"stop_race_drive":
+			qa_driving=false
+			game.truck.drive_guide=game.railway.guide_push
+			game.truck.top_speed=16.875
+
+		"fill_pool":
+			if game.travel.in_race: return
+			game.pool_progress=clampf(float(qa.value),0,1)
+			game.pool_basin.set_fill(game.pool_progress)
+
+# QA-only steering follows the real course using ordinary acceleration, grip,
+# recoil and collision code. It never changes the truck pose during the lap.
+func _qa_race_guide(_desired: Vector3, _dt: float) -> Vector3:
+	if game.travel.race.last_time>0: return Vector3.ZERO
+	var local: Vector3=game.truck.global_position-ToyRaceTrack.ORIGIN
+	var path:=RaceCourse.points()
+	var target: Vector3=path[qa_lap_target]
+	if Vector2(local.x-target.x,local.z-target.z).length()<4:
+		qa_lap_target=(qa_lap_target+3)%(path.size()-1)
+		target=path[qa_lap_target]
+	return Vector3(target.x-local.x,0,target.z-local.z).normalized()

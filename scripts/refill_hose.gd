@@ -16,6 +16,9 @@ var time:=0.0
 var extension:=0.0
 var outlet:=Vector3.ZERO
 var tip:=Vector3.ZERO
+var ground_clock:=0.0
+var ground_positions:=PackedVector3Array()
+var ground_heights:=PackedFloat32Array()
 
 func _ready() -> void:
 	name="RefillHose"
@@ -41,6 +44,9 @@ func _ready() -> void:
 		flow_drops.append(drop)
 	for i in 2: couplings.append(TownProps.cylinder(self,Vector3.ZERO,.10,.18,Color("c7b486")))
 	points.resize(17)
+	ground_positions.resize(17)
+	ground_heights.resize(17)
+	ground_heights.fill(-INF)
 	visible=false
 
 func update(source: BreakableProp, dt: float) -> void:
@@ -80,6 +86,9 @@ func update(source: BreakableProp, dt: float) -> void:
 	var control_b: Vector3=corner-truck_pose.basis.z*.7
 	var rear_a: Vector3=corner+truck_pose.basis.z*.55
 	var rear_b: Vector3=end+truck_pose.basis.z*1.05+Vector3.DOWN*.4
+	ground_clock+=dt
+	var refresh_ground:=ground_clock>=.1
+	if refresh_ground: ground_clock=0
 	for i in points.size():
 		var t:=float(i)/10.0 if i<=10 else float(i-10)/6.0
 		var u:=1-t
@@ -88,11 +97,16 @@ func update(source: BreakableProp, dt: float) -> void:
 			p=start*u*u*u+control_a*3*u*u*t+control_b*3*u*t*t+corner*t*t*t
 		else:
 			p=corner*u*u*u+rear_a*3*u*u*t+rear_b*3*u*t*t+end*t*t*t
-		var excluded: Array[RID]=[game.truck.get_rid()]
-		if is_instance_valid(hydrant): excluded.append(hydrant.get_rid())
-		var query:=PhysicsRayQueryParameters3D.create(p+Vector3.UP,p+Vector3.DOWN*2,9,excluded)
-		var road:=get_world_3d().direct_space_state.intersect_ray(query)
-		if road and road.normal.y>.5: p.y=maxf(p.y,road.position.y+.07)
+		# Keep the rendered curve smooth while reusing stationary ground probes.
+		# A moved point refreshes immediately, including ramps and quick turns.
+		if refresh_ground or not is_finite(ground_heights[i]) or ground_positions[i].distance_squared_to(p)>.04:
+			var excluded: Array[RID]=[game.truck.get_rid()]
+			if is_instance_valid(hydrant): excluded.append(hydrant.get_rid())
+			var query:=PhysicsRayQueryParameters3D.create(p+Vector3.UP,p+Vector3.DOWN*2,9,excluded)
+			var road:=get_world_3d().direct_space_state.intersect_ray(query)
+			ground_positions[i]=p
+			ground_heights[i]=road.position.y+.07 if road and road.normal.y>.5 else -1000
+		p.y=maxf(p.y,ground_heights[i])
 		points[i]=p
 	var total_length:=0.0
 	for i in segments.size(): total_length+=points[i].distance_to(points[i+1])

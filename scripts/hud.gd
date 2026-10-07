@@ -259,7 +259,7 @@ func begin_dialogue(speaker: String, text: String) -> void:
 	auto_close_delay=6.0 if dialogue_panel.phone_mode else -1.0
 	var names: Dictionary={"DISPATCH":"Captain Robin","MAYA":"Maya","LEO":"Leo","JUNE":"June","OLIVER":"Oliver"}
 	speaker_label.text=names.get(speaker_key,speaker_key.capitalize())
-	var cells: Dictionary={"DISPATCH":Vector2i(0,0),"MAYA":Vector2i(1,0),"LEO":Vector2i(0,1),"JUNE":Vector2i(1,1),"ROWAN":Vector2i(0,1)}
+	var cells: Dictionary={"DISPATCH":Vector2i(0,0),"MAYA":Vector2i(1,0),"LEO":Vector2i(0,1),"JUNE":Vector2i(1,1),"ROWAN":Vector2i(0,1),"KIT":Vector2i(1,0),"SAMI":Vector2i(0,1),"NORA":Vector2i(1,1)}
 	var cell: Vector2i=cells.get(speaker_key,Vector2i.ZERO)
 	var atlas:=AtlasTexture.new()
 	atlas.atlas=portrait_atlas
@@ -338,7 +338,7 @@ func refresh_controls() -> void:
 	if ControlPrompts.mode==ControlPrompts.Mode.GAMEPAD:
 		lines=["Left stick     Drive toward that side of the screen","Right stick     Aim and spray",g.call("jump")+"  hold, release     A springy little hop",g.call("brake")+"     Brake / brace against the hose",g.call("interact")+"     Extend / retract ladder",g.call("jump")+"     Say hello / continue a conversation",g.call("map")+"     Open the town map","Park by a hydrant to refill","Select     Recover at the station","","Start     Back to the neighbourhood"]
 	else:
-		lines=["WASD     Drive toward that side of the screen","Mouse + click     Aim and spray","Arrow keys     Directional spray","Hold Space, release     A springy little hop","Shift     Brake / brace against the hose","E     Extend / retract ladder","Space / Enter     Continue a conversation","Space / click a neighbour     Say hello","Tab     Open the town map","Park by a hydrant to refill","R     Recover at the station","M     Music on / off","","Esc     Back to the neighbourhood"]
+		lines=["WASD     Drive toward that side of the screen","Mouse + click     Aim and spray","Arrow keys     Directional spray","Hold Space, release     A springy little hop","Shift     Brake / brace against the hose","E     Extend / retract ladder","Space / Enter     Continue a conversation","Space / click a neighbour     Say hello","Tab     Open the town map","Park by a hydrant to refill","M     Music on / off","","Esc     Back to the neighbourhood"]
 	pause_help.text="\n".join(lines)
 	var f:=func(action: String) -> String: return ControlPrompts.glyph(action,glyph_size(12))
 	if ControlPrompts.mode==ControlPrompts.Mode.GAMEPAD:
@@ -490,7 +490,7 @@ func _process(dt: float) -> void:
 		var empty_strength:=sin(PI*clampf(water_empty_time/.45,0,1))
 		water_gauge_scale=1+.025*water_activity*(.5+.5*sin(time*TAU*2.1))+.065*empty_strength
 		water_gauge_offset=Vector2(sin(time*48)*3.5,sin(time*61)*1.2)*empty_strength
-	var cinematic: bool=game.intro!=null and game.intro.active
+	var cinematic: bool=(game.intro!=null and game.intro.active) or (game.travel!=null and game.travel.active)
 	prompt_panel.visible=not cinematic and not prompt_source.is_empty() and not game.dialogue_active and not game.paused
 	toast_panel.visible=not cinematic and not toast_label.text.is_empty() and not game.paused and not game.dialogue_active
 	footer.visible=not cinematic and not touch_mode and not game.paused and not game.dialogue_active and game.elapsed<28
@@ -533,7 +533,10 @@ func _layout_viewport() -> void:
 	prompt_label.size.x=prompt_panel.size.x-32
 	prompt_rich.size.x=prompt_panel.size.x-32
 	prompt_panel.position=Vector2((size.x-prompt_panel.size.x)*.5,size.y-93)
-	toast_panel.position=Vector2((size.x-toast_panel.size.x)*.5,85 if touch_mode else 109)
+	toast_panel.size.x=minf(560,size.x-24)
+	toast_label.size.x=toast_panel.size.x-30
+	toast_label.add_theme_font_size_override("font_size",13 if touch_mode else 16)
+	toast_panel.position=Vector2((size.x-toast_panel.size.x)*.5,125 if game.travel and game.travel.in_race else (85 if touch_mode else 109))
 	footer.position=Vector2((size.x-footer.size.x)*.5,size.y-35)
 	var pause_scale:=minf(1,minf((size.x-32)/pause_panel.size.x,(size.y-32)/pause_panel.size.y))
 	pause_panel.scale=Vector2.ONE*pause_scale
@@ -541,7 +544,7 @@ func _layout_viewport() -> void:
 
 func _speak() -> void:
 	if syllables.is_empty() or voice.playing or DisplayServer.get_name()=="headless": return
-	var pitches: Dictionary={"DISPATCH":1.04,"MAYA":1.16,"LEO":0.86,"JUNE":1.08,"OLIVER":.96,"ROWAN":.92}
+	var pitches: Dictionary={"DISPATCH":1.04,"MAYA":1.16,"LEO":0.86,"JUNE":1.08,"OLIVER":.96,"ROWAN":.92,"KIT":1.12,"SAMI":.86,"NORA":1.08}
 	voice.pitch_scale=float(pitches.get(speaker_key,1.0))*voice_random.randf_range(.96,1.04)
 	voice.stream=syllables[voice_random.randi_range(0,syllables.size()-1)]
 	voice.play()
@@ -552,7 +555,7 @@ func _make_syllables() -> void:
 	for i in 3: syllables.append(load("res://assets/audio/town/voice_%d.wav" % i))
 
 func _draw() -> void:
-	if game and game.intro and game.intro.active: return
+	if game and ((game.intro and game.intro.active) or (game.travel and game.travel.active)): return
 	if not game or not game.truck: return
 	_draw_water()
 	if not game.paused:
@@ -629,6 +632,9 @@ func _drop(pos: Vector2, radius: float, color: Color) -> void:
 	draw_colored_polygon(points,color)
 
 func _draw_map() -> void:
+	if game.travel and game.travel.in_race:
+		_draw_race_map()
+		return
 	var center:=Vector2(126,size.y-126)
 	var r:=84.0
 	if touch_mode: center=Vector2(92,166); r=62
@@ -681,3 +687,25 @@ func _draw_map() -> void:
 	var north:=center+Vector2(0,-1).rotated(.5)*(r+15)
 	draw_style_box(style(INK,7,false),Rect2(north-Vector2(14,12),Vector2(28,24)))
 	draw_string(bold,north+Vector2(-5,5),"N",HORIZONTAL_ALIGNMENT_LEFT,-1,12,PAPER)
+
+func _draw_race_map() -> void:
+	var center:=size*.5
+	var r:=minf(280,minf(size.x,size.y)*.38)
+	var s:=r/92
+	draw_circle(center,r+12,INK)
+	draw_circle(center,r+8,PAPER)
+	draw_circle(center,r,Color("a8cbb9"))
+	var circuit:=PackedVector2Array()
+	for p in RaceCourse.points(): circuit.append(center+Vector2(p.x,p.z)*s)
+	draw_polyline(circuit,Color("587c87"),13*s,true)
+	draw_line(center+Vector2(0,-54)*s,center+Vector2(0,-80)*s,PAPER,7*s,true)
+	var race: ToyRaceTrack=game.travel.race
+	for i in 4:
+		var gate: Vector2=center+ToyRaceTrack.GATES[i]*s
+		draw_circle(gate,4*s,ORANGE if race.running and i==race.checkpoint else PAPER)
+	for job in race.jobs:
+		var point: Vector3=job.point
+		draw_circle(center+Vector2(point.x,point.z)*s,4*s,Color("81b79a") if job.done else Color("a17099"))
+	var p: Vector3=game.truck.global_position-ToyRaceTrack.ORIGIN
+	draw_circle(center+Vector2(p.x,p.z)*s,6,ORANGE)
+	draw_string(bold,center+Vector2(-62,-r-22),"RACE TRACK",HORIZONTAL_ALIGNMENT_LEFT,-1,18,PAPER)

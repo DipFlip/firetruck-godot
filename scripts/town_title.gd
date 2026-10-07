@@ -4,12 +4,24 @@ extends Control
 # A handful of continuous pen strokes, revealed by distance travelled. This
 # stays sharp at any phone resolution and looks written, rather than typed.
 var strokes: Array[PackedVector2Array]=[]
+var is_race_title:=false
+var ink_width:=380.0
 var total_length:=0.0
 var reveal:=0.0
 var opacity:=0.0
 
 func _ready() -> void:
 	mouse_filter=Control.MOUSE_FILTER_IGNORE
+	_build_paths()
+
+func set_race_title() -> void:
+	is_race_title=true
+	ink_width=740
+	_build_paths()
+
+func _build_paths() -> void:
+	strokes.clear()
+	total_length=0
 	var paths: Array=[
 		[[0,81],[7,48],[14,12],[23,9],[32,30],[37,63],[43,43],[61,10],[70,7],[66,42],[63,81],[72,83]], # M
 		[[83,65],[94,49],[108,51],[110,66],[99,83],[87,83],[83,70],[94,53],[110,52],[107,78],[111,84],[123,74]], # a
@@ -21,6 +33,25 @@ func _ready() -> void:
 		[[340,54],[335,72],[338,83],[349,78],[360,55],[352,91],[343,113],[332,118],[327,112],[333,101],[353,93],[373,79]], # y
 		[[48,96],[121,93],[198,94],[273,95],[323,91]] # understated pen flourish
 	]
+	if is_race_title:
+		paths=paths.slice(0,5)
+		var letters: Array=[
+			[[0,81],[7,48],[14,12],[23,9],[32,30],[37,63],[43,43],[61,10],[70,7],[66,42],[63,81],[72,83]],
+			[[0,67],[7,53],[21,53],[27,66],[20,80],[6,82],[0,71],[7,53],[21,53]],
+			[[9,22],[3,70],[4,81],[14,82],[23,73]],
+			[[0,67],[7,53],[21,53],[27,66],[20,80],[6,82],[0,71],[7,53],[21,53]],
+			[[0,81],[6,52],[11,57],[8,70],[18,53],[28,55],[34,63]],
+			[[0,82],[15,12],[29,11],[47,20],[42,39],[20,48],[10,47]],
+			[[0,65],[11,49],[25,51],[27,66],[16,83],[4,83],[0,70],[11,53],[27,52],[24,78],[28,84],[40,74]],
+			[[0,81],[6,52],[11,57],[8,70],[18,53],[28,55],[34,63]],
+			[[0,82],[16,18],[21,11],[25,17],[14,52],[9,75],[18,62],[33,52],[35,58],[19,69],[33,83],[45,77]]]
+		var offsets: Array[float]=[239,318,352,384,419,491,546,592,638]
+		for i in letters.size():
+			var shifted: Array=[]
+			for point in letters[i]: shifted.append([point[0]+offsets[i],point[1]])
+			paths.append(shifted)
+		paths.append([[65,97],[230,94],[434,96],[595,95],[710,91]])
+
 	for path in paths:
 		var points:=PackedVector2Array()
 		for i in path.size()-1:
@@ -36,8 +67,8 @@ func _ready() -> void:
 func _draw() -> void:
 	if opacity<=0: return
 	var remaining:=total_length*reveal
-	var pen_scale:=minf(1.8,get_parent().size.x*.75/380.0)
-	var origin:=Vector2((get_parent().size.x-380*pen_scale)/2,minf(get_parent().size.y*.70,get_parent().size.y-125*pen_scale-24))
+	var pen_scale:=minf(1.2,get_parent().size.x*.68/ink_width)
+	var origin:=Vector2((get_parent().size.x-ink_width*pen_scale)/2,minf(get_parent().size.y*.70,get_parent().size.y-125*pen_scale-24))
 	for stroke in strokes:
 		var visible_points:=PackedVector2Array([origin+stroke[0]*pen_scale])
 		for i in stroke.size()-1:
