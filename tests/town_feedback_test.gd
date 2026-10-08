@@ -55,6 +55,9 @@ func run() -> void:
 		var current: AudioStream=game.hud.voice.stream
 		game.hud._speak()
 		check(game.hud.voice.stream==current and game.hud.voice.playing,"A second letter never cuts off or replaces a playing voice syllable")
+		game.end_dialogue()
+		check(game.hud.voice.stream==current and game.hud.voice.playing,"Closing a conversation lets the final short syllable release naturally")
+		check(game.water_audio.playback_type==AudioServer.PLAYBACK_TYPE_STREAM,"The continuously faded hose loop uses the same smooth mixer as the other sounds")
 	game.end_dialogue()
 	# A sideways collision settles quickly; forward momentum is still pushable.
 	await place(Vector3(-70,1,70))
@@ -159,6 +162,10 @@ func run() -> void:
 	check(rings>0 and not game.dialogue_active and game.phone_ringing(),"A ringtone leads the initial operator message for more than two seconds")
 	game._update_dispatch(1.05)
 	check(game.dialogue_active and game.hud.speaker_key=="DISPATCH","The operator speaks only after the complete ring lead-in")
+	game.sounds._process(.016)
+	check(game.sounds.ring_gain>0 and game.sounds.ring_gain<1 and game.sounds.ringtone.volume_db< -24,"Answering fades the ringing note instead of cutting it off mid-waveform")
+	game.sounds._process(.12)
+	check(game.sounds.ring_gain<.001 and not game.sounds.ringtone.playing,"The ringing tail stops only after falling below audibility")
 	game.end_dialogue()
 	game.call_timer=0
 	# Prove that both return directions face forward and turns are hidden.
@@ -180,26 +187,27 @@ func run() -> void:
 	game.intro.update(.25)
 	var camera_start: Vector3=game.camera.position
 	game.intro.update(2.1)
-	check(camera_start.distance_to(game.camera.position)>3 and game.camera.size>140 and game.travel.mat.visible and game.intro.title.reveal>0,"The wide opening follows the loose printed carpet while the town name is written")
+	check(camera_start.distance_to(game.camera.position)>3 and game.camera.size>140 and game.travel.mat.visible and game.intro.title.reveal==0,"The wide opening follows the held carpet before the delayed town name starts")
 	await capture("/tmp/firedriver-town-intro.png")
 	game.intro.update(5.25)
 	await capture("/tmp/firedriver-dog-intro.png")
-	var border_start:=PlayMatTravel.tour_focus(11.8,false)
-	var border_end:=PlayMatTravel.tour_focus(13.4,false)
-	check(absf(border_start.x+80)<2 and absf(border_end.x+80)<4 and border_end.z-border_start.z>65,"The opening sweep travels along the western perimeter cascade")
-	check(PlayMatTravel.tour_focus(17.0,false).distance_to(Vector3(-12,1,13))<5,"The perimeter sweep curves inward for a close station view")
+	var border_start:=PlayMatTravel.tour_focus(8.25,false)
+	var border_end:=PlayMatTravel.tour_focus(9.55,false)
+	check(absf(border_start.x+80)<2 and absf(border_end.x+80)<4 and border_end.z-border_start.z>50,"The opening sweep travels along the western perimeter cascade")
+	check(PlayMatTravel.tour_focus(15.05,false).distance_to(Vector3(-12,1,13))<5,"The perimeter sweep curves inward for a close station view")
 	for is_race in [false,true]:
 		var smooth:=true
-		for knot in [9.8,11.8,13.1,14.5,15.8,17.0,18.5,20.1]:
+		var knots: Array=[3.25,5.2,8.0,8.8,9.7,11.0,12.3,13.8,15.0,16.0,17.5,19.0,20.3,21.5] if is_race else [6.25,8.25,9.55,11.2,13.15,15.05,17.65,20.1]
+		for knot in knots:
 			var before: Vector3=(PlayMatTravel.tour_focus(knot,is_race)-PlayMatTravel.tour_focus(knot-.001,is_race))/.001
 			var after: Vector3=(PlayMatTravel.tour_focus(knot+.001,is_race)-PlayMatTravel.tour_focus(knot,is_race))/.001
 			smooth=smooth and before.distance_to(after)<.8
 		check(smooth,"The %s camera follows a continuous curve without jumps at tour waypoints" % ("race" if is_race else "town"))
-	game.intro.clock=11.8
+	game.intro.clock=8.25
 	game.intro.update(0)
 	var border_basis: Basis=game.camera.basis
 	var border_size: float=game.camera.size
-	game.intro.clock=17.0
+	game.intro.clock=15.05
 	game.intro.update(0)
 	check(not game.camera.basis.is_equal_approx(border_basis) and game.camera.size<border_size,"The camera turns into town and moves closer to highlight the buildings")
 	game.intro.clock=12

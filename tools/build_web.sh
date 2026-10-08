@@ -9,6 +9,7 @@ mkdir -p builds/web
 "$GODOT_BIN" --headless --export-release Web builds/web/index.html
 cp assets/fonts/Nunito.ttf builds/web/Nunito.ttf
 cp assets/fonts/OFL-Nunito.txt builds/web/OFL-Nunito.txt
+cp web/render_budget.js builds/web/render_budget.js
 touch builds/web/.nojekyll
 python3 - <<'PY'
 from pathlib import Path

@@ -131,6 +131,15 @@ static func make_room_props(parent: Node3D) -> Node3D:
 	room.add_child(back_wall)
 	back_wall.position=Vector3(0,90,-154)
 	TownProps.box(room,Vector3(0,3,-152),Vector3(600,6,4),Color("d9ba91"))
+	var west_wall:=MeshInstance3D.new()
+	west_wall.name="WestStarryWallpaper"
+	west_wall.mesh=wallpaper_plane
+	west_wall.material_override=wallpaper
+	west_wall.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	room.add_child(west_wall)
+	west_wall.position=Vector3(-154,90,0)
+	west_wall.rotation.y=PI/2
+	TownProps.box(room,Vector3(-152,3,0),Vector3(4,6,600),Color("d9ba91"))
 	# A child's room uses larger objects than the little traffic-mat town.
 	var drawers:=Node3D.new()
 	room.add_child(drawers)

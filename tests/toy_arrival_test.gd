@@ -71,7 +71,19 @@ func run() -> void:
 	for item in baked:
 		var colours: PackedColorArray=item.node.mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
 		for colour in colours: kinds[roundi(colour.a*4)]=true
-	check(not baked.is_empty() and kinds.has(2) and kinds.has(3),"Baked scenery contains separate building-rise and small-toy-drop data without splitting its draw batches")
+	check(not baked.is_empty() and kinds.has(2) and kinds.has(3) and kinds.has(4),"Baked scenery contains separate building-rise, toy-drop and small-detail sprout data without splitting its draw batches")
+	var details:=travel.assembly.filter(func(item): return not item.gpu and item.sprout and item.instance>=0)
+	check(details.size()>500,"Hundreds of tiny flower and leaf parts sprout instead of raining down")
+	var detail: Dictionary=details[0]
+	travel.grow_assembly(detail.delay+.07)
+	var growing: Transform3D=detail.node.global_transform*detail.node.multimesh.get_instance_transform(detail.instance)
+	check(growing.origin.y<=detail.transform.origin.y+.001 and growing.basis.get_scale().length()<detail.transform.basis.get_scale().length(),"Small details scale up at their planted location without a sky offset")
+	var rounded:=true
+	for point in travel.mat.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]:
+		var corner:=Vector2(absf(point.x),absf(point.z))-Vector2(75.5,75.5)
+		var distance:=corner.max(Vector2.ZERO).length()+minf(maxf(corner.x,corner.y),0)-4.5
+		rounded=rounded and distance<.001
+	check(rounded,"The physical mat and rounded binding follow the same corner curve")
 	var blocks:=travel.assembly.filter(func(item): return item.drop and item.instance>=0 and item.node.get_parent().name=="BoundaryBlocks")
 	var first: Dictionary=blocks[0]
 	var last_delay:=0.0
@@ -82,7 +94,7 @@ func run() -> void:
 	west.sort_custom(func(a,b): return a.transform.origin.z<b.transform.origin.z)
 	var ordered:=west.size()>10
 	for i in range(1,west.size()): ordered=ordered and west[i].delay>=west[i-1].delay
-	check(ordered and west[-1].delay-west[0].delay>.16,"The first perimeter wall assembles in a travelling cascade")
+	check(ordered and (west[-1].delay-west[0].delay)*(PlayMatTravel.ARRIVAL_END-PlayMatTravel.ARRIVAL_START)>2.5,"The first perimeter wall assembles in a travelling cascade")
 	var spread:=true
 	# Each quadrant gets early, middle and late arrivals rather than a cohort
 	# timed to whichever neighbourhood the camera is currently showing.
@@ -104,6 +116,16 @@ func run() -> void:
 	game.intro.finish()
 	check(first.node.multimesh.get_instance_transform(first.instance).is_equal_approx(first.node.global_transform.affine_inverse()*first.transform),"Skip/completion restores exact block poses")
 	check(baked.all(func(item): return item.node.material_override==item.original_material and item.node.custom_aabb==item.bounds),"Completion restores the normal materials and tight scenery culling bounds")
+	travel.begin_assembly(false)
+	var replay:=travel.assembly.filter(func(item): return item.gpu)
+	check(replay.all(func(item): return baked.any(func(old): return old.node==item.node and old.material==item.material)),"The live intro reuses the actual materials prepared during background warmup")
+	check(travel.mat.shared_flat_sheet.get_faces().size()<1000,"The settled carpet retains its thick rounded shape with a small mesh")
+	travel.flatten_for_print()
+	travel.grow_assembly(0)
+	check(replay.all(func(item): return not item.node.visible and not item.material.get_shader_parameter("print_mode")),"Rewinding a flattened assembly hides its pending batches and restores toy animation")
+	travel.grow_assembly(1)
+	check(replay.all(func(item): return item.node.visible==item.visible and item.node.custom_aabb==item.bounds),"A warmed/replayed assembly restores every batch before handover")
+	travel.finish_assembly()
 	game.queue_free()
 	await process_frame
 	await process_frame

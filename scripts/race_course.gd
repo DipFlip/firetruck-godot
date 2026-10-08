@@ -3,6 +3,9 @@ extends RefCounted
 
 const HALF_WIDTH:=6.5
 const STEPS:=32
+const POND_CENTRE:=Vector2(-29,40)
+const POND_RADIUS:=Vector2(13,10)
+const POND_DEPTH:=2.4
 const CONTROLS: Array[Vector3]=[
 	Vector3(-36,0,-54),Vector3(0,0,-54),Vector3(36,0,-54),Vector3(60,0,-46),
 	Vector3(63,0,-27),Vector3(46,0,-13),Vector3(27,0,-17),Vector3(12,0,-9),
@@ -96,6 +99,17 @@ static func ribbon(inner: float, outer: float, lift: float, paint: Material) -> 
 	result.material_override=paint
 	return result
 
+# A broad, C1-continuous bowl: the rim and central floor meet the slopes
+# without a step. The same shape supplies the terrain mesh and truck support.
+static func pond_surface(point: Vector2) -> Dictionary:
+	var local: Vector2=(point-POND_CENTRE)/POND_RADIUS
+	var radius:=local.length()
+	var t:=clampf((radius-.32)/.68,0,1)
+	var height:=.03-POND_DEPTH*(1-smoothstep(0,1,t))
+	var derivative:=POND_DEPTH*6*t*(1-t)/.68 if radius>.32 and radius<1 else 0.0
+	var gradient:=local/radius/POND_RADIUS*derivative if radius>.0001 else Vector2.ZERO
+	return {"height":height,"gradient":gradient,"normal":Vector3(-gradient.x,1,-gradient.y).normalized()}
+
 # The drive surface is sampled independently of the render triangles and curbs.
 # Upper and lower branches are selected by height, so an underpass never snaps
 # a truck onto the bridge above it. The same profile drives the tires and body.
@@ -118,11 +132,13 @@ static func surface_at(at: Vector3) -> Dictionary:
 			bridge_gradient=delta*(path[i+1].y-path[i].y)/maxf(.00001,delta.length_squared())
 		else: closest_flat=minf(closest_flat,d)
 	var width_squared:=HALF_WIDTH*HALF_WIDTH
-	var height:=.055 if closest_flat<width_squared else .03
-	var gradient:=Vector2.ZERO
+	var terrain:=pond_surface(point)
+	var height: float=.055 if closest_flat<width_squared else terrain.height
+	var gradient: Vector2=Vector2.ZERO if closest_flat<width_squared else terrain.gradient
 	# Prefer the upper layer when already riding it, regardless of whether
 	# the lower crossing happens to be closer in the horizontal projection.
-	if closest_bridge<width_squared and bridge_height<=at.y-.45:
+	# Timber shoulders share the smooth support, without sampling the rails.
+	if closest_bridge<8.0*8.0 and bridge_height<=at.y-.45:
 		height=bridge_height
 		gradient=bridge_gradient
 	return {"height":height,"normal":Vector3(-gradient.x,1,-gradient.y).normalized(),"gradient":gradient}

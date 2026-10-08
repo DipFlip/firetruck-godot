@@ -8,6 +8,7 @@ var portrait_radius:=53.0
 var divider_start:=148.0
 const INK := Color("294754")
 const FACE := Color("eff8fc")
+const PHONE:=preload("res://assets/ui/phone.svg")
 
 func _draw() -> void:
 	var relative:=tail_tip-size*.5
@@ -40,11 +41,8 @@ func _draw() -> void:
 	draw_circle(portrait_center,portrait_radius,INK,true,-1,true)
 
 static func draw_phone(canvas: CanvasItem, center: Vector2, scale_factor: float, clock: float, active: bool) -> void:
-	var shape:=PackedVector2Array()
-	for p in [Vector2(-18,-20),Vector2(-10,-23),Vector2(-3,-11),Vector2(-8,-6),Vector2(0,3),Vector2(7,8),Vector2(12,2),Vector2(23,8),Vector2(22,17),Vector2(16,22),Vector2(7,22),Vector2(-7,15),Vector2(-16,5),Vector2(-22,-7),Vector2(-22,-15)]:
-		shape.append(center+p*scale_factor*.8)
-	canvas.draw_colored_polygon(shape,INK)
+	canvas.draw_texture_rect(PHONE,Rect2(center-Vector2.ONE*20*scale_factor,Vector2.ONE*40*scale_factor),false)
 	var tint:=Color("51b5cc")
 	tint.a=.45+absf(sin(clock*3))*.55 if active else .4
 	for radius in [16.0,24.0]:
-		canvas.draw_arc(center+Vector2(2,-2)*scale_factor,radius*scale_factor,-PI*.5,0,16,tint,2*scale_factor,true)
+		canvas.draw_arc(center+Vector2(2,-2)*scale_factor,radius*scale_factor,-PI*.5,0,48,tint,2*scale_factor,true)

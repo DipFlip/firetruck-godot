@@ -45,8 +45,17 @@ func _ready() -> void:
 func celebrate(job: String, at: Vector3, speaker: String, words: String) -> void:
 	if completed.has(job): return
 	completed[job]=true
-	if game.dialogue_active and game.hud.speaker_key==speaker: game.end_dialogue()
-	pending.append({"speaker":speaker,"words":words,"remaining":THANK_YOU_DELAY})
+	var actor: Node3D
+	var race_job: bool=game.travel and game.travel.in_race
+	if race_job:
+		actor=game.travel.race.people[ToyRaceTrack.NAMES.find(speaker)]
+	else:
+		actor=game.town.people[{"LEO":1,"JUNE":2,"OLIVER":3}[speaker]]
+	if game.dialogue_active and game.hud.speaker_key==speaker: game.end_dialogue(true)
+	if not game.dialogue_active:
+		game.camera_subject=actor
+		game._set_conversation_camera(true)
+	pending.append({"speaker":speaker,"words":words,"actor":actor,"race":race_job,"remaining":THANK_YOU_DELAY})
 	if DisplayServer.get_name()!="headless": sound.play()
 	if job=="dog": game.sounds.play("woof",game.town.dog.global_position,1.0,2.0)
 	sparkle_burst(at,28,3.4 if job=="pool" else 1.1,.55 if job=="pool" else 1.0)
@@ -91,15 +100,19 @@ func _process(dt: float) -> void:
 			s.mesh.hide()
 			free_stars.append(s.mesh)
 			sparkles.remove_at(i)
-	if game.travel and game.travel.in_race: return
 	for reward in pending: reward.remaining=maxf(0,reward.remaining-dt)
 	if game.dialogue_active or game.rescue_running: return
 	for i in pending.size():
 		var reward:=pending[i]
-		var index: int={"LEO":1,"JUNE":2,"OLIVER":3}[reward.speaker]
-		if reward.remaining>0 or game.truck.global_position.distance_to(game.town.people[index].global_position)>9: continue
+		if reward.race!=game.travel.in_race: continue
+		var distance: float=game.truck.global_position.distance_to(reward.actor.global_position)
+		if distance>12 and game.camera_subject==reward.actor: game._set_conversation_camera(false)
+		if reward.remaining>0 or distance>9: continue
 		game.talk(reward.speaker+"  /  THANK YOU",reward.words,game.stage)
-		game.proximity_latches[index]=true
+		if reward.race:
+			game.travel.race.chatter_latches[ToyRaceTrack.NAMES.find(reward.speaker)]=true
+		else:
+			game.proximity_latches[{"LEO":1,"JUNE":2,"OLIVER":3}[reward.speaker]]=true
 		pending.remove_at(i)
 		break
 

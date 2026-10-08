@@ -18,12 +18,13 @@ func run() -> void:
 	for car in game.life.cars: check(car.node.position.distance_to(game.truck.position)>11,"Cars start well clear of the player")
 	for walker in game.life.walkers: check(walker.node.position.distance_to(game.truck.position)>11,"Walkers start well clear of the player")
 	game.intro.start()
-	await frames(150)
+	# Sample before the new overlapping fly-in starts, while the mat is rolling.
+	await frames(90)
 	check(game.intro.active and game.truck.freeze and game.call_timer==1.5 and game.intro.shot==0 and game.camera.size>140,"Intro freezes driving and dispatch while the loose printed mat unfolds")
 	var splashing:=false
 	for drop in game.dog_puddle.drops: splashing=splashing or drop.age<.6
-	check(game.intro.title.reveal>0 and game.intro.title.total_length>0 and game.intro.overlay.get_child_count()==2,"The intro writes only the town name over the moving views")
-	await frames(300)
+	check(game.intro.title.reveal==0 and game.intro.title.total_length>0 and game.intro.overlay.get_child_count()==2,"The town name waits until four seconds before beginning its pen strokes")
+	await frames(330)
 	for drop in game.dog_puddle.drops: splashing=splashing or drop.age<.6
 	check(game.intro.shot>=1 and game.camera.size<60,"Close cinematic views show the scenery being assembled")
 	game.intro.finish()
@@ -113,15 +114,18 @@ func run() -> void:
 	check(rail.hint_sent and game.hud.full_text.contains("backwards"),"After the first push Rowan explains the backwards water recoil")
 	game.truck.automated_spray=true
 	game.truck.automated_aim=game.truck.position+Vector3(-13,-.8,0)
-	for i in 180:
+	var longer_push_seen:=false
+	for i in 300:
 		if rail.started: break
+		if rail.assist_time>=1.4 and not rail.started: longer_push_seen=true
 		var ahead: Vector3=-game.camera.global_basis.z
 		ahead.y=0
 		game.truck.automated_drive=Vector2(Vector3.RIGHT.dot(game.camera.global_basis.x),-Vector3.RIGHT.dot(ahead.normalized()))
 		game.truck.automated_aim=game.truck.position+Vector3(-13,-.8,2)
 		await frames(1)
 	print("Train push measured: x=",rail.engine.position.x," speed=",rail.engine.linear_velocity.x," assist=",rail.assist_time," truck=",game.truck.position)
-	check(rail.started and game.truck.water<100,"An off-centre push plus angled backwards hose recoil starts the train within three seconds")
+	check(rail.started and game.truck.water<100,"An off-centre push plus angled backwards hose recoil starts the train within five seconds")
+	check(longer_push_seen and rail.assist_time>=2.8,"The train stays stalled at the old threshold and needs twice the previous 1.4-second assisted shove")
 	check(not rail.push_locked and not game.truck.axis_lock_linear_z and is_nan(game.truck.train_push_z),"Engine startup releases the hold and restores normal sideways movement")
 	game.truck.automated_spray=false
 	game.truck.automated_drive=Vector2.ZERO

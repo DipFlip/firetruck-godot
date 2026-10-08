@@ -89,6 +89,11 @@ func run() -> void:
 	race.lap_time=2.5
 	race._physics_process(.2)
 	check(race.timer_label.text.begins_with("LAP") and not race.timer_label.text.contains("gates") and not race.timer_label.text.contains("BEST"),"The race HUD shows only lap time")
+	var distinct_times: Dictionary={}
+	for i in 6:
+		race._physics_process(1.0/60)
+		distinct_times[race.timer_label.text]=true
+	check(distinct_times.size()==6,"The live hundredths clock advances on all six race ticks within a tenth of a second")
 	var road: MeshInstance3D=race.get_node("RibbonRoadAndBridge")
 	var faces:=road.mesh.get_faces()
 	var unfolded:=true

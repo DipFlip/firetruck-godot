@@ -1,0 +1,64 @@
+{
+  "captures": [
+    {
+      "time": 9.68336400000002,
+      "fps": 60,
+      "drawCalls": 87
+    },
+    {
+      "time": 10.5499960000001,
+      "fps": 60,
+      "drawCalls": 322
+    },
+    {
+      "time": 10.9833120000001,
+      "fps": 60,
+      "drawCalls": 341
+    },
+    {
+      "time": 11.4166280000001,
+      "fps": 60,
+      "drawCalls": 345
+    },
+    {
+      "time": 12.7165760000002,
+      "fps": 60,
+      "drawCalls": 340
+    },
+    {
+      "time": 13.5832080000002,
+      "fps": 60,
+      "drawCalls": 435
+    },
+    {
+      "time": 14.2331820000002,
+      "fps": 60,
+      "drawCalls": 468
+    },
+    {
+      "time": 19.4329740000005,
+      "fps": 60,
+      "drawCalls": 440
+    },
+    {
+      "time": 21.3828960000005,
+      "fps": 60,
+      "drawCalls": 505
+    },
+    {
+      "time": 25.4993980000007,
+      "fps": 60,
+      "drawCalls": 459
+    }
+  ],
+  "renderFrames": [
+    1554,
+    5,
+    0,
+    1,
+    0
+  ],
+  "fps": 60,
+  "errors": [],
+  "mode": "No screenshots during the pacing measurement"
+}

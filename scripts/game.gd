@@ -13,6 +13,8 @@ var dialogue_out_of_view_time:=0.0
 var paused := false
 var fire_progress := 0.0
 var fire_feedback := 0.0
+var fire_hud_percent:=-1
+var fire_hud_on_target:=false
 var dog_progress := 0.0
 var pool_progress := 0.0
 var dog_done := false
@@ -38,6 +40,8 @@ const HYDRANT_REFILL_RADIUS:=6.75
 var marker: MeshInstance3D
 var job_label: Label3D
 var camera_offset:=Vector3(16,23,29)
+var sun: DirectionalLight3D
+var gameplay_shadow_distance:=60.0
 var camera_focus:=Vector3.ZERO
 const TALK_CAMERA_SIZE := 18.8
 const TALK_FULL_RADIUS:=18.0
@@ -230,7 +234,7 @@ func _setup_input() -> void:
 
 func _setup_light() -> void:
 	var compatibility:=RenderingServer.get_current_rendering_method()=="gl_compatibility"
-	var sun:=DirectionalLight3D.new()
+	sun=DirectionalLight3D.new()
 	sun.rotation_degrees=Vector3(-48,-32,0)
 	# Daylight through a large window: near-white sun with a hint of warmth.
 	sun.light_color=Color("fff7ec")
@@ -243,6 +247,7 @@ func _setup_light() -> void:
 	sun.shadow_opacity=.72
 	sun.shadow_enabled=true
 	sun.directional_shadow_max_distance=60 if compatibility else 100
+	gameplay_shadow_distance=sun.directional_shadow_max_distance
 	# The fixed orthographic camera does not need four perspective shadow splits.
 	if compatibility: sun.directional_shadow_mode=DirectionalLight3D.SHADOW_ORTHOGONAL
 	add_child(sun)
@@ -306,12 +311,14 @@ func talk(speaker: String, words: String, next: int) -> void:
 	hud.begin_dialogue(speaker,words)
 	truck.enabled=not paused and not rescue_running
 
-func end_dialogue() -> void:
+func end_dialogue(keep_camera: bool=false) -> void:
+	if dialogue_active and dog_done and hud.speaker_key=="JUNE": sounds.play("woof",town.dog.global_position,.85,1.0)
 	dialogue_active=false
 	dialogue_actor=null
-	_set_conversation_camera(false)
+	if not keep_camera: _set_conversation_camera(false)
 	hud.dialogue_panel.hide()
-	hud.voice.stop()
+	# Each syllable is only 65 ms and already fades to silence. Let the final
+	# one finish: stopping halfway through its waveform makes an audible tick.
 	truck.enabled=not paused and not rescue_running
 
 func _set_conversation_camera(active: bool) -> void:
@@ -328,6 +335,7 @@ func phone_ringing() -> bool:
 
 func _discover_barbecue() -> void:
 	if barbecue_call_sent and dialogue_active and hud.speaker_key=="DISPATCH": end_dialogue()
+	if barbecue_discovered: return
 	barbecue_discovered=true
 	barbecue_call_delay=-1
 	barbecue_ring_timer=-1
@@ -550,7 +558,10 @@ func _process(dt: float) -> void:
 	camera_focus=camera_focus.lerp(focus,1-exp(-4.5*dt))
 	camera_trauma=maxf(0,camera_trauma-dt*1.5)
 	var shake:=camera_trauma*camera_trauma
-	camera.global_position=camera_focus+camera_offset.lerp(TALK_CAMERA_OFFSET,conversation_blend)+Vector3(sin(elapsed*63)*.16,sin(elapsed*79)*.12,cos(elapsed*53)*.08)*shake
+	var offset:=gameplay_camera_offset().lerp(gameplay_camera_offset(true),conversation_blend)
+	camera.global_position=camera_focus+offset+Vector3(sin(elapsed*63)*.16,sin(elapsed*79)*.12,cos(elapsed*53)*.08)*shake
+	camera.far=500 if travel and travel.in_race else 250
+	sun.directional_shadow_max_distance=gameplay_shadow_distance+maxf(0,offset.length()-camera_offset.length())
 	camera.look_at(camera_focus)
 	camera.rotation.z+=sin(elapsed*47)*0.004*shake
 	camera.size=lerpf(25.8,_talk_camera_size(),conversation_blend)
@@ -570,7 +581,7 @@ func _process(dt: float) -> void:
 			toast_time-=dt
 			if toast_time<=0: hud.toast_label.text=""
 		travel.race.proximity_talk()
-		hud.set_prompt("Talk to neighbour" if _nearest_npc()>=0 else "")
+		hud.set_prompt("")
 		return
 	_check_barbecue_discovery(dt)
 	_update_dispatch(dt)
@@ -602,11 +613,22 @@ func _process(dt: float) -> void:
 		prompt=_ladder_instruction()
 	hud.set_prompt(prompt)
 	if stage==3:
-		hud.heading_label.text="ON TARGET  /  COOLING" if fire_feedback>.1 else "02  /  HOSE AT THE READY"
-		hud.detail_label.text="Extinguish the barbecue  ·  %d%%\n" % (fire_progress*100) + ("Keep it there!" if fire_feedback>.1 else ControlPrompts.plain("Aim near the flames · {brake} to brace."))
+		var percent:=int(fire_progress*100)
+		var on_target:=fire_feedback>.1
+		if percent!=fire_hud_percent or on_target!=fire_hud_on_target:
+			fire_hud_percent=percent
+			fire_hud_on_target=on_target
+			hud.heading_label.text="ON TARGET  /  COOLING" if on_target else "02  /  HOSE AT THE READY"
+			hud.detail_label.text="Extinguish the barbecue  ·  %d%%\n" % percent + ("Keep it there!" if on_target else ControlPrompts.plain("Aim near the flames · {brake} to brace."))
 
 func _ladder_instruction() -> String:
 	return "Press {interact} to extend the ladder"
+
+func gameplay_camera_offset(talking: bool=false) -> Vector3:
+	var offset:=TALK_CAMERA_OFFSET if talking else camera_offset
+	# Keep the orthographic framing, but place the lens beyond the foreground
+	# furniture when following the truck along the southern mat edge.
+	return offset.normalized()*160 if travel and travel.in_race else offset
 
 func _talk_camera_size() -> float:
 	if not is_instance_valid(camera_subject): return TALK_CAMERA_SIZE
@@ -706,6 +728,7 @@ func _water_hit(point: Vector3, amount: float) -> bool:
 			rewards.celebrate("fire",TownLayout.FIRE+Vector3.UP*1.2,"LEO","You saved the afternoon! Thank you! I think I'll stick to sandwiches for the rest of the party.")
 	if not dog_done and point.distance_to(TownLayout.DOG+Vector3.UP*0.7)<1.4:
 		consumed = true
+		sounds.play("dog_wash",town.dog.global_position,.7,1.2)
 		dog_progress=minf(1,dog_progress+amount*0.60)
 		if dog_progress>=1:
 			dog_done=true
@@ -725,6 +748,7 @@ func _water_hit(point: Vector3, amount: float) -> bool:
 	return consumed
 
 func _update_mission() -> void:
+	fire_hud_percent=-1
 	match stage:
 		1:
 			hud.heading_label.text="01  /  THE FIRST CALL"
@@ -772,6 +796,9 @@ func _setup_audio() -> void:
 	add_child(music)
 	music.play()
 	water_audio=AudioStreamPlayer.new()
+	# Match the other continuously mixed sounds. Browser Sample playback
+	# applies volume changes immediately, making hose starts/stops click.
+	water_audio.playback_type=AudioServer.PLAYBACK_TYPE_STREAM
 	var water_loop: AudioStreamOggVorbis=load("res://assets/audio/water_flow.ogg")
 	water_loop.loop=true
 	water_audio.stream=water_loop
@@ -780,7 +807,10 @@ func _setup_audio() -> void:
 	water_audio.play()
 
 func _audio_update(dt: float) -> void:
-	hose_volume=lerpf(hose_volume,1.0 if truck.spraying and not paused else 0.0,1-exp(-10*dt))
+	# Transitions suspend truck physics, so its last spray flag can outlive
+	# the cannon action. Keep the soft audio release running during cinematics.
+	var cannon_active: bool=truck.spraying and truck.enabled and truck.is_physics_processing() and not paused and not loading and not (intro and intro.active) and not (travel and travel.active)
+	hose_volume=lerpf(hose_volume,1.0 if cannon_active else 0.0,1-exp(-10*dt))
 	if water_audio: water_audio.volume_db=linear_to_db(maxf(0.00001,hose_volume*0.063))
 	if audio:
 		audio.stream_paused=paused

@@ -15,6 +15,11 @@ run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
+[audio]
+
+; Give the single-threaded browser mixer headroom for short rendering stalls.
+driver/output_latency.web=100
+
 [display]
 
 window/size/viewport_width=1440
@@ -27,12 +32,19 @@ window/stretch/mode="canvas_items"
 
 pointing/emulate_mouse_from_touch=false
 
+[importer_defaults]
+
+wav={
+"compress/mode": 0
+}
+
 [layer_names]
 
 3d_physics/layer_3="Ladder events"
 3d_physics/layer_4="Visible driving surfaces"
 3d_physics/layer_5="Neighbour personal space"
 3d_physics/layer_6="Play-mat boundary"
+3d_physics/layer_7="Bridge safety walls and ceiling"
 
 [physics]
 

@@ -109,7 +109,7 @@ var lights: Array[MeshInstance3D] = []
 func _ready() -> void:
 	physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_ON
 	mass = 2.0
-	collision_mask=51 # Town contacts plus the play-mat boundary.
+	collision_mask=115 # Town contacts, mat boundary, and bridge safety (64).
 	lock_rotation = true
 	linear_damp = 0.2
 	continuous_cd = true
@@ -127,6 +127,14 @@ func _ready() -> void:
 		shape.shape = sphere
 		shape.position = Vector3(0,0,z)
 		add_child(shape)
+	# Suspension supports alone cannot protect the tall cab from a low ceiling.
+	# This upper hull hits the bridge without adding a tire-like ledge.
+	var upper:=CollisionShape3D.new()
+	var hull:=BoxShape3D.new()
+	hull.size=Vector3(1.82,1.64,3.65)
+	upper.shape=hull
+	upper.position=Vector3(0,1.13,-.25)
+	add_child(upper)
 	visual = Node3D.new()
 	add_child(visual)
 	var model:=preload("res://assets/models/engine_body.glb").instantiate()
@@ -228,6 +236,7 @@ func _ready() -> void:
 	get_parent().add_child(effects)
 
 func extend_ladder(target: Vector3=Vector3.ZERO) -> void:
+	if not ladder_deployed: _ladder_sound("ladder_extend")
 	ladder_deployed=true
 	if target!=Vector3.ZERO:
 		ladder_length=clampf(ladder.global_position.distance_to(target),LADDER_SECTION_LENGTH,LADDER_REACH)
@@ -235,11 +244,26 @@ func extend_ladder(target: Vector3=Vector3.ZERO) -> void:
 func retract_ladder() -> void:
 	if ladder_busy:
 		return
+	if ladder_deployed: _ladder_sound("ladder_retract")
 	ladder_deployed=false
 
 func release_ladder() -> void:
 	ladder_busy=false
-	ladder_deployed=false
+	retract_ladder()
+
+func _ladder_sound(kind: String) -> void:
+	var game:=get_parent()
+	if game.get("sounds")!=null: game.sounds.play(kind,global_position,.85,.25)
+
+func arrival_pose(at: Vector3, forward_heading: float, distance: float, age: float) -> void:
+	# Baked touchdown, followed by normal rolling, while physics is suspended.
+	global_position=at+Vector3.UP*(5.5*pow(maxf(0,1-age/.55),2)+.16*absf(sin(maxf(0,age-.55)*18))*exp(-maxf(0,age-.55)*7))
+	heading=forward_heading
+	rotation.y=heading
+	wheel_travel=distance/.5
+	for wheel in wheels: wheel.rotation.x=wheel_travel
+	reset_physics_interpolation()
+	show()
 
 func _ladder_path_clear(target: Vector3) -> bool:
 	var query:=PhysicsRayQueryParameters3D.create(ladder.global_position,target,3,[get_rid()])

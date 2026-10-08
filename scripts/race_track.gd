@@ -2,7 +2,8 @@ class_name ToyRaceTrack
 extends Node3D
 
 const ORIGIN:=Vector3(400,0,0)
-const SPAWN:=Vector3(0,1,-73)
+const SPAWN:=Vector3(0,.855,-73)
+const LAP_LIMIT:=RaceCourse.HALF_WIDTH*3.0 # One full road width of grass beyond either edge.
 const SAVE_PATH:="user://race_record_v2.cfg"
 static var GATES: Array[Vector2]:
 	get:
@@ -36,6 +37,18 @@ var walkers: Array[Dictionary]=[]
 var chatter_latches: Dictionary={}
 var animation_clock:=0.0
 var ducks: Array[Node3D]=[]
+var duck_states: Array[Dictionary]=[]
+var audience_states: Array[Dictionary]=[]
+var pond_wet:=false
+var pond_splash_clock:=0.0
+var crowd_index:=0
+const CROWD_SKIN_TONES: Array[Color]=[Color("edc6a5"),Color("d9a17b"),Color("b88160"),Color("986747"),Color("744c36"),Color("543c31")]
+const CROWD_HAIR_TONES: Array[Color]=[Color("4b3830"),Color("302c29"),Color("694f3f"),Color("99523b"),Color("292826"),Color("c8c6b4")]
+const BRIDGE_SAFETY_LAYER:=64
+const BRIDGE_RAIL_OFFSET:=8.15
+const BRIDGE_RAIL_HALF_THICKNESS:=.12
+const BRIDGE_RAIL_BOTTOM:=.62
+const BRIDGE_RAIL_TOP:=.82
 const NAMES: Array[String]=["KIT","SAMI","NORA"]
 const HYDRANT_POINT:=Vector3(-12,0,-68)
 
@@ -53,6 +66,9 @@ func _ready() -> void:
 	floor_plane.size=Vector2(800,800)
 	room_floor.mesh=floor_plane
 	room_floor.material_override=Playroom.wood_finish(Color("c6a47e"),true)
+	room_floor.material_override.set_shader_parameter("floor_origin",Vector2(ORIGIN.x,ORIGIN.z))
+	room_floor.material_override.set_shader_parameter("pond_hole",Vector4(RaceCourse.POND_CENTRE.x,RaceCourse.POND_CENTRE.y,RaceCourse.POND_RADIUS.x,RaceCourse.POND_RADIUS.y))
+	room_floor.material_override.set_shader_parameter("cut_pond",true)
 	room_floor.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(room_floor)
 	room_floor.position.y=-1.03
@@ -62,7 +78,7 @@ func _ready() -> void:
 	mat.show_mat(true,0)
 	mat.position=Vector3(0,.03,0)
 	mat.finish.set_shader_parameter("printed_toys",false)
-	TownProps.collider(self,Vector3(0,-.5,0),Vector3(160,1,160))
+	_build_pond_ground()
 	_build_course()
 	_build_boundary()
 	var buildings:=Node3D.new()
@@ -224,11 +240,13 @@ static func crosses_pose(from: Vector3, to: Vector3, index: int) -> bool:
 func _physics_process(dt: float) -> void:
 	if not active or game.paused or game.travel.active: return
 	var p:=Vector2(game.truck.global_position.x-ORIGIN.x,game.truck.global_position.z)
-	if running and track_distance(p)>9.5:
+	if running and track_distance(p)>LAP_LIMIT:
 		running=false
 		checkpoint=0
 		checkpoint_flag.hide()
-		game.toast("Lap cancelled — stay on the track.")
+		lap_time=0
+		timer_label.text=""
+		timer_label.hide()
 	if running: lap_time+=dt
 	var next:=checkpoint if running else 0
 	if crosses_pose(Vector3(previous.x,previous_height,previous.y),game.truck.global_position-ORIGIN,next):
@@ -247,14 +265,18 @@ func _physics_process(dt: float) -> void:
 	var source: BreakableProp=hydrant if not hydrant.loose and game.truck.global_position.distance_to(hydrant.global_position)<6.75 and game.truck.water<game.truck.tank_capacity else null
 	game.refill_hose.update(source,dt)
 	if game.refill_hose.active: game.truck.water=minf(game.truck.tank_capacity,game.truck.water+25*dt)
+	_update_pond(dt)
+	# The clock follows every 60 Hz race tick; layout does not need that rate.
+	timer_label.text="LAP  "+format_time(lap_time) if running else ""
+	timer_label.visible=running and not game.dialogue_active
 	status_clock+=dt
 	if status_clock>.1:
 		status_clock=0
-		timer_label.text="LAP  "+format_time(lap_time) if running else ""
-		timer_label.add_theme_font_size_override("font_size",17 if game.hud.touch_mode else 23)
+		var font_size:=17 if game.hud.touch_mode else 23
+		if timer_label.get_theme_font_size("font_size")!=font_size:
+			timer_label.add_theme_font_size_override("font_size",font_size)
 		timer_label.position=Vector2(12,83)
 		timer_label.size=Vector2(game.hud.size.x-24,36)
-		timer_label.visible=running and not game.dialogue_active
 
 func _complete_lap() -> void:
 	last_time=lap_time
@@ -288,9 +310,8 @@ func water_hit(point: Vector3, amount: float) -> bool:
 		if job.progress>=1:
 			job.done=true
 			job.mesh.hide()
-			if DisplayServer.get_name()!="headless": game.rewards.sound.play()
-			game.rewards.sparkle_burst(point,20)
-			game.toast("✓ "+job.title)
+			var camper: bool=job==jobs[2]
+			game.rewards.celebrate("race_"+job.title,point,"NORA" if camper else "SAMI","Thank you! Our camper is ready for another race weekend!" if camper else "Thank you for helping! The pit lane and sandwiches are in good hands.")
 		return true
 	return false
 
@@ -309,6 +330,71 @@ func aim_target(origin: Vector3, requested: Vector3) -> Variant:
 		score=error
 		best=target
 	return best
+
+func _build_pond_ground() -> void:
+	# Collision floor stops at the elliptical rim; no hidden flat slab fills it.
+	var c:=RaceCourse.POND_CENTRE
+	var r:=RaceCourse.POND_RADIUS
+	for rect in [Rect2(-80,-80,c.x-r.x+80,160),Rect2(c.x+r.x,-80,80-c.x-r.x,160),Rect2(c.x-r.x,-80,r.x*2,c.y-r.y+80),Rect2(c.x-r.x,c.y+r.y,r.x*2,80-c.y-r.y)]:
+		TownProps.collider(self,Vector3(rect.get_center().x,-.5,rect.get_center().y),Vector3(rect.size.x,1,rect.size.y))
+	var soil:=SurfaceTool.new()
+	soil.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var ground_faces:=PackedVector3Array()
+	# Rings outside the ellipse reach its bounding rectangle to close the gaps
+	# between the bowl and four surrounding collision slabs.
+	for ring in 24:
+		for i in 96:
+			var corners: Array[Vector3]=[]
+			for sample in [Vector2(ring,i),Vector2(ring+1,i),Vector2(ring,i+1),Vector2(ring+1,i+1)]:
+				var angle: float=sample.y*TAU/96
+				var direction:=Vector2(cos(angle),sin(angle))
+				var radial: float=sample.x/22.0
+				if sample.x>22: radial=lerpf(1,1/maxf(absf(direction.x),absf(direction.y)),(sample.x-22)/2)
+				var point: Vector2=c+direction*r*radial
+				var surface:=RaceCourse.pond_surface(point)
+				corners.append(Vector3(point.x,surface.height,point.y))
+			for index in [1,3,2] if ring==0 else [0,1,2,1,3,2]:
+				ground_faces.append(corners[index])
+				if ring<22:
+					soil.set_normal(RaceCourse.pond_surface(Vector2(corners[index].x,corners[index].z)).normal)
+					soil.add_vertex(corners[index])
+	soil.index()
+	var basin:=MeshInstance3D.new()
+	basin.name="SmoothPondBasin"
+	basin.mesh=soil.commit()
+	var paint:=ShaderMaterial.new()
+	paint.shader=preload("res://shaders/ground.gdshader")
+	paint.set_shader_parameter("base_color",Color("b9b98a"))
+	paint.set_shader_parameter("meadow",true)
+	basin.material_override=paint
+	basin.set_meta("assembly_group",2)
+	add_child(basin)
+	var body:=StaticBody3D.new()
+	body.name="PondBasinCollision"
+	basin.add_child(body)
+	var shape:=CollisionShape3D.new()
+	var terrain:=ConcavePolygonShape3D.new()
+	terrain.set_faces(ground_faces)
+	shape.shape=terrain
+	body.add_child(shape)
+	# Transparent shallow water allows the slope and submerged truck to show.
+	var water:=SurfaceTool.new()
+	water.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 96:
+		var points: Array[Vector3]=[Vector3(c.x,-.32,c.y)]
+		for angle in [float(i)*TAU/96,float(i+1)*TAU/96]:
+			points.append(Vector3(c.x+cos(angle)*r.x*.87,-.32,c.y+sin(angle)*r.y*.87))
+		for point in points: water.add_vertex(point)
+	water.generate_normals()
+	var surface:=MeshInstance3D.new()
+	surface.name="PondWater"
+	surface.mesh=water.commit()
+	var water_paint:=ShaderMaterial.new()
+	water_paint.shader=preload("res://shaders/basin_water.gdshader")
+	water_paint.set_shader_parameter("depth",.3)
+	surface.material_override=water_paint
+	surface.set_meta("assembly_group",2)
+	add_child(surface)
 
 func _build_course() -> void:
 	RaceCourse.points()
@@ -344,8 +430,9 @@ func _build_course() -> void:
 	# The road, deck, supports and rails rise together from the printed bridge.
 	for piece in get_children():
 		if piece.has_meta("assembly_group"): piece.set_meta("toy_pivot",Vector3(0,0,4))
-	TownProps.box(self,Vector3(0,.025,-69),Vector3(10,.05,30),Color("738888"))
-	for z in range(-80,-56,4): TownProps.box(self,Vector3(0,.07,z),Vector3(.13,.02,1.5),Color("f1dcaa"))
+	var entrance:=TownProps.box(self,Vector3(0,.025,-66.75),Vector3(10,.05,21.5),Color("738888"))
+	entrance.name="EntranceRoadInsideHem"
+	for z in range(-76,-56,4): TownProps.box(self,Vector3(0,.07,z),Vector3(.13,.02,1.5),Color("f1dcaa"))
 	TownProps.box(self,Vector3(-28,.035,-67),Vector3(43,.06,8),Color("899793"))
 	TownProps.box(self,Vector3(57,.035,22),Vector3(10,.06,45),Color("899793"))
 
@@ -382,6 +469,7 @@ func _build_boundary() -> void:
 func _boundary_collider(at: Vector3, dimensions: Vector3) -> void:
 	var body:=StaticBody3D.new()
 	body.collision_layer=Playroom.WALL_LAYER
+	body.add_to_group("wooden_boundary")
 	add_child(body)
 	body.position=at
 	var collision:=CollisionShape3D.new()
@@ -405,11 +493,6 @@ func _make_gate(parent: Node3D, index: int) -> void:
 	TownProps.box(gate,Vector3(0,6.2,0),Vector3(15.8,1,.7),color)
 	for i in 16:
 		TownProps.box(gate,Vector3(-7.5+i,6.25,.38),Vector3(.55,.55,.06),Color("f4e5be") if i%2==0 else Color("405b67"))
-	# Numbers are printed on the crossbar, with no camera-facing scene labels.
-	if index>0:
-		var number:=TownProps.label(gate,Vector3(0,6.25,.39),str(index),44)
-		number.billboard=BaseMaterial3D.BILLBOARD_DISABLED
-		number.pixel_size=.014
 	gates.append(gate)
 
 func _build_paddock(parent: Node3D) -> void:
@@ -419,14 +502,19 @@ func _build_paddock(parent: Node3D) -> void:
 	var grill:=TownProps.toy_group(parent,Vector3(62,0,16),"drop","RaceGrill")
 	TownProps.cylinder(grill,Vector3(0,.7,0),.6,1.2,Color("465763"))
 	TownProps.cylinder(grill,Vector3(0,1.4,0),1,.35,Color("a65043"))
-	# A small infield garden gives the campsite a place to gather between laps.
-	TownProps.ball(parent,Vector3(-31,.06,36),Vector3(17,.13,12),Color("d8c7a0"))
-	TownProps.ball(parent,Vector3(-31,.14,36),Vector3(15.5,.10,10.3),Color("74adb5"))
-	for j in 16:
-		var a:=j*TAU/16
-		TownProps.ball(parent,Vector3(-31+cos(a)*8,.20,36+sin(a)*5.5),Vector3(.65,.45,.55),Color("b3ad92"))
+	# Loose shore clusters leave broad, smooth routes into the recessed pond.
+	var rng_shore:=RandomNumberGenerator.new()
+	rng_shore.seed=3187
+	for j in 23:
+		var angle:=rng_shore.randf_range(0,TAU)
+		# Leave two open beaches, rather than fencing the water with a stone ring.
+		if absf(angle-1.5)<.4 or absf(angle-4.5)<.35: continue
+		var radial:=rng_shore.randf_range(.95,1.06)
+		var at:=RaceCourse.POND_CENTRE+Vector2(cos(angle),sin(angle))*RaceCourse.POND_RADIUS*radial
+		var rock:=TownProps.ball(parent,Vector3(at.x,.18,at.y),Vector3(rng_shore.randf_range(.5,1.3),rng_shore.randf_range(.3,.7),rng_shore.randf_range(.45,.95)),Color("b3ad92"))
+		rock.rotation.y=rng_shore.randf_range(0,TAU)
 	for i in 3:
-		var duck:=TownProps.toy_group(self,Vector3(-31+i,.28,36),"drop","SwimmingDuck")
+		var duck:=TownProps.toy_group(self,Vector3(-29+i,-.27,40),"drop","SwimmingDuck")
 		TownProps.ball(duck,Vector3.ZERO,Vector3(.85,.55,.6),Color("edc876"))
 		TownProps.ball(duck,Vector3(0,.33,-.26),Vector3(.44,.48,.44),Color("edc876"))
 		TownProps.box(duck,Vector3(0,.29,-.55),Vector3(.27,.10,.25),Color("d9894f"))
@@ -439,9 +527,9 @@ func _build_paddock(parent: Node3D) -> void:
 	_camper(parent,Vector3(60,0,65),Color("cb8a87"))
 	_prize_podium(parent,Vector3(-43,0,-4))
 	TownProps.box(parent,Vector3(58,.031,49),Vector3(27,.002,36),Color("c4cd9b"))
-	for at in [Vector3(61,0,39),Vector3(71,0,41),Vector3(35,0,67),Vector3(-55,0,5)]:
+	for at in [Vector3(61,0,39),Vector3(71,0,41),Vector3(35,0,67),Vector3(-54,0,-19)]:
 		_picnic_table(parent,at)
-	for at in [Vector3(-43,0,41),Vector3(-23,0,48),Vector3(-15,0,31)]:
+	for at in [Vector3(-65,0,-24),Vector3(-66,0,-10),Vector3(-58,0,3)]:
 		_tent(parent,at,Color("d5a969") if at.x< -30 else Color("81aca6"))
 	# Low awnings, flower pots, parked toy cars and equipment make the pit lane legible.
 	for x in [-35,-20]:
@@ -473,7 +561,7 @@ func _build_paddock(parent: Node3D) -> void:
 		if RaceCourse.distance_to_track(Vector2(p.x,p.z))<12 or absf(p.x)<8 and p.z< -52: continue
 		if p.distance_to(Vector3(53,0,46))<29 or p.distance_to(Vector3(-26,0,-67))<23 or p.distance_to(Vector3(-43,0,-4))<16: continue
 		if p.x< -58 and p.z>27 and p.z<55 or p.x>58 and p.z> -37 and p.z< -8: continue
-		if Vector2((p.x+31)/10.5,(p.z-36)/7.5).length()<1: continue
+		if ((Vector2(p.x,p.z)-RaceCourse.POND_CENTRE)/(RaceCourse.POND_RADIUS+Vector2(3,3))).length()<1: continue
 		var clear_site:=true
 		for toy in parent.get_children():
 			if not toy is Node3D or not toy.has_meta("toy_arrival"): continue
@@ -485,6 +573,7 @@ func _build_paddock(parent: Node3D) -> void:
 		if tree_count>=38: break
 	for side in [-1,1]:
 		var stands:=Node3D.new()
+		stands.name="WestAudiencePlatform" if side<0 else "EastAudiencePlatform"
 		parent.add_child(stands)
 		stands.position=Vector3(-71,0,42) if side<0 else Vector3(73,0,-22)
 		stands.rotation.y=side*PI/2
@@ -501,10 +590,14 @@ func _build_paddock(parent: Node3D) -> void:
 	people.append(_person(self,Vector3(65,0,29),Color("6d9cb2")))
 	people.append(_person(self,Vector3(38,0,55),Color("b88ca1")))
 	for i in people.size(): people[i].name=NAMES[i]
+	var welcome:=SPAWN-people[0].position
+	people[0].rotation.y=atan2(-welcome.x,-welcome.z)
 	for i in 4:
 		var start:=Vector3(50+i*2,0,41+i*2)
-		var actor:=_person(self,start,Color("81a99c") if i%2 else Color("ca8c80"))
-		walkers.append({"actor":actor,"start":start,"phase":i*1.7})
+		var angle:=i*1.7
+		var actor:=_person(self,start+Vector3(sin(angle)*3,0,cos(angle)*2),Color("81a99c") if i%2 else Color("ca8c80"),true)
+		var legs: Array[Node3D]=[actor.get_node("LegLeft"),actor.get_node("LegRight")]
+		walkers.append({"actor":actor,"start":start,"phase":i*1.7,"route_angle":i*1.7,"legs":legs})
 
 func _picnic_table(parent: Node3D, at: Vector3) -> void:
 	parent=TownProps.toy_group(parent,at,"drop","PicnicTable")
@@ -597,27 +690,97 @@ func _bunting(parent: Node3D, a: Vector3, b: Vector3) -> void:
 func _process(dt: float) -> void:
 	if not active or game.paused or game.travel.active: return
 	animation_clock+=dt
-	for i in ducks.size():
-		var t:=animation_clock*.18+i*TAU/3
-		ducks[i].position=Vector3(-31+cos(t)*5,.29+sin(t*7)*.025,36+sin(t)*3)
-		ducks[i].rotation.y=atan2(sin(t)*5,-cos(t)*3)
-		ducks[i].rotation.z=sin(t*9)*.035
+	_update_ducks(dt)
+	_update_audience(dt)
 	for i in people.size()+spectators.size():
 		var actor: Node3D=people[i] if i<people.size() else spectators[i-people.size()]
 		if not TownProps.near_view(game.camera,actor.global_position,3): continue
-		actor.get_node("ArmRight").rotation.z=-.4+sin(animation_clock*3+i)*.35
+		if i<people.size(): actor.get_node("ArmRight").rotation.z=-.4+sin(animation_clock*3+i)*.35
 		actor.get_node("Eyes").scale.y=.08 if fmod(animation_clock+i*.73,4.3)<.1 else 1.0
 		if i<people.size():
 			var toward: Vector3=game.truck.global_position-actor.global_position
 			if toward.length()<12: actor.rotation.y=lerp_angle(actor.rotation.y,atan2(-toward.x,-toward.z),1-exp(-3*dt))
+	_update_walkers(dt)
+
+func _update_walkers(dt: float) -> void:
 	for walker in walkers:
-		var t:=animation_clock*.25+float(walker.phase)
-		walker.actor.position=walker.start+Vector3(sin(t)*3,absf(sin(t*9))*.045,cos(t)*2)
-		walker.actor.rotation.y=atan2(-cos(t)*3,sin(t)*2)
+		var actor: Node3D=walker.actor
+		var moving:=actor.global_position.distance_to(game.truck.global_position)>=4.5
+		if moving:
+			walker.route_angle+=dt*.35
+			walker.phase+=dt*6
+		var angle: float=walker.route_angle
+		var bob:=TownProps.pose_walk(actor,walker.legs,walker.phase,moving)
+		actor.position=walker.start+Vector3(sin(angle)*3,bob,cos(angle)*2)
+		if moving:
+			actor.rotation.y=lerp_angle(actor.rotation.y,atan2(-cos(angle)*3,sin(angle)*2),1-exp(-6*dt))
+
+func _update_pond(dt: float) -> void:
+	var truck: FireEngine=game.truck
+	var local: Vector3=truck.global_position-ORIGIN
+	var radial:=((Vector2(local.x,local.z)-RaceCourse.POND_CENTRE)/RaceCourse.POND_RADIUS).length()
+	var wet:=radial<.96 and local.y<.55
+	pond_splash_clock=maxf(0,pond_splash_clock-dt)
+	if wet:
+		truck.water=minf(truck.tank_capacity,truck.water+20*dt)
+		var speed:=Vector2(truck.linear_velocity.x,truck.linear_velocity.z).length()
+		if not pond_wet or speed>1.5 and pond_splash_clock<=0:
+			pond_splash_clock=.16
+			var side: Vector3=truck.global_basis.x
+			for sign in [-1,1]:
+				var splash: Vector3=truck.global_position+side*sign*.95
+				splash.y=-.25
+				truck._splash(splash,Vector3.UP,true)
+			game.sounds.play("splash",truck.global_position,.65 if not pond_wet else .35,.65)
+	pond_wet=wet
+
+func _update_ducks(dt: float) -> void:
+	if duck_states.is_empty():
+		for duck in ducks: duck_states.append({"velocity":Vector2.ZERO,"quack_at":0.0})
+	var truck: Vector3=game.truck.global_position-ORIGIN
+	for i in ducks.size():
+		var duck:=ducks[i]
+		var state:=duck_states[i]
+		var p:=Vector2(duck.position.x,duck.position.z)
+		var danger:=Vector2(truck.x,truck.z)
+		var away:=p-danger
+		var fleeing:=away.length()<8 and truck.y<1.5
+		var t:=animation_clock*.16+i*TAU/3
+		var target:=RaceCourse.POND_CENTRE+Vector2(cos(t)*8,sin(t)*6)
+		var desired: Vector2=(target-p).normalized()*1.15
+		if fleeing:
+			desired=away.normalized()*3.6 if away.length()>.01 else Vector2.RIGHT*3.6
+		var rim: Vector2=(p-RaceCourse.POND_CENTRE)/RaceCourse.POND_RADIUS
+		if rim.length()>.77: desired+=(RaceCourse.POND_CENTRE-p).normalized()*5
+		state.velocity=state.velocity.lerp(desired,1-exp(-3*dt))
+		p+=state.velocity*dt
+		duck.position=Vector3(p.x,-.27+sin(animation_clock*2+i)*.025,p.y)
+		if state.velocity.length()>.05: duck.rotation.y=lerp_angle(duck.rotation.y,atan2(-state.velocity.x,-state.velocity.y),1-exp(-4*dt))
+		duck.rotation.z=sin(animation_clock*3+i)*.035
+		if animation_clock>=state.quack_at and (fleeing or truck.distance_to(duck.position)<18):
+			game.sounds.play("quack",duck.global_position,.7,1.0)
+			state.quack_at=animation_clock+3+i*.75
+
+func _update_audience(dt: float) -> void:
+	if audience_states.is_empty():
+		for actor in spectators: audience_states.append({"home":actor.position,"age":5.0,"next_cheer":0.0})
+	for i in spectators.size():
+		var actor:=spectators[i]
+		var state:=audience_states[i]
+		state.age+=dt
+		if running and animation_clock>state.next_cheer and actor.global_position.distance_to(game.truck.global_position)<19:
+			state.age=-float(i%3)*.08
+			state.next_cheer=animation_clock+4.5
+			game.sounds.play("cheer",actor.global_position,.8,1.0)
+		var cheering: bool=state.age>=0 and state.age<2.0
+		actor.position.y=state.home.y+(.35*absf(sin(state.age*PI*2))*(1-smoothstep(1.3,2.0,state.age)) if cheering else 0.0)
+		if TownProps.near_view(game.camera,actor.global_position,3):
+			actor.get_node("ArmRight").rotation.z=-1.7+sin(state.age*12)*.65 if cheering else -.4+sin(animation_clock*3+i)*.35
 
 func proximity_talk() -> void:
 	if running or game.dialogue_active: return
 	for i in people.size():
+		if game.rewards.waiting_for(NAMES[i]): continue
 		var d: float=game.truck.global_position.distance_to(people[i].global_position)
 		if d>11: chatter_latches.erase(i)
 		if d<7.5 and not chatter_latches.has(i) and game.truck.linear_velocity.length()<5:
@@ -629,7 +792,7 @@ func talk_to_person(index: int) -> bool:
 	var words: String
 	match index:
 		0:
-			words="Welcome to Maple Motor Park! Cross the chequered START arch heading right, then follow the numbered gates. Snake Bend, Camp Corner, and up over Sky Bridge! Each finish starts another lap. Your best time stays on that blue board. Need a top-up? The red hydrant is beside the entrance."
+			words="Welcome to "+TownTitle.RACE_NAME+"! Cross the chequered arch heading right, then follow the track through Snake Bend, Camp Corner, and over Sky Bridge! Each finish starts another lap. Your best time stays on that blue board. Need a top-up? Try the pond or the red hydrant beside the entrance."
 		1:
 			words="Snack Shack's open again! That was a very enthusiastic grill. Thank you for cooling it down. A victory sandwich is on me!" if jobs[1].done else "Race-day sandwiches! Except my grill has got a little carried away. Could you hose down that flare-up? There's a slippery spill in the pit lane too. We ought to tidy it before the next racer comes through."
 		2:
@@ -638,10 +801,22 @@ func talk_to_person(index: int) -> bool:
 	chatter_latches[index]=true
 	return true
 
-func _person(parent: Node3D, at: Vector3, shirt: Color) -> Node3D:
-	var person:=TownProps.person(parent,at,shirt)
-	# Keep only the waving hand and eyes separate; the rest shares one body batch.
-	TownProps.merge_fixed_geometry(person,[person.get_node("ArmRight"),person.get_node("Eyes")],"race_person_"+shirt.to_html(false))
+func _person(parent: Node3D, at: Vector3, shirt: Color, walking: bool=false) -> Node3D:
+	var skin:=CROWD_SKIN_TONES[crowd_index%CROWD_SKIN_TONES.size()]
+	var hair:=CROWD_HAIR_TONES[(crowd_index*5+2)%CROWD_HAIR_TONES.size()]
+	crowd_index+=1
+	var person:=TownProps.person(parent,at,shirt,skin,hair)
+	var moving_parts: Array[Node3D]=[person.get_node("ArmRight"),person.get_node("Eyes")]
+	if walking:
+		moving_parts.append(person.get_node("ArmLeft"))
+		moving_parts.append_array(TownProps.walking_legs(person))
+	var palette:=shirt.to_html(false)+"_"+skin.to_html(false)+"_"+hair.to_html(false)
+	TownProps.merge_fixed_geometry(person,moving_parts,"race_person_"+palette+("_walking" if walking else ""))
+	# Each moving limb/face remains one small batch, rather than separate meshes
+	# for hands, sleeves, shoes and eye highlights.
+	for part in moving_parts:
+		var key:="race_person_eyes" if part.name=="Eyes" else "race_walking_leg" if part.name in ["LegLeft","LegRight"] else "race_person_arm_"+palette
+		TownProps.merge_fixed_geometry(part,[],key)
 	return person
 
 func _make_breakable_scenery(parent: Node3D) -> void:
@@ -699,14 +874,22 @@ func _build_bridge() -> void:
 	deck_tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var rails: Array[SurfaceTool]=[SurfaceTool.new(),SurfaceTool.new()]
 	for rail in rails: rail.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var bridge_body:=StaticBody3D.new()
+	bridge_body.name="BridgeSafetyCollision"
+	bridge_body.collision_layer=BRIDGE_SAFETY_LAYER
+	bridge_body.collision_mask=1
+	add_child(bridge_body)
+	var safety_faces:=PackedVector3Array()
 	var last_post:=-10.0
 	for i in range(16*RaceCourse.STEPS,22*RaceCourse.STEPS):
 		var p:=path[i]
 		var q:=path[i+1]
 		var side_p:=_road_side(path,i)
 		var side_q:=_road_side(path,i+1)
-		# Flat approach boards taper into the mat; the road collider alone bears
-		# the truck, so deck seams and rail posts cannot jolt its suspension.
+		# Solid underside and rails share the visual curve. Their upper surfaces
+		# stay below the chassis riding the separately sampled driving profile.
+		if maxf(p.y,q.y)>.8:
+			_bridge_solid(safety_faces,p,q,side_p,side_q,-8.3,8.3,-.65,-.18)
 		for lift in [-.18,-.65]:
 			_bridge_quad(deck_tool,p-side_p*8.3+Vector3.UP*lift,q-side_q*8.3+Vector3.UP*lift,q+side_q*8.3+Vector3.UP*lift,p+side_p*8.3+Vector3.UP*lift)
 		for sign in [-1,1]:
@@ -718,15 +901,24 @@ func _build_bridge() -> void:
 			var b: Vector3=q+side_q*sign*8.3
 			_bridge_quad(deck_tool,a+Vector3.DOWN*.65,b+Vector3.DOWN*.65,b+Vector3.UP*.055,a+Vector3.UP*.055)
 			var tool: SurfaceTool=rails[0 if sign<0 else 1]
-			for lift in [.62,.82]:
-				_bridge_quad(tool,p+side_p*sign*8.15-side_p*.12+Vector3.UP*lift,q+side_q*sign*8.15-side_q*.12+Vector3.UP*lift,q+side_q*sign*8.15+side_q*.12+Vector3.UP*lift,p+side_p*sign*8.15+side_p*.12+Vector3.UP*lift)
-			for offset in [-.12,.12]:
-				var a_rail: Vector3=p+side_p*(sign*8.15+offset)
-				var b_rail: Vector3=q+side_q*(sign*8.15+offset)
-				_bridge_quad(tool,a_rail+Vector3.UP*.62,b_rail+Vector3.UP*.62,b_rail+Vector3.UP*.82,a_rail+Vector3.UP*.82)
+			# Render and collide with the same timber faces. Safety geometry stays
+			# outside ground queries, so tires never sample a rail as driving ground.
+			var rail_faces:=PackedVector3Array()
+			_bridge_solid(rail_faces,p,q,side_p,side_q,sign*BRIDGE_RAIL_OFFSET-BRIDGE_RAIL_HALF_THICKNESS,sign*BRIDGE_RAIL_OFFSET+BRIDGE_RAIL_HALF_THICKNESS,BRIDGE_RAIL_BOTTOM,BRIDGE_RAIL_TOP)
+			safety_faces.append_array(rail_faces)
+			for vertex in rail_faces: tool.add_vertex(vertex)
 		if p.y>.25 and RaceCourse.distances[i]-last_post>4:
 			last_post=RaceCourse.distances[i]
-			for sign in [-1,1]: TownProps.cylinder(self,p+side_p*sign*8.15+Vector3.UP*.31,.09,.85,Color("bc8b58")).set_meta("assembly_group",2)
+			for sign in [-1,1]:
+				var post:=TownProps.cylinder(self,p+side_p*sign*BRIDGE_RAIL_OFFSET+Vector3.UP*.31,.09,.85,Color("bc8b58"))
+				post.set_meta("assembly_group",2)
+				for vertex in post.mesh.get_faces(): safety_faces.append(post.transform*vertex)
+	var collision:=CollisionShape3D.new()
+	var solid:=ConcavePolygonShape3D.new()
+	solid.set_faces(safety_faces)
+	solid.backface_collision=true
+	collision.shape=solid
+	bridge_body.add_child(collision)
 	var timber:=TownProps.material(Color("cead7d"))
 	timber=timber.duplicate()
 	timber.cull_mode=BaseMaterial3D.CULL_DISABLED
@@ -748,6 +940,19 @@ func _build_bridge() -> void:
 		var pier:=TownProps.box(self,Vector3(base.x,height*.5,base.z),Vector3(1.0,height,1.0),Color("c89d6f"),true)
 		pier.name="NorthBridgePier"+str(sign)
 		pier.set_meta("assembly_group",2)
+
+func _bridge_solid(faces: PackedVector3Array, p: Vector3, q: Vector3, side_p: Vector3, side_q: Vector3, inner: float, outer: float, bottom: float, top: float) -> void:
+	var points:=PackedVector3Array()
+	for endpoint in [0,1]:
+		var at:=p if endpoint==0 else q
+		var side:=side_p if endpoint==0 else side_q
+		for width in [inner,outer]:
+			for y in [bottom,top]: points.append(at+side*width+Vector3.UP*y)
+	# One shared static collision mesh, not hundreds of individual bodies.
+	# Both faces of each solid span block side/underside approaches.
+	# Adjacent spans share open ends: internal caps caught the moving chassis.
+	for quad in [[0,1,5,4],[2,6,7,3],[0,4,6,2],[1,3,7,5]]:
+		for index in [quad[0],quad[1],quad[2],quad[0],quad[2],quad[3]]: faces.append(points[index])
 
 func _road_side(path: PackedVector3Array, index: int) -> Vector3:
 	var tangent:=path[index+1]-path[index-1]

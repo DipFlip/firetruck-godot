@@ -1,0 +1,134 @@
+{
+  "environment": {
+    "hardware": "Apple M5",
+    "browser": "foreground Chromium",
+    "viewport_css": [
+      1280,
+      800
+    ],
+    "sample_rate": 48000
+  },
+  "before": {
+    "build": "before",
+    "buffers": [
+      {
+        "samples": 4096,
+        "channels": 2,
+        "sampleRate": 48000,
+        "bufferMs": 42.666666666666664
+      }
+    ],
+    "phases": [
+      {
+        "label": "station and phone",
+        "injectedBusyMs": 0,
+        "pcm": {
+          "blocks": 3008,
+          "silentBlocks": 0,
+          "peak": 0.06729130446910858,
+          "maxStep": 0.007537748198956251
+        },
+        "fps": 60
+      },
+      {
+        "label": "pool and water",
+        "injectedBusyMs": 0,
+        "pcm": {
+          "blocks": 3012,
+          "silentBlocks": 0,
+          "peak": 0.045875512063503265,
+          "maxStep": 0.004747919738292694
+        },
+        "fps": 60
+      },
+      {
+        "label": "pool with 75ms main-thread stalls",
+        "injectedBusyMs": 75,
+        "pcm": {
+          "blocks": 3034,
+          "silentBlocks": 0,
+          "peak": 0.04639420285820961,
+          "maxStep": 0.02619058173149824
+        },
+        "fps": 53
+      },
+      {
+        "label": "barbecue and water",
+        "injectedBusyMs": 0,
+        "pcm": {
+          "blocks": 3012,
+          "silentBlocks": 0,
+          "peak": 0.04034261032938957,
+          "maxStep": 0.008911185548640788
+        },
+        "fps": 60
+      }
+    ],
+    "errors": []
+  },
+  "after": {
+    "build": "after",
+    "buffers": [
+      {
+        "samples": 8192,
+        "channels": 2,
+        "sampleRate": 48000,
+        "bufferMs": 85.33333333333333
+      }
+    ],
+    "phases": [
+      {
+        "label": "station and phone",
+        "injectedBusyMs": 0,
+        "pcm": {
+          "blocks": 3010,
+          "silentBlocks": 0,
+          "peak": 0.07110595703125,
+          "maxStep": 0.011138916015625
+        },
+        "fps": 60
+      },
+      {
+        "label": "pool and water",
+        "injectedBusyMs": 0,
+        "pcm": {
+          "blocks": 3012,
+          "silentBlocks": 0,
+          "peak": 0.039886474609375,
+          "maxStep": 0.004638671875
+        },
+        "fps": 60
+      },
+      {
+        "label": "pool with 75ms main-thread stalls",
+        "injectedBusyMs": 75,
+        "pcm": {
+          "blocks": 3038,
+          "silentBlocks": 0,
+          "peak": 0.047119140625,
+          "maxStep": 0.00592041015625
+        },
+        "fps": 53
+      },
+      {
+        "label": "barbecue and water",
+        "injectedBusyMs": 0,
+        "pcm": {
+          "blocks": 3010,
+          "silentBlocks": 0,
+          "peak": 0.040679931640625,
+          "maxStep": 0.008880615234375
+        },
+        "fps": 60
+      }
+    ],
+    "errors": []
+  },
+  "stressed_hose_max_adjacent_sample_jump_reduction_percent": 77.394888678132,
+  "notes": [
+    "PCM probes capture only this game, not microphone or system audio.",
+    "Normal phases stay at 60fps. The stressed phase deliberately blocks the main thread for 75ms every approximately 475ms and drops to 53fps in both builds.",
+    "Sound variants and music phase vary; maximum sample difference is a discontinuity diagnostic, not a perceptual click count.",
+    "No measured mix clips; the precise trigger of the user-reported intermittent tick remains unconfirmed."
+  ]
+}

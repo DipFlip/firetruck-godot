@@ -188,7 +188,7 @@ static func house(parent: Node3D, pos: Vector3, color: Color, title: String, hei
 	model("res://assets/models/"+file+".glb",root)
 	collider(root,Vector3(0,2.5,0),Vector3(8,5,6))
 
-static func person(parent: Node3D, pos: Vector3, shirt: Color) -> Node3D:
+static func person(parent: Node3D, pos: Vector3, shirt: Color, skin_tone: Color=Color.TRANSPARENT, hair_tone: Color=Color.TRANSPARENT) -> Node3D:
 	var p:=Node3D.new()
 	p.name="Neighbour"
 	p.set_meta("toy_arrival","drop")
@@ -199,13 +199,15 @@ static func person(parent: Node3D, pos: Vector3, shirt: Color) -> Node3D:
 	if shirt==Color("ecb354"): hair=Color("99523b"); skin=Color("dfac81")
 	if shirt==Color("6d9cb2"): skin=Color("b88160"); hair=Color("4b3f37")
 	if shirt==Color("b88ca1"): hair=Color("c8c6b4"); skin=Color("d1a888")
+	if skin_tone.a>0: skin=skin_tone
+	if hair_tone.a>0: hair=hair_tone
 	for x in [-0.22,0.22]:
 		box(p,Vector3(x,0.4,0),Vector3(0.27,0.68,0.32),Color("465967"))
 		ball(p,Vector3(x,0.1,-0.12),Vector3(0.37,0.24,0.57),Color("775d4a"))
 	ball(p,Vector3(0,1.03,0),Vector3(0.94,1.08,0.60),shirt)
 	box(p,Vector3(0,1.09,-0.29),Vector3(0.045,0.63,0.035),shirt.darkened(0.16))
 	for y in [0.85,1.08,1.31]: ball(p,Vector3(0,y,-0.325),Vector3.ONE*0.075,Color("e8d4ac"))
-	ball(p,Vector3(0,1.94,0),Vector3(1.01,1.07,0.88),skin)
+	ball(p,Vector3(0,1.94,0),Vector3(1.01,1.07,0.88),skin).name="Head"
 	ball(p,Vector3(0,2.29,0.06),Vector3(1.07,0.62,0.95),hair)
 	for side in [-1,1]:
 		ball(p,Vector3(side*0.47,1.92,0),Vector3(0.18,0.28,0.2),skin)
@@ -230,6 +232,30 @@ static func person(parent: Node3D, pos: Vector3, shirt: Color) -> Node3D:
 		ball(p,Vector3(0,2.57,0.1),Vector3(0.48,0.46,0.5),hair)
 	soften_toy_shine(p)
 	return p
+
+static func walking_legs(person: Node3D) -> Array[Node3D]:
+	var legs: Array[Node3D]=[]
+	for side in [-1,1]:
+		var pivot:=Node3D.new()
+		pivot.name="LegLeft" if side<0 else "LegRight"
+		person.add_child(pivot)
+		pivot.position=Vector3(side*.22,.72,0)
+		for child in person.get_children():
+			if child is MeshInstance3D and absf(child.position.x-side*.22)<.01 and child.position.y<.75:
+				child.reparent(pivot)
+		legs.append(pivot)
+	return legs
+
+# Shared Maple Bay gait. Return the small footfall bob for the caller's terrain.
+static func pose_walk(person: Node3D, legs: Array[Node3D], phase: float, moving: bool=true) -> float:
+	var step:=sin(phase)*(.45 if moving else .03)
+	legs[0].rotation.x=step
+	legs[1].rotation.x=-step
+	person.get_node("ArmLeft").rotation.x=-step
+	person.get_node("ArmRight").rotation.x=step
+	person.get_node("ArmLeft").rotation.z=-.12
+	person.get_node("ArmRight").rotation.z=.12
+	return absf(cos(phase))*.035 if moving else 0.0
 
 # Compatibility/WebGL has a much smaller instance-uniform buffer. Particle
 # pools use separate material parameters there so trails never exhaust it.
@@ -316,6 +342,24 @@ static func assembly_owner(node: Node3D, limit: Node3D) -> Node3D:
 		ancestor=ancestor.get_parent() as Node3D
 	return owner
 
+# Bounds of a complete toy rather than a single petal/window in that toy.
+static func visual_bounds(toy: Node3D) -> AABB:
+	var bounds:=AABB()
+	var first:=true
+	var inverse:=toy.global_transform.affine_inverse()
+	for node in toy.find_children("*","GeometryInstance3D",true,false):
+		var part: AABB=(inverse*node.global_transform)*node.get_aabb()
+		bounds=part if first else bounds.merge(part)
+		first=false
+	return bounds
+
+static func small_arrival(node: Node3D, size: Vector3) -> bool:
+	if node.has_meta("assembly_group") or node.get_meta("toy_arrival","")=="grow": return false
+	if node.name=="Neighbour" or node.get_meta("toy_kind","")=="GardenTree": return false
+	if node is BreakableProp and node.kind=="tree": return false
+	# Bushes and larger toys keep their tumble; details below 1.7m sprout in place.
+	return size.abs().x<1.7 and size.abs().y<1.7 and size.abs().z<1.7
+
 static func assembly_ink(node: MeshInstance3D, root: Node3D) -> Vector3:
 	var owner:=assembly_owner(node,root)
 	var inverse:=root.global_transform.affine_inverse()
@@ -324,6 +368,10 @@ static func assembly_ink(node: MeshInstance3D, root: Node3D) -> Vector3:
 	if node.has_meta("toy_pivot"): at=node.get_meta("toy_pivot")
 	var kind:=2 if owner and owner.get_meta("toy_arrival","")=="grow" or node.has_meta("assembly_group") else 3
 	if not owner and not node.has_meta("toy_pivot") and absf(size.y)<.35: kind=1
+	if owner:
+		if not owner.has_meta("arrival_bounds"): owner.set_meta("arrival_bounds",owner.global_basis*visual_bounds(owner).size)
+		if small_arrival(owner,owner.get_meta("arrival_bounds")): kind=4
+	elif small_arrival(node,size): kind=4
 	return Vector3(at.x,at.z,kind)
 
 # Bake fixed geometry into small material groups. Original nodes remain as
@@ -333,7 +381,7 @@ static func merge_fixed_geometry(root: Node3D, excluded: Array[Node3D], cache_na
 	_collect_fixed(root,excluded,meshes)
 	if cache_name.is_empty(): cache_name=root.get_script().resource_path.get_file().get_basename()
 	var cache_path: String="res://assets/scenery/"+cache_name+".scn"
-	var signature: Array=["toy-arrival-vertices-v1"]
+	var signature: Array=["toy-arrival-vertices-v2"]
 	for node in meshes:
 		var palette: Array=[]
 		for surface in node.mesh.get_surface_count():

@@ -1,0 +1,281 @@
+{
+  "gameplay": {
+    "phases": [
+      {
+        "label": "real barbecue hose contact",
+        "seconds": 3,
+        "fps": 60,
+        "renderFrames": 182,
+        "renderHistogram": [
+          182,
+          0,
+          0,
+          0,
+          0
+        ],
+        "physicsMs": 2,
+        "processMs": 2.9,
+        "drawCalls": 902,
+        "renderScale": 1,
+        "fireStart": 0,
+        "fireEnd": 1,
+        "sounds": {
+          "bird": 1,
+          "fire_sizzle": 1,
+          "ringtone": 1
+        },
+        "cameraBlend": 1
+      },
+      {
+        "label": "barbecue completion and steam",
+        "seconds": 3,
+        "fps": 60,
+        "renderFrames": 179,
+        "renderHistogram": [
+          178,
+          0,
+          0,
+          0,
+          1
+        ],
+        "physicsMs": 2.3,
+        "processMs": 2.9,
+        "drawCalls": 861,
+        "renderScale": 1,
+        "fireStart": 1,
+        "fireEnd": 1,
+        "sounds": {
+          "bird": 1,
+          "fire_sizzle": 1,
+          "ringtone": 1
+        },
+        "cameraBlend": 1
+      },
+      {
+        "label": "motorway southern edge",
+        "seconds": 3,
+        "fps": 60,
+        "renderFrames": 180,
+        "renderHistogram": [
+          175,
+          4,
+          0,
+          1,
+          0
+        ],
+        "physicsMs": 1,
+        "processMs": 2.3,
+        "drawCalls": 507,
+        "renderScale": 1,
+        "fireStart": 1,
+        "fireEnd": 1,
+        "sounds": {
+          "bird": 1,
+          "fire_sizzle": 1,
+          "meow": 1,
+          "plastic": 4,
+          "ringtone": 1,
+          "whistle": 1,
+          "wood": 4
+        },
+        "cameraBlend": 0
+      }
+    ],
+    "captures": [
+      "output/playwright/reactions-maple-first-house.png",
+      "output/playwright/reactions-barbecue-wet.png",
+      "output/playwright/reactions-race-start-assembly.png",
+      "output/playwright/reactions-food-court-assembly.png",
+      "output/playwright/reactions-audience-assembly.png",
+      "output/playwright/reactions-truck-touchdown.png",
+      "output/playwright/reactions-southern-edge.png"
+    ],
+    "errors": [],
+    "final": {
+      "audio_counts": {
+        "bird": 1,
+        "fire_sizzle": 1,
+        "meow": 1,
+        "plastic": 4,
+        "ringtone": 1,
+        "whistle": 1,
+        "wood": 4
+      },
+      "batched": 772,
+      "best_lap": 0,
+      "camera_size": 25.7999992370605,
+      "cat_carried": false,
+      "charge": 0,
+      "conversation_blend": 0,
+      "dialogue_font": 19,
+      "dialogue_lines": 4,
+      "dialogue_rect": [
+        654,
+        432,
+        440,
+        148
+      ],
+      "dialogue_revealed": 8,
+      "dialogue_text": "Morning, rookie! Quiet shift today... except Maya's cat thinks he's a bird. Follow the arrow to Maple Green. You've got this.",
+      "draw_calls": 507,
+      "fire_progress": 1,
+      "flat_height_step": 0,
+      "focused": true,
+      "fps": 60,
+      "game_clock": 12.2828180000001,
+      "height": 0.824416518211365,
+      "intro": false,
+      "intro_clock": 4.68318799999998,
+      "intro_shot": 0,
+      "ladder": false,
+      "lap_running": false,
+      "lap_time": 0,
+      "last_lap": 0,
+      "loading": false,
+      "logical_view": [
+        1120,
+        700
+      ],
+      "loose_race_props": 0,
+      "max_render_ms": 98.7,
+      "merged_scenery": 142,
+      "neighbours": [
+        {
+          "visible": false,
+          "x": 1013.8212890625,
+          "y": -2115.96020507812
+        },
+        {
+          "visible": false,
+          "x": 1651.13684082031,
+          "y": -147.933090209961
+        },
+        {
+          "visible": true,
+          "x": 668.949584960938,
+          "y": 2.51914548873901
+        }
+      ],
+      "north_exit_open": true,
+      "objects": 620,
+      "pages": 1,
+      "paused": false,
+      "physics_ms": 1,
+      "process_frames": 2637,
+      "process_ms": 2.3,
+      "race_checkpoint": 0,
+      "race_drive_frames": 0,
+      "race_gates": [
+        {
+          "dx": 1,
+          "dz": 6.78220567351673e-06,
+          "x": 0,
+          "y": 0.85,
+          "z": -54
+        },
+        {
+          "dx": -0.963491499423981,
+          "dz": 0.267739087343216,
+          "x": 45.6666679382324,
+          "y": 0.85,
+          "z": -16
+        },
+        {
+          "dx": 0.634736120700836,
+          "dz": 0.772728979587555,
+          "x": -56.1666679382324,
+          "y": 0.85,
+          "z": 51.3333320617676
+        },
+        {
+          "dx": -0.846877872943878,
+          "dz": -0.531787574291229,
+          "x": 1.16666662693024,
+          "y": 7.85,
+          "z": 2.83333325386047
+        }
+      ],
+      "render_frames": 2637,
+      "render_histogram": [
+        2531,
+        20,
+        1,
+        2,
+        5
+      ],
+      "render_scale": 1,
+      "scenery_cached": true,
+      "speaker": "DISPATCH",
+      "speed": 0.335008889436722,
+      "surface_error": 0,
+      "talking": false,
+      "train_boarded": true,
+      "train_position": [
+        -8.99093532562256,
+        -63
+      ],
+      "train_push_locked": false,
+      "train_started": true,
+      "transition": false,
+      "transition_clock": 26.0159020000008,
+      "truck_position": [
+        445,
+        76
+      ],
+      "warmup_pool": true,
+      "water": 64.7999999999993,
+      "world": "race_track"
+    }
+  },
+  "pond_and_lap": {
+    "pond": {
+      "waterBefore": 0,
+      "waterAfter": 69.0000000000001,
+      "height": -1.57558345794678,
+      "sounds": {
+        "bird": 1,
+        "ceramic": 1,
+        "cheer": 3,
+        "cloth": 4,
+        "fire_sizzle": 1,
+        "meow": 1,
+        "plastic": 8,
+        "quack": 10,
+        "ringtone": 1,
+        "splash": 9,
+        "whistle": 1,
+        "wood": 20
+      }
+    },
+    "lap": {
+      "seconds": 46.633333333332,
+      "fps": 60,
+      "frames": 2834,
+      "histogram": [
+        2828,
+        6,
+        0,
+        0,
+        0
+      ],
+      "scale": 1,
+      "surfaceError": 0.00656307189078764,
+      "flatStep": 0.000414192676544189,
+      "sounds": {
+        "bird": 1,
+        "ceramic": 1,
+        "cheer": 5,
+        "cloth": 4,
+        "fire_sizzle": 1,
+        "meow": 1,
+        "plastic": 8,
+        "quack": 12,
+        "ringtone": 1,
+        "splash": 9,
+        "whistle": 1,
+        "wood": 20
+      }
+    },
+    "errors": []
+  }
+}

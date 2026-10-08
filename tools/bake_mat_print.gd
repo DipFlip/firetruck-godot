@@ -25,7 +25,7 @@ func run() -> void:
 	game.camera.size=160
 	game.camera.far=450
 	for i in 4: await process_frame
-	await RenderingServer.frame_post_draw
+	RenderingServer.force_draw()
 	var error:=root.get_texture().get_image().save_png("res://assets/scenery/maple_mat.png")
 	print("MAT PRINT: ",error)
 	game.intro.finish()
@@ -40,7 +40,7 @@ func run() -> void:
 	game.camera.position=ToyRaceTrack.ORIGIN+Vector3(0,200,0)
 	game.camera.look_at(ToyRaceTrack.ORIGIN,Vector3(0,0,-1))
 	for i in 4: await process_frame
-	await RenderingServer.frame_post_draw
+	RenderingServer.force_draw()
 	error=root.get_texture().get_image().save_png("res://assets/scenery/race_mat.png")
 	print("RACE MAT PRINT: ",error)
 	game.travel.finish_assembly()

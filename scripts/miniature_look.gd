@@ -25,7 +25,7 @@ func _process(dt: float) -> void:
 	var centre: float=game.camera.unproject_position(game.truck.get_global_transform_interpolated().origin+Vector3.UP).y/height
 	var top:=clampf(centre-.23,.12,.4)
 	var bottom:=clampf(centre+.23,.6,.9)
-	if game.intro and game.intro.active:
+	if (game.intro and game.intro.active) or (game.travel and game.travel.active):
 		top=.25
 		bottom=.74
 	elif is_instance_valid(game.camera_subject) and game.conversation_blend>.01:

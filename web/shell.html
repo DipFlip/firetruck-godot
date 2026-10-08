@@ -31,11 +31,13 @@ $GODOT_HEAD_INCLUDE
 <button class="action" data-action="ladder" aria-label="Extend or retract ladder"><svg viewBox="0 0 24 24"><path d="M7 21V3m10 18V3M7 6h10M7 11h10M7 16h10"/></svg><span>LADDER</span></button>
 
 </section></main>
+<script src="render_budget.js"></script>
 <script src="$GODOT_URL"></script>
 <script>
 'use strict';
 const canvas=document.querySelector('#canvas'),screen=document.querySelector('#screen');
-const state=window.firetruckTouch={enabled:false,portrait:false,driveX:0,driveY:0,aimX:0,aimY:0,jump:false,ladder:0,pause:0,map:0,recover:0,cancel:0,talking:false,testing:new URLSearchParams(location.search).has('qa'),telemetry:"",width:0,height:0};
+window.firetruckRenderBudget.install(canvas);
+const state=window.firetruckTouch={enabled:false,portrait:false,focused:document.hasFocus(),visible:!document.hidden,driveX:0,driveY:0,aimX:0,aimY:0,jump:false,ladder:0,pause:0,map:0,recover:0,cancel:0,talking:false,testing:new URLSearchParams(location.search).has('qa'),telemetry:"",width:0,height:0};
 window.firetruckPause=paused=>{document.body.classList.toggle("paused",paused);if(paused)clearControls();};
 window.firetruckMainMenu=()=>{clearControls();location.reload();};
 if(new URLSearchParams(location.search).get("qa")==="travel") window.firetruckQA={sequence:0,action:"",x:0,z:0,value:0};
@@ -47,7 +49,7 @@ const forced=new URLSearchParams(location.search).has('touch');
 function clearControls(){state.driveX=state.driveY=state.aimX=state.aimY=0;state.jump=false;state.cancel++;resetters.forEach(reset=>reset());document.querySelectorAll('.knob').forEach(k=>k.style.transform='');document.querySelectorAll('.held').forEach(b=>b.classList.remove('held'));}
 function layout(){const touch=forced||matchMedia('(pointer:coarse)').matches||navigator.maxTouchPoints>0;state.enabled=touch;state.portrait=touch&&innerHeight>innerWidth;document.body.classList.toggle('touch',touch);document.body.classList.toggle('portrait',state.portrait);clearControls();resizeCanvas();}
 function resizeCanvas(){const rect=screen.getBoundingClientRect();state.width=canvas.clientWidth;state.height=canvas.clientHeight;const dpr=Math.min(devicePixelRatio||1,state.enabled?1.5:2,Math.sqrt(2000000/Math.max(1,canvas.clientWidth*canvas.clientHeight)));const w=Math.round(canvas.clientWidth*dpr),h=Math.round(canvas.clientHeight*dpr);if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;} }
-addEventListener('resize',layout);addEventListener('orientationchange',layout);addEventListener('blur',clearControls);document.addEventListener('visibilitychange',()=>{if(document.hidden)clearControls();});new ResizeObserver(resizeCanvas).observe(screen);
+addEventListener('resize',layout);addEventListener('orientationchange',layout);addEventListener('focus',()=>{state.focused=true;});addEventListener('blur',()=>{state.focused=false;clearControls();});document.addEventListener('visibilitychange',()=>{state.visible=!document.hidden;if(document.hidden)clearControls();});new ResizeObserver(resizeCanvas).observe(screen);
 for(const pad of document.querySelectorAll('.stick')){let pointer=null;const knob=pad.querySelector('.knob'),drive=pad.dataset.stick==='drive';function move(e){const r=pad.getBoundingClientRect(),limit=r.width*.32;let x=(e.clientX-r.left-r.width/2)/limit,y=(e.clientY-r.top-r.height/2)/limit;const length=Math.hypot(x,y);if(length>1){x/=length;y/=length;}knob.style.transform=`translate(${x*limit}px,${y*limit}px)`;const dead=.12;const gain=length<dead?0:Math.min(1,(length-dead)/(1-dead))/Math.min(1,length);state[drive?'driveX':'aimX']=x*gain;state[drive?'driveY':'aimY']=y*gain;}
 resetters.push(()=>{if(pointer!==null&&pad.hasPointerCapture(pointer))pad.releasePointerCapture(pointer);pointer=null;});
 pad.addEventListener('pointerdown',e=>{if(pointer!==null||!ready)return;e.preventDefault();pointer=e.pointerId;pad.setPointerCapture(pointer);move(e);});pad.addEventListener('pointermove',e=>{if(e.pointerId===pointer){e.preventDefault();move(e);}});function release(e){if(e.pointerId!==pointer)return;pointer=null;state[drive?'driveX':'aimX']=0;state[drive?'driveY':'aimY']=0;knob.style.transform='';}pad.addEventListener('pointerup',release);pad.addEventListener('pointercancel',release);pad.addEventListener('lostpointercapture',release);}

@@ -2,12 +2,15 @@ shader_type spatial;
 render_mode diffuse_burley;
 uniform vec4 timber : source_color = vec4(0.72,0.49,0.28,1.0);
 uniform bool floorboards = true;
+uniform vec2 floor_origin = vec2(0.0);
 // Painted pieces keep a faint grain under a glossier coat of colour.
 uniform bool painted = false;
 // Bent arches: fibres follow the curve around this local-space centre (y,z).
 uniform bool bent = false;
 uniform vec2 bend_centre = vec2(1.9,0.0);
 uniform bool cut_pool = false;
+uniform bool cut_pond = false;
+uniform vec4 pond_hole = vec4(0.0);
 uniform vec4 pool_hole = vec4(0.0);
 uniform float grain_seed = 0.37;
 uniform vec3 rest_dimensions = vec3(0.0);
@@ -31,6 +34,7 @@ void vertex(){
  piece_seed=INSTANCE_CUSTOM.x>0.0 ? INSTANCE_CUSTOM.w : grain_seed;
 }
 void fragment(){
+ if(cut_pond && length((world.xz-floor_origin-pond_hole.xy)/pond_hole.zw)<1.0) discard;
  if(cut_pool && world.x>pool_hole.x && world.z>pool_hole.y && world.x<pool_hole.z && world.z<pool_hole.w){discard;}
  float seed=piece_seed;
  float seam=0.0;
@@ -38,12 +42,13 @@ void fragment(){
  float along;
  vec2 across;
  if(floorboards){
-  float row=floor((world.z+4.0)/10.0);
+  vec2 floor_at=world.xz-floor_origin;
+  float row=floor((floor_at.y+4.0)/10.0);
   float length_board=30.0+hash(row+91.0)*23.0;
   float stagger=hash(row)*length_board;
-  float board=floor((world.x+stagger)/length_board);
+  float board=floor((floor_at.x+stagger)/length_board);
   seed=hash(row*37.0+board*73.0);
-  vec2 cell=vec2(mod(world.x+stagger,length_board),mod(world.z+4.0,10.0));
+  vec2 cell=vec2(mod(floor_at.x+stagger,length_board),mod(floor_at.y+4.0,10.0));
   vec2 edge=min(cell,vec2(length_board,10.0)-cell);
   seam=(1.0-smoothstep(.02,.09,min(edge.x,edge.y)))*.22;
   along=cell.x;
@@ -83,7 +88,7 @@ void fragment(){
  shade+=(seed-.5)*(painted ? .05 : .14);
  shade-=seam;
  // Only a gentle falloff towards the far floor, away from the window.
- if(floorboards){shade*=mix(1.0,.9,smoothstep(100.0,220.0,length(world.xz)));}
+ if(floorboards){shade*=mix(1.0,.9,smoothstep(100.0,220.0,length(world.xz-floor_origin)));}
  vec3 colour=timber.rgb;
  // Latewood is slightly warmer and redder, as in real beech and maple.
  if(!painted){colour=mix(colour,colour*vec3(1.0,.86,.72),late*filter*.55);}

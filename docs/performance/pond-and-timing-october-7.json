@@ -1,0 +1,369 @@
+{
+  "checks": [
+    "The intro still waits for Start",
+    "Maple Bay finishes the faster close fly-in",
+    "Motorway reaches the start-gate close view about one second after its fly-in starts",
+    "Normal browser steering drives down into the recessed pond",
+    "The truck climbs back out of the opposite beach",
+    "The eased return swap takes fifty percent longer",
+    "Repeat Motorway visits use the same slower continuous swap",
+    "The pond, shader sprouts and mat transitions have no browser/game console errors"
+  ],
+  "captures": [
+    {
+      "phase": "intro",
+      "time": 2.3334,
+      "path": "output/playwright/pond-browser-intro-2-2.png"
+    },
+    {
+      "phase": "intro",
+      "time": 5.79988799999998,
+      "path": "output/playwright/pond-browser-intro-5-6.png"
+    },
+    {
+      "phase": "intro",
+      "time": 7.31649399999996,
+      "path": "output/playwright/pond-browser-intro-7-2.png"
+    },
+    {
+      "phase": "race",
+      "time": 0.816634,
+      "path": "output/playwright/pond-browser-race-0-7.png"
+    },
+    {
+      "phase": "race",
+      "time": 1.466608,
+      "path": "output/playwright/pond-browser-race-1-3.png"
+    },
+    {
+      "phase": "race",
+      "time": 2.549898,
+      "path": "output/playwright/pond-browser-race-2-4.png"
+    },
+    {
+      "phase": "race",
+      "time": 4.71647799999998,
+      "path": "output/playwright/pond-browser-race-4-7.png"
+    },
+    {
+      "phase": "race",
+      "time": 6.23308399999997,
+      "path": "output/playwright/pond-browser-race-6-2.png"
+    },
+    {
+      "phase": "race",
+      "time": 13.5994560000002,
+      "path": "output/playwright/pond-browser-race-13-4.png"
+    },
+    {
+      "phase": "race",
+      "time": 19.6658800000005,
+      "path": "output/playwright/pond-browser-race-19-5.png"
+    },
+    {
+      "phase": "race",
+      "time": 25.7323040000007,
+      "path": "output/playwright/pond-browser-race-25-7.png"
+    },
+    {
+      "phase": "return",
+      "time": 0.866631999999999,
+      "path": "output/playwright/pond-browser-return-0-7.png"
+    },
+    {
+      "phase": "return",
+      "time": 1.733264,
+      "path": "output/playwright/pond-browser-return-1-65.png"
+    },
+    {
+      "phase": "return",
+      "time": 2.599896,
+      "path": "output/playwright/pond-browser-return-2-4.png"
+    },
+    {
+      "phase": "return",
+      "time": 3.46652799999999,
+      "path": "output/playwright/pond-browser-return-3-3.png"
+    },
+    {
+      "phase": "return",
+      "time": 4.11650199999998,
+      "path": "output/playwright/pond-browser-return-4-05.png"
+    },
+    {
+      "phase": "revisit",
+      "time": 2.616562,
+      "path": "output/playwright/pond-browser-revisit-2-4.png"
+    }
+  ],
+  "lowest": -1.29765570163727,
+  "pond": [
+    {
+      "x": 386,
+      "z": 40,
+      "height": 0.824416518211365,
+      "fps": 60,
+      "draw_calls": 316
+    },
+    {
+      "x": 385.825592041016,
+      "z": 40.4278259277344,
+      "height": 0.824416518211365,
+      "fps": 60,
+      "draw_calls": 318
+    },
+    {
+      "x": 385.825592041016,
+      "z": 40.4278259277344,
+      "height": 0.824416518211365,
+      "fps": 60,
+      "draw_calls": 318
+    },
+    {
+      "x": 384.758392333984,
+      "z": 41.5164451599121,
+      "height": 0.831753313541412,
+      "fps": 60,
+      "draw_calls": 325
+    },
+    {
+      "x": 384.758392333984,
+      "z": 41.5164451599121,
+      "height": 0.831753313541412,
+      "fps": 60,
+      "draw_calls": 325
+    },
+    {
+      "x": 382.607330322266,
+      "z": 42.6691780090332,
+      "height": 0.880000710487366,
+      "fps": 60,
+      "draw_calls": 335
+    },
+    {
+      "x": 382.607330322266,
+      "z": 42.6691780090332,
+      "height": 0.880000710487366,
+      "fps": 60,
+      "draw_calls": 335
+    },
+    {
+      "x": 382.607330322266,
+      "z": 42.6691780090332,
+      "height": 0.880000710487366,
+      "fps": 60,
+      "draw_calls": 335
+    },
+    {
+      "x": 379.827697753906,
+      "z": 43.6058654785156,
+      "height": 0.770433127880096,
+      "fps": 60,
+      "draw_calls": 335
+    },
+    {
+      "x": 379.827697753906,
+      "z": 43.6058654785156,
+      "height": 0.770433127880096,
+      "fps": 60,
+      "draw_calls": 335
+    },
+    {
+      "x": 376.927490234375,
+      "z": 44.2037925720215,
+      "height": -0.177341505885124,
+      "fps": 60,
+      "draw_calls": 326
+    },
+    {
+      "x": 376.927490234375,
+      "z": 44.2037925720215,
+      "height": -0.177341505885124,
+      "fps": 60,
+      "draw_calls": 326
+    },
+    {
+      "x": 373.7880859375,
+      "z": 44.2888488769531,
+      "height": -0.990948677062988,
+      "fps": 60,
+      "draw_calls": 319
+    },
+    {
+      "x": 373.7880859375,
+      "z": 44.2888488769531,
+      "height": -0.990948677062988,
+      "fps": 60,
+      "draw_calls": 319
+    },
+    {
+      "x": 370.461700439453,
+      "z": 43.8496780395508,
+      "height": -1.29765570163727,
+      "fps": 60,
+      "draw_calls": 316
+    },
+    {
+      "x": 370.461700439453,
+      "z": 43.8496780395508,
+      "height": -1.29765570163727,
+      "fps": 60,
+      "draw_calls": 316
+    },
+    {
+      "x": 367.268157958984,
+      "z": 43.3359985351562,
+      "height": -1.05770194530487,
+      "fps": 60,
+      "draw_calls": 328
+    },
+    {
+      "x": 367.268157958984,
+      "z": 43.3359985351562,
+      "height": -1.05770194530487,
+      "fps": 60,
+      "draw_calls": 328
+    },
+    {
+      "x": 364.543426513672,
+      "z": 42.8111534118652,
+      "height": -0.306507766246796,
+      "fps": 60,
+      "draw_calls": 324
+    },
+    {
+      "x": 364.543426513672,
+      "z": 42.8111534118652,
+      "height": -0.306507766246796,
+      "fps": 60,
+      "draw_calls": 324
+    },
+    {
+      "x": 362.102996826172,
+      "z": 42.3703460693359,
+      "height": 0.432726740837097,
+      "fps": 60,
+      "draw_calls": 314
+    },
+    {
+      "x": 359.73681640625,
+      "z": 42.0743179321289,
+      "height": 0.823417603969574,
+      "fps": 60,
+      "draw_calls": 304
+    },
+    {
+      "x": 359.73681640625,
+      "z": 42.0743179321289,
+      "height": 0.823417603969574,
+      "fps": 60,
+      "draw_calls": 304
+    },
+    {
+      "x": 356.785522460938,
+      "z": 41.9061889648438,
+      "height": 0.824469149112701,
+      "fps": 60,
+      "draw_calls": 309
+    },
+    {
+      "x": 356.785522460938,
+      "z": 41.9061889648438,
+      "height": 0.824469149112701,
+      "fps": 60,
+      "draw_calls": 309
+    },
+    {
+      "x": 353.47705078125,
+      "z": 41.8108596801758,
+      "height": 0.824416518211365,
+      "fps": 60,
+      "draw_calls": 334
+    },
+    {
+      "x": 353.47705078125,
+      "z": 41.8108596801758,
+      "height": 0.824416518211365,
+      "fps": 60,
+      "draw_calls": 334
+    },
+    {
+      "x": 353.47705078125,
+      "z": 41.8108596801758,
+      "height": 0.824416518211365,
+      "fps": 60,
+      "draw_calls": 334
+    },
+    {
+      "x": 350.060943603516,
+      "z": 41.7561149597168,
+      "height": 0.824416518211365,
+      "fps": 60,
+      "draw_calls": 372
+    },
+    {
+      "x": 350.060943603516,
+      "z": 41.7561149597168,
+      "height": 0.824416518211365,
+      "fps": 60,
+      "draw_calls": 372
+    },
+    {
+      "x": 346.614349365234,
+      "z": 41.7246627807617,
+      "height": 0.849416494369507,
+      "fps": 60,
+      "draw_calls": 396
+    },
+    {
+      "x": 346.614349365234,
+      "z": 41.7246627807617,
+      "height": 0.849416494369507,
+      "fps": 60,
+      "draw_calls": 396
+    },
+    {
+      "x": 343.159149169922,
+      "z": 41.7065887451172,
+      "height": 0.849416553974152,
+      "fps": 60,
+      "draw_calls": 391
+    },
+    {
+      "x": 343.159149169922,
+      "z": 41.7065887451172,
+      "height": 0.849416553974152,
+      "fps": 60,
+      "draw_calls": 391
+    },
+    {
+      "x": 339.701507568359,
+      "z": 41.6962051391602,
+      "height": 0.849416553974152,
+      "fps": 60,
+      "draw_calls": 388
+    },
+    {
+      "x": 339.701507568359,
+      "z": 41.6962051391602,
+      "height": 0.849416553974152,
+      "fps": 60,
+      "draw_calls": 388
+    },
+    {
+      "x": 336.243225097656,
+      "z": 41.6902389526367,
+      "height": 0.849416553974152,
+      "fps": 60,
+      "draw_calls": 387
+    },
+    {
+      "x": 336.243225097656,
+      "z": 41.6902389526367,
+      "height": 0.849416553974152,
+      "fps": 60,
+      "draw_calls": 387
+    }
+  ],
+  "errors": []
+}

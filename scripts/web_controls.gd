@@ -19,6 +19,26 @@ var qa_previous_surface:=.055
 var telemetry_clock:=0.0
 var map_clock:=0.0
 var map_initialized:=false
+var frame_budget:=BrowserFrameBudget.new()
+var qa_render_histogram: Array[int]=[0,0,0,0,0]
+var qa_max_render_ms:=0.0
+var previous_render_usec:=0
+
+func _process(_dt: float) -> void:
+	if state==null: return
+	var foreground: bool=bool(state.focused) and bool(state.visible) and not game.loading and not game.paused
+	var now:=Time.get_ticks_usec()
+	# Use actual callback intervals; Godot's gameplay delta is smoothed by its
+	# physics timer and can hide a missed browser frame in a performance sample.
+	var seconds: float=(now-previous_render_usec)/1000000.0 if previous_render_usec>0 else 0.0
+	previous_render_usec=now if foreground else 0
+	if bool(state.testing) and foreground and seconds>0:
+		var ms:=seconds*1000
+		var bucket:=0 if ms<=18 else 1 if ms<=25 else 2 if ms<=35 else 3 if ms<=50 else 4
+		qa_render_histogram[bucket]+=1
+		qa_max_render_ms=maxf(qa_max_render_ms,ms)
+	if frame_budget.sample(seconds,foreground):
+		game.get_viewport().scaling_3d_scale=frame_budget.scale
 
 func _ready() -> void:
 	process_physics_priority=-100
@@ -54,7 +74,7 @@ func _physics_process(_dt: float) -> void:
 				var point:=RaceCourse.gate_position(i)
 				var direction:=RaceCourse.gate_direction(i)
 				race_gates.append({"x":point.x,"y":point.y+.85,"z":point.z,"dx":direction.x,"dz":direction.y})
-			state.telemetry=JSON.stringify({"world":"race_track" if game.travel.in_race else "maple_bay","transition":game.travel.active,"transition_clock":game.travel.clock,"lap_running":game.travel.race.running,"lap_time":game.travel.race.lap_time,"race_checkpoint":game.travel.race.checkpoint,"race_gates":race_gates,"loose_race_props":game.travel.race.props.filter(func(prop): return prop.loose).size(),"last_lap":game.travel.race.last_time,"surface_error":qa_surface_error,"flat_height_step":qa_flat_step,"race_drive_frames":qa_drive_frames,"best_lap":game.travel.race.best_time,"north_exit_open":game.travel.gate_opening>=.99,"warmup_pool":game.pool_shader_warmed,"neighbours":neighbours,"speaker":game.hud.speaker_key,"truck_position":[game.truck.position.x,game.truck.position.z],"dialogue_revealed":game.hud.char_count,"dialogue_font":game.hud.dialogue_font_size,"dialogue_rect":[game.hud.dialogue_panel.position.x,game.hud.dialogue_panel.position.y,game.hud.dialogue_panel.size.x,game.hud.dialogue_panel.size.y],"logical_view":[game.hud.size.x,game.hud.size.y],"speed":game.truck.linear_velocity.length(),"water":game.truck.water,"ladder":game.truck.ladder_deployed,"charge":game.truck.charge,"height":game.truck.position.y,"paused":game.paused,"talking":game.dialogue_active,"fps":Engine.get_frames_per_second(),"loading":game.loading,"draw_calls":Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),"objects":Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),"dialogue_lines":game.hud.dialogue_label.get_line_count(),"dialogue_text":game.hud.full_text,"pages":game.hud.dialogue_pages.size(),"batched":game.batched_decorations,"merged_scenery":game.merged_scenery,"scenery_cached":game.town.has_node("BakedScenery"),"camera_size":game.camera.size,"cat_carried":game.town.cat_cuddling,"train_push_locked":game.railway.push_locked,"intro":game.intro.active,"intro_shot":game.intro.shot,"intro_clock":game.intro.clock,"game_clock":game.elapsed,"train_started":game.railway.started,"train_boarded":game.railway.boarded,"train_position":[game.railway.engine.position.x,game.railway.engine.position.z]})
+			state.telemetry=JSON.stringify({"render_histogram":qa_render_histogram,"max_render_ms":qa_max_render_ms,"render_frames":Engine.get_frames_drawn(),"process_frames":Engine.get_process_frames(),"process_ms":Performance.get_monitor(Performance.TIME_PROCESS)*1000,"physics_ms":Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)*1000,"render_scale":game.get_viewport().scaling_3d_scale,"focused":bool(state.focused),"world":"race_track" if game.travel.in_race else "maple_bay","transition":game.travel.active,"transition_clock":game.travel.clock,"lap_running":game.travel.race.running,"lap_time":game.travel.race.lap_time,"race_checkpoint":game.travel.race.checkpoint,"race_gates":race_gates,"loose_race_props":game.travel.race.props.filter(func(prop): return prop.loose).size(),"last_lap":game.travel.race.last_time,"surface_error":qa_surface_error,"flat_height_step":qa_flat_step,"race_drive_frames":qa_drive_frames,"best_lap":game.travel.race.best_time,"north_exit_open":game.travel.gate_opening>=.99,"warmup_pool":game.pool_shader_warmed,"neighbours":neighbours,"speaker":game.hud.speaker_key,"truck_position":[game.truck.position.x,game.truck.position.z],"dialogue_revealed":game.hud.char_count,"dialogue_font":game.hud.dialogue_font_size,"dialogue_rect":[game.hud.dialogue_panel.position.x,game.hud.dialogue_panel.position.y,game.hud.dialogue_panel.size.x,game.hud.dialogue_panel.size.y],"logical_view":[game.hud.size.x,game.hud.size.y],"speed":game.truck.linear_velocity.length(),"water":game.truck.water,"fire_progress":game.fire_progress,"audio_counts":game.sounds.counts,"cannon_spraying":game.truck.spraying,"hose_gain":game.hose_volume,"conversation_blend":game.conversation_blend,"ladder":game.truck.ladder_deployed,"charge":game.truck.charge,"height":game.truck.position.y,"paused":game.paused,"talking":game.dialogue_active,"fps":Engine.get_frames_per_second(),"loading":game.loading,"draw_calls":Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),"objects":Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),"dialogue_lines":game.hud.dialogue_label.get_line_count(),"dialogue_text":game.hud.full_text,"pages":game.hud.dialogue_pages.size(),"batched":game.batched_decorations,"merged_scenery":game.merged_scenery,"scenery_cached":game.town.has_node("BakedScenery"),"camera_size":game.camera.size,"cat_carried":game.town.cat_cuddling,"train_push_locked":game.railway.push_locked,"intro":game.intro.active,"intro_shot":game.intro.shot,"intro_clock":game.intro.clock,"game_clock":game.elapsed,"train_started":game.railway.started,"train_boarded":game.railway.boarded,"train_position":[game.railway.engine.position.x,game.railway.engine.position.z]})
 	game.hud.touch_mode=bool(state.enabled)
 	game.hud.touch_portrait=bool(state.portrait)
 	var view:=Vector2(float(state.width),float(state.height))
@@ -130,7 +150,7 @@ func _qa_update() -> void:
 			game.truck.angular_velocity=Vector3.ZERO
 			game.truck.reset_physics_interpolation()
 			game.camera_focus=game.truck.global_position
-			game.camera.global_position=game.camera_focus+game.camera_offset
+			game.camera.global_position=game.camera_focus+game.gameplay_camera_offset()
 			game.camera.look_at(game.camera_focus)
 		"start_train":
 			game.railway.started=true
@@ -157,6 +177,18 @@ func _qa_update() -> void:
 			if game.travel.in_race: return
 			game.pool_progress=clampf(float(qa.value),0,1)
 			game.pool_basin.set_fill(game.pool_progress)
+		"spray_fire":
+			if game.travel.in_race: return
+			game.stage=3
+			game.fire_progress=0
+			game.town.fire_amount=1
+			game.truck.water=game.truck.tank_capacity
+			game.truck.use_automation=true
+			game.truck.automated_aim=TownLayout.FIRE+Vector3.UP*1.8
+			game.truck.automated_spray=true
+		"stop_spray":
+			game.truck.automated_spray=false
+			game.truck.use_automation=false
 
 # QA-only steering follows the real course using ordinary acceleration, grip,
 # recoil and collision code. It never changes the truck pose during the lap.

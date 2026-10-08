@@ -58,21 +58,21 @@ func update(dt: float) -> void:
 	if clock>=LENGTH: finish(); return
 	shot=0 if clock<6.5 else 1 if clock<10.5 else 2 if clock<14.5 else 3 if clock<18.5 else 4
 	if game.travel:
-		game.travel.mat.show_mat(false,1-smoothstep(.15,4.3,clock))
-		game.travel.mat.visible=clock<22.3
-		if clock>=4.3: game.travel.mat.position.y=lerpf(.14,-.08,smoothstep(21.5,22.3,clock))
+		game.travel.mat.show_mat(false,RollingMat.rollout_amount(clock))
+		game.travel.mat.fade_print(1-smoothstep(19,22.5,clock))
 		game.travel.grow_assembly(PlayMatTravel.arrival_progress(clock))
 		game.travel.assembly_camera(clock,false)
 		if clock>=21.5:
 			var t:=smoothstep(21.5,LENGTH,clock)
 			var target: Vector3=game.truck.global_position
 			var focus:=PlayMatTravel.tour_focus(21.5,false).lerp(target,t)
-			game.camera.position=focus+PlayMatTravel.cinematic_offset(Vector3(19,15,22).lerp(game.camera_offset,t))
+			game.camera.position=focus+game.travel.handover_offset(Vector3(19,15,22).lerp(game.camera_offset,t),t)
 			game.camera.look_at(focus)
 			game.camera.size=lerpf(game.travel.tour_lens(21.5,false),25.8,t)
+			game.travel.cinematic_shadows(focus)
 			game.truck.show()
-	title.reveal=smoothstep(2.0,19.0,clock)
-	title.opacity=smoothstep(1.4,2.2,clock)*(1-smoothstep(22.0,23.7,clock))
+	title.reveal=smoothstep(4.0,19.0,clock)
+	title.opacity=smoothstep(3.4,4.2,clock)*(1-smoothstep(22.0,23.7,clock))
 	title.queue_redraw()
 	shade.color.a=0
 
@@ -96,6 +96,7 @@ func finish() -> void:
 	game.camera.look_at(game.truck.position)
 	game.camera.size=25.8
 	game.camera.far=250
+	game.sun.directional_shadow_max_distance=game.gameplay_shadow_distance
 	game.truck.show()
 	game.truck.freeze=false
 	game.truck.enabled=true

@@ -12,6 +12,18 @@ func _draw_frames(count: int) -> void:
 		await RenderingServer.frame_post_draw
 		await get_tree().process_frame
 
+func _warm_tour(is_race: bool) -> void:
+	game.travel.begin_assembly(is_race)
+	# Draw the actual close-up, shadow and fading-print paths behind the
+	# loading screen, using the same materials retained for the live intro.
+	for elapsed in [1.8,4.2,8.5,13.0,18.0,21.0]:
+		game.travel.mat.show_mat(is_race,RollingMat.rollout_amount(elapsed-(.4 if is_race else 0.0)),ToyRaceTrack.ORIGIN if is_race else Vector3.ZERO)
+		game.travel.grow_assembly(PlayMatTravel.arrival_progress(elapsed,is_race))
+		game.travel.assembly_camera(elapsed,is_race)
+		game.travel.mat.fade_print(1-smoothstep(19,22.5,elapsed))
+		await _draw_frames(2)
+	game.travel.finish_assembly()
+
 func run() -> void:
 	# Compatibility compiles shader variants on first draw, not on resource load.
 	# Keep the HTML loading screen up while the actual town and effects render.
@@ -111,17 +123,12 @@ func run() -> void:
 	camera.size=180
 	game.travel.mat.show_mat(false,.5,ToyRaceTrack.ORIGIN)
 	await _draw_frames(3)
-	game.travel.begin_assembly(true)
-	game.travel.grow_assembly(.65)
+	game.travel.mat.show_mat(true,0,ToyRaceTrack.ORIGIN)
+	game.travel.mat.fade_print(.5)
 	await _draw_frames(3)
-	game.travel.finish_assembly()
+	await _warm_tour(true)
 	game.travel.race.hide()
-	game.travel.begin_assembly(false)
-	game.travel.grow_assembly(.65)
-	camera.position=Vector3(90,130,115)
-	camera.look_at(Vector3.ZERO)
-	await _draw_frames(3)
-	game.travel.finish_assembly()
+	await _warm_tour(false)
 	game.travel.mat.hide()
 	proxies.queue_free()
 	camera.transform=saved_transform

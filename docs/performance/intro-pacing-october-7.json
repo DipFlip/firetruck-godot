@@ -1,0 +1,1302 @@
+{
+  "cpu_before": {
+    "results": [
+      {
+        "grow_ms_per_frame": [
+          2.98326111111111,
+          2.88698888888889,
+          2.68977777777778,
+          0.694994444444444
+        ],
+        "pieces": 3340,
+        "race": false,
+        "run": 0,
+        "setup_ms": 20.288
+      },
+      {
+        "grow_ms_per_frame": [
+          2.90536666666667,
+          2.88458333333333,
+          2.7185,
+          0.70215
+        ],
+        "pieces": 3340,
+        "race": false,
+        "run": 1,
+        "setup_ms": 17.347
+      },
+      {
+        "grow_ms_per_frame": [
+          0.281127777777778,
+          0.274811111111111,
+          0.243838888888889,
+          0.10245
+        ],
+        "pieces": 273,
+        "race": true,
+        "run": 0,
+        "setup_ms": 4.171
+      },
+      {
+        "grow_ms_per_frame": [
+          0.278638888888889,
+          0.275177777777778,
+          0.244688888888889,
+          0.103877777777778
+        ],
+        "pieces": 273,
+        "race": true,
+        "run": 1,
+        "setup_ms": 4.225
+      }
+    ]
+  },
+  "cpu_after": {
+    "results": [
+      {
+        "grow_ms_per_frame": [
+          1.07786111111111,
+          1.16462777777778,
+          1.99068888888889,
+          0.69055
+        ],
+        "pieces": 3340,
+        "race": false,
+        "run": 0,
+        "setup_ms": 50.049
+      },
+      {
+        "grow_ms_per_frame": [
+          1.13176666666667,
+          1.17132222222222,
+          1.94142222222222,
+          0.667594444444444
+        ],
+        "pieces": 3340,
+        "race": false,
+        "run": 1,
+        "setup_ms": 19.217
+      },
+      {
+        "grow_ms_per_frame": [
+          0.0894444444444444,
+          0.100366666666667,
+          0.133983333333333,
+          0.100933333333333
+        ],
+        "pieces": 273,
+        "race": true,
+        "run": 0,
+        "setup_ms": 7.426
+      },
+      {
+        "grow_ms_per_frame": [
+          0.0890611111111111,
+          0.101266666666667,
+          0.138577777777778,
+          0.107522222222222
+        ],
+        "pieces": 273,
+        "race": true,
+        "run": 1,
+        "setup_ms": 4.201
+      }
+    ]
+  },
+  "browser_before": {
+    "waitingClock": 0,
+    "phases": [
+      {
+        "start": 0,
+        "end": 4,
+        "frames": 116,
+        "medianMs": 33.30000000000018,
+        "p95Ms": 34.100000000000364,
+        "over50ms": 0,
+        "drawCalls": 573
+      },
+      {
+        "start": 4,
+        "end": 8,
+        "frames": 124,
+        "medianMs": 33.30000000000109,
+        "p95Ms": 33.5,
+        "over50ms": 0,
+        "drawCalls": 343
+      },
+      {
+        "start": 8,
+        "end": 12,
+        "frames": 117,
+        "medianMs": 33.30000000000109,
+        "p95Ms": 33.400000000001455,
+        "over50ms": 0,
+        "drawCalls": 422
+      },
+      {
+        "start": 12,
+        "end": 16,
+        "frames": 124,
+        "medianMs": 33.30000000000291,
+        "p95Ms": 33.400000000001455,
+        "over50ms": 0,
+        "drawCalls": 459
+      },
+      {
+        "start": 16,
+        "end": 20,
+        "frames": 117,
+        "medianMs": 33.30000000000291,
+        "p95Ms": 33.5,
+        "over50ms": 0,
+        "drawCalls": 1908
+      },
+      {
+        "start": 20,
+        "end": 24,
+        "frames": 123,
+        "medianMs": 33.29999999999927,
+        "p95Ms": 34.20000000000073,
+        "over50ms": 0,
+        "drawCalls": 1877
+      }
+    ],
+    "taskSeconds": 7.423761,
+    "scriptSeconds": 7.211436,
+    "states": [
+      {
+        "clock": 0.1329,
+        "lens": 175.640487670898,
+        "fps": 26,
+        "drawCalls": 557
+      },
+      {
+        "clock": 0.3667,
+        "lens": 176.767227172852,
+        "fps": 26,
+        "drawCalls": 558
+      },
+      {
+        "clock": 0.7999,
+        "lens": 178.854934692383,
+        "fps": 30,
+        "drawCalls": 567
+      },
+      {
+        "clock": 1,
+        "lens": 179.819274902344,
+        "fps": 30,
+        "drawCalls": 570
+      },
+      {
+        "clock": 1.2333,
+        "lens": 180.943618774414,
+        "fps": 30,
+        "drawCalls": 570
+      },
+      {
+        "clock": 1.6667,
+        "lens": 183.032287597656,
+        "fps": 30,
+        "drawCalls": 573
+      },
+      {
+        "clock": 2.1,
+        "lens": 185,
+        "fps": 30,
+        "drawCalls": 575
+      },
+      {
+        "clock": 2.3001,
+        "lens": 185,
+        "fps": 30,
+        "drawCalls": 575
+      },
+      {
+        "clock": 2.5325,
+        "lens": 185,
+        "fps": 30,
+        "drawCalls": 575
+      },
+      {
+        "clock": 2.7333,
+        "lens": 185,
+        "fps": 30,
+        "drawCalls": 575
+      },
+      {
+        "clock": 2.9667,
+        "lens": 185,
+        "fps": 30,
+        "drawCalls": 575
+      },
+      {
+        "clock": 3.1667,
+        "lens": 183.099716186523,
+        "fps": 30,
+        "drawCalls": 573
+      },
+      {
+        "clock": 3.3958,
+        "lens": 174.962829589844,
+        "fps": 30,
+        "drawCalls": 573
+      },
+      {
+        "clock": 3.5958,
+        "lens": 163.592544555664,
+        "fps": 30,
+        "drawCalls": 570
+      },
+      {
+        "clock": 3.8291,
+        "lens": 146.563278198242,
+        "fps": 30,
+        "drawCalls": 556
+      },
+      {
+        "clock": 4.0292,
+        "lens": 129.76057434082,
+        "fps": 30,
+        "drawCalls": 549
+      },
+      {
+        "clock": 4.2625,
+        "lens": 108.877464294434,
+        "fps": 30,
+        "drawCalls": 517
+      },
+      {
+        "clock": 4.6958,
+        "lens": 71.1112823486328,
+        "fps": 30,
+        "drawCalls": 354
+      },
+      {
+        "clock": 5.1291,
+        "lens": 42.4435119628906,
+        "fps": 30,
+        "drawCalls": 277
+      },
+      {
+        "clock": 5.3291,
+        "lens": 34.8228607177734,
+        "fps": 30,
+        "drawCalls": 253
+      },
+      {
+        "clock": 5.5624,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 247
+      },
+      {
+        "clock": 5.7624,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 247
+      },
+      {
+        "clock": 5.9957,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 248
+      },
+      {
+        "clock": 6.1958,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 251
+      },
+      {
+        "clock": 6.4286,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 301
+      },
+      {
+        "clock": 6.6586,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 343
+      },
+      {
+        "clock": 7.0915,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 347
+      },
+      {
+        "clock": 7.5249,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 350
+      },
+      {
+        "clock": 7.95819999999999,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 421
+      },
+      {
+        "clock": 8.1583,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 421
+      },
+      {
+        "clock": 8.3916,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 420
+      },
+      {
+        "clock": 8.8249,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 422
+      },
+      {
+        "clock": 9.02490000000001,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 432
+      },
+      {
+        "clock": 9.25820000000001,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 430
+      },
+      {
+        "clock": 9.45830000000001,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 430
+      },
+      {
+        "clock": 9.69150000000002,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 431
+      },
+      {
+        "clock": 10.1249,
+        "lens": 32.3306312561035,
+        "fps": 30,
+        "drawCalls": 417
+      },
+      {
+        "clock": 10.5582,
+        "lens": 37.4926528930664,
+        "fps": 30,
+        "drawCalls": 431
+      },
+      {
+        "clock": 10.7582,
+        "lens": 41.1874656677246,
+        "fps": 30,
+        "drawCalls": 418
+      },
+      {
+        "clock": 10.9916,
+        "lens": 45.8256759643555,
+        "fps": 30,
+        "drawCalls": 431
+      },
+      {
+        "clock": 11.4249,
+        "lens": 53.3077087402344,
+        "fps": 30,
+        "drawCalls": 364
+      },
+      {
+        "clock": 11.6249,
+        "lens": 55.3628540039062,
+        "fps": 30,
+        "drawCalls": 357
+      },
+      {
+        "clock": 11.8582,
+        "lens": 56,
+        "fps": 30,
+        "drawCalls": 363
+      },
+      {
+        "clock": 12.2915,
+        "lens": 56,
+        "fps": 30,
+        "drawCalls": 472
+      },
+      {
+        "clock": 12.4916,
+        "lens": 56,
+        "fps": 30,
+        "drawCalls": 482
+      },
+      {
+        "clock": 12.7249000000001,
+        "lens": 56,
+        "fps": 30,
+        "drawCalls": 535
+      },
+      {
+        "clock": 12.9249000000001,
+        "lens": 56,
+        "fps": 30,
+        "drawCalls": 528
+      },
+      {
+        "clock": 13.1541000000001,
+        "lens": 55.9773178100586,
+        "fps": 30,
+        "drawCalls": 507
+      },
+      {
+        "clock": 13.5873000000001,
+        "lens": 54.3452110290527,
+        "fps": 30,
+        "drawCalls": 387
+      },
+      {
+        "clock": 14.0207000000001,
+        "lens": 50.755542755127,
+        "fps": 30,
+        "drawCalls": 298
+      },
+      {
+        "clock": 14.2207000000001,
+        "lens": 48.6827850341797,
+        "fps": 30,
+        "drawCalls": 295
+      },
+      {
+        "clock": 14.4540000000001,
+        "lens": 46.0908164978027,
+        "fps": 30,
+        "drawCalls": 313
+      },
+      {
+        "clock": 14.8873000000001,
+        "lens": 41.2309913635254,
+        "fps": 30,
+        "drawCalls": 346
+      },
+      {
+        "clock": 15.0873000000001,
+        "lens": 39.1657371520996,
+        "fps": 30,
+        "drawCalls": 364
+      },
+      {
+        "clock": 15.3207000000001,
+        "lens": 37.0558395385742,
+        "fps": 30,
+        "drawCalls": 459
+      },
+      {
+        "clock": 15.7540000000001,
+        "lens": 34.4480590820312,
+        "fps": 30,
+        "drawCalls": 803
+      },
+      {
+        "clock": 16.1873000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 946
+      },
+      {
+        "clock": 16.3874000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 999
+      },
+      {
+        "clock": 16.6207000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1359
+      },
+      {
+        "clock": 16.8240000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1471
+      },
+      {
+        "clock": 17.0540000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1559
+      },
+      {
+        "clock": 17.4831000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1772
+      },
+      {
+        "clock": 17.9165000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 2001
+      },
+      {
+        "clock": 18.1165000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 2045
+      },
+      {
+        "clock": 18.3498000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 2123
+      },
+      {
+        "clock": 18.7832000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 2135
+      },
+      {
+        "clock": 19.2165000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1942
+      },
+      {
+        "clock": 19.4208000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1917
+      },
+      {
+        "clock": 19.6536000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1908
+      },
+      {
+        "clock": 19.8540000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1891
+      },
+      {
+        "clock": 20.0874000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1889
+      },
+      {
+        "clock": 20.2874000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1864
+      },
+      {
+        "clock": 20.5207000000002,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1870
+      },
+      {
+        "clock": 20.9540000000002,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1881
+      },
+      {
+        "clock": 21.3864000000002,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1899
+      },
+      {
+        "clock": 21.5865000000002,
+        "lens": 33.9712295532227,
+        "fps": 30,
+        "drawCalls": 1930
+      },
+      {
+        "clock": 21.8207000000002,
+        "lens": 33.6298065185547,
+        "fps": 30,
+        "drawCalls": 1935
+      },
+      {
+        "clock": 22.2539000000002,
+        "lens": 32.2126579284668,
+        "fps": 30,
+        "drawCalls": 1877
+      },
+      {
+        "clock": 22.4540000000002,
+        "lens": 31.3290996551514,
+        "fps": 30,
+        "drawCalls": 1927
+      },
+      {
+        "clock": 22.6874000000002,
+        "lens": 30.2077350616455,
+        "fps": 30,
+        "drawCalls": 1979
+      },
+      {
+        "clock": 23.1207000000002,
+        "lens": 28.1296234130859,
+        "fps": 30,
+        "drawCalls": 1809
+      },
+      {
+        "clock": 23.3207000000002,
+        "lens": 27.2872524261475,
+        "fps": 30,
+        "drawCalls": 1786
+      },
+      {
+        "clock": 23.5540000000002,
+        "lens": 26.4898166656494,
+        "fps": 30,
+        "drawCalls": 1661
+      },
+      {
+        "clock": 23.7542000000002,
+        "lens": 26.022216796875,
+        "fps": 30,
+        "drawCalls": 1471
+      },
+      {
+        "clock": 23.9873000000002,
+        "lens": 25.8006324768066,
+        "fps": 30,
+        "drawCalls": 1441
+      }
+    ],
+    "errors": []
+  },
+  "browser_after": {
+    "waitingClock": 0,
+    "phases": [
+      {
+        "start": 0,
+        "end": 4,
+        "frames": 122,
+        "medianMs": 33.30000000000018,
+        "p95Ms": 33.899999999999636,
+        "over50ms": 0,
+        "drawCalls": 441
+      },
+      {
+        "start": 4,
+        "end": 8,
+        "frames": 117,
+        "medianMs": 33.29999999999927,
+        "p95Ms": 33.900000000001455,
+        "over50ms": 0,
+        "drawCalls": 272
+      },
+      {
+        "start": 8,
+        "end": 12,
+        "frames": 124,
+        "medianMs": 33.30000000000109,
+        "p95Ms": 33.5,
+        "over50ms": 0,
+        "drawCalls": 234
+      },
+      {
+        "start": 12,
+        "end": 16,
+        "frames": 117,
+        "medianMs": 33.29999999999927,
+        "p95Ms": 33.89999999999782,
+        "over50ms": 0,
+        "drawCalls": 668
+      },
+      {
+        "start": 16,
+        "end": 20,
+        "frames": 123,
+        "medianMs": 33.30000000000291,
+        "p95Ms": 33.400000000001455,
+        "over50ms": 0,
+        "drawCalls": 1936
+      },
+      {
+        "start": 20,
+        "end": 24,
+        "frames": 117,
+        "medianMs": 33.30000000000291,
+        "p95Ms": 33.70000000000073,
+        "over50ms": 0,
+        "drawCalls": 1846
+      }
+    ],
+    "taskSeconds": 6.419537,
+    "scriptSeconds": 6.2035,
+    "states": [
+      {
+        "clock": 0.0336,
+        "lens": 175.161926269531,
+        "fps": 21,
+        "drawCalls": 433
+      },
+      {
+        "clock": 0.4668,
+        "lens": 177.249633789062,
+        "fps": 21,
+        "drawCalls": 437
+      },
+      {
+        "clock": 0.6669,
+        "lens": 178.213973999023,
+        "fps": 30,
+        "drawCalls": 441
+      },
+      {
+        "clock": 0.9,
+        "lens": 179.337356567383,
+        "fps": 30,
+        "drawCalls": 446
+      },
+      {
+        "clock": 1.3334,
+        "lens": 181.426025390625,
+        "fps": 30,
+        "drawCalls": 450
+      },
+      {
+        "clock": 1.5334,
+        "lens": 182.389877319336,
+        "fps": 30,
+        "drawCalls": 451
+      },
+      {
+        "clock": 1.7667,
+        "lens": 181.042755126953,
+        "fps": 30,
+        "drawCalls": 451
+      },
+      {
+        "clock": 1.9669,
+        "lens": 174.66096496582,
+        "fps": 30,
+        "drawCalls": 451
+      },
+      {
+        "clock": 2.2004,
+        "lens": 161.630508422852,
+        "fps": 30,
+        "drawCalls": 446
+      },
+      {
+        "clock": 2.6335,
+        "lens": 127.1884765625,
+        "fps": 30,
+        "drawCalls": 413
+      },
+      {
+        "clock": 3.0666,
+        "lens": 88.3370056152344,
+        "fps": 30,
+        "drawCalls": 346
+      },
+      {
+        "clock": 3.2668,
+        "lens": 71.4324493408203,
+        "fps": 30,
+        "drawCalls": 231
+      },
+      {
+        "clock": 3.5001,
+        "lens": 54.2236785888672,
+        "fps": 30,
+        "drawCalls": 208
+      },
+      {
+        "clock": 3.9334,
+        "lens": 34.0878791809082,
+        "fps": 30,
+        "drawCalls": 236
+      },
+      {
+        "clock": 4.1335,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 243
+      },
+      {
+        "clock": 4.3662,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 246
+      },
+      {
+        "clock": 4.5667,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 248
+      },
+      {
+        "clock": 4.8,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 254
+      },
+      {
+        "clock": 5,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 309
+      },
+      {
+        "clock": 5.2336,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 309
+      },
+      {
+        "clock": 5.6668,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 308
+      },
+      {
+        "clock": 6.1001,
+        "lens": 32,
+        "fps": 30,
+        "drawCalls": 309
+      },
+      {
+        "clock": 6.5334,
+        "lens": 32.1497917175293,
+        "fps": 30,
+        "drawCalls": 297
+      },
+      {
+        "clock": 6.9665,
+        "lens": 36.7942161560059,
+        "fps": 30,
+        "drawCalls": 284
+      },
+      {
+        "clock": 7.1668,
+        "lens": 40.386604309082,
+        "fps": 30,
+        "drawCalls": 269
+      },
+      {
+        "clock": 7.4,
+        "lens": 44.9989700317383,
+        "fps": 30,
+        "drawCalls": 272
+      },
+      {
+        "clock": 7.6002,
+        "lens": 48.8750915527344,
+        "fps": 30,
+        "drawCalls": 251
+      },
+      {
+        "clock": 7.8334,
+        "lens": 52.7382965087891,
+        "fps": 30,
+        "drawCalls": 209
+      },
+      {
+        "clock": 8.0334,
+        "lens": 55.0410690307617,
+        "fps": 30,
+        "drawCalls": 202
+      },
+      {
+        "clock": 8.2668,
+        "lens": 56,
+        "fps": 30,
+        "drawCalls": 190
+      },
+      {
+        "clock": 8.69970000000001,
+        "lens": 56,
+        "fps": 30,
+        "drawCalls": 290
+      },
+      {
+        "clock": 8.90000000000001,
+        "lens": 56,
+        "fps": 30,
+        "drawCalls": 308
+      },
+      {
+        "clock": 9.13340000000001,
+        "lens": 56,
+        "fps": 30,
+        "drawCalls": 371
+      },
+      {
+        "clock": 9.56660000000001,
+        "lens": 55.9986000061035,
+        "fps": 30,
+        "drawCalls": 352
+      },
+      {
+        "clock": 9.76660000000002,
+        "lens": 55.7706604003906,
+        "fps": 30,
+        "drawCalls": 298
+      },
+      {
+        "clock": 9.99990000000002,
+        "lens": 55.0550880432129,
+        "fps": 30,
+        "drawCalls": 284
+      },
+      {
+        "clock": 10.2,
+        "lens": 54.1073722839355,
+        "fps": 30,
+        "drawCalls": 233
+      },
+      {
+        "clock": 10.4334,
+        "lens": 52.6759185791016,
+        "fps": 30,
+        "drawCalls": 176
+      },
+      {
+        "clock": 10.8667,
+        "lens": 49.323787689209,
+        "fps": 30,
+        "drawCalls": 177
+      },
+      {
+        "clock": 11.2999,
+        "lens": 45.4591331481934,
+        "fps": 30,
+        "drawCalls": 201
+      },
+      {
+        "clock": 11.5,
+        "lens": 43.6281814575195,
+        "fps": 30,
+        "drawCalls": 218
+      },
+      {
+        "clock": 11.7333,
+        "lens": 41.5395240783691,
+        "fps": 30,
+        "drawCalls": 234
+      },
+      {
+        "clock": 12.1666000000001,
+        "lens": 38.0280380249023,
+        "fps": 30,
+        "drawCalls": 246
+      },
+      {
+        "clock": 12.3667000000001,
+        "lens": 36.6713638305664,
+        "fps": 30,
+        "drawCalls": 306
+      },
+      {
+        "clock": 12.6000000000001,
+        "lens": 35.3836059570312,
+        "fps": 30,
+        "drawCalls": 391
+      },
+      {
+        "clock": 12.8000000000001,
+        "lens": 34.5834083557129,
+        "fps": 30,
+        "drawCalls": 426
+      },
+      {
+        "clock": 13.0333000000001,
+        "lens": 34.0678558349609,
+        "fps": 30,
+        "drawCalls": 525
+      },
+      {
+        "clock": 13.4666000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 640
+      },
+      {
+        "clock": 13.6667000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 668
+      },
+      {
+        "clock": 13.8999000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 756
+      },
+      {
+        "clock": 14.3333000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 827
+      },
+      {
+        "clock": 14.7666000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1178
+      },
+      {
+        "clock": 15.2000000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1326
+      },
+      {
+        "clock": 15.6332000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1506
+      },
+      {
+        "clock": 15.8334000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1552
+      },
+      {
+        "clock": 16.0666000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1665
+      },
+      {
+        "clock": 16.4999000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1746
+      },
+      {
+        "clock": 16.9333000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1936
+      },
+      {
+        "clock": 17.1333000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 2021
+      },
+      {
+        "clock": 17.3665000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 2065
+      },
+      {
+        "clock": 17.5666000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 2031
+      },
+      {
+        "clock": 17.8000000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 2065
+      },
+      {
+        "clock": 18.2333000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 2016
+      },
+      {
+        "clock": 18.6666000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1919
+      },
+      {
+        "clock": 19.1000000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1895
+      },
+      {
+        "clock": 19.5333000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1879
+      },
+      {
+        "clock": 19.9666000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1867
+      },
+      {
+        "clock": 20.3999000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1841
+      },
+      {
+        "clock": 20.6000000000001,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1846
+      },
+      {
+        "clock": 20.8332000000002,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1845
+      },
+      {
+        "clock": 21.0333000000002,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1864
+      },
+      {
+        "clock": 21.2666000000002,
+        "lens": 34,
+        "fps": 30,
+        "drawCalls": 1870
+      },
+      {
+        "clock": 21.6991000000002,
+        "lens": 33.8522567749023,
+        "fps": 30,
+        "drawCalls": 1930
+      },
+      {
+        "clock": 21.9000000000002,
+        "lens": 33.4374160766602,
+        "fps": 30,
+        "drawCalls": 1913
+      },
+      {
+        "clock": 22.1333000000002,
+        "lens": 32.68798828125,
+        "fps": 30,
+        "drawCalls": 1871
+      },
+      {
+        "clock": 22.5666000000002,
+        "lens": 30.7958526611328,
+        "fps": 30,
+        "drawCalls": 1871
+      },
+      {
+        "clock": 22.9999000000002,
+        "lens": 28.6868724822998,
+        "fps": 30,
+        "drawCalls": 1829
+      },
+      {
+        "clock": 23.2000000000002,
+        "lens": 27.781644821167,
+        "fps": 30,
+        "drawCalls": 1789
+      },
+      {
+        "clock": 23.4334000000002,
+        "lens": 26.8726749420166,
+        "fps": 30,
+        "drawCalls": 1742
+      },
+      {
+        "clock": 23.8667000000002,
+        "lens": 25.86745262146,
+        "fps": 30,
+        "drawCalls": 1446
+      }
+    ],
+    "errors": []
+  },
+  "visual_qa": {
+    "checks": [
+      "Warmup finishes with the opening animation still paused until Start",
+      "Maple fly-in has started while the carpet is still unfolding",
+      "The incoming race mat also begins its close fly-in before unfolding ends",
+      "The complete club tour hands control back in the destination",
+      "Both warmed tours complete without browser/game console errors"
+    ],
+    "captures": [
+      {
+        "phase": "maple",
+        "clock": 2.1334,
+        "lens": 165.976318359375,
+        "path": "output/playwright/intro-pacing-maple-1-95.png"
+      },
+      {
+        "phase": "maple",
+        "clock": 3.4333,
+        "lens": 58.8003349304199,
+        "path": "output/playwright/intro-pacing-maple-3-4.png"
+      },
+      {
+        "phase": "maple",
+        "clock": 4.5001,
+        "lens": 32,
+        "path": "output/playwright/intro-pacing-maple-4-4.png"
+      },
+      {
+        "phase": "maple",
+        "clock": 6.0333,
+        "lens": 32,
+        "path": "output/playwright/intro-pacing-maple-5-9.png"
+      },
+      {
+        "phase": "maple",
+        "clock": 8.4083,
+        "lens": 56,
+        "path": "output/playwright/intro-pacing-maple-8-3.png"
+      },
+      {
+        "phase": "maple",
+        "clock": 13.6082000000001,
+        "lens": 34,
+        "path": "output/playwright/intro-pacing-maple-13-5.png"
+      },
+      {
+        "phase": "race",
+        "clock": 4.4666,
+        "lens": 121.020195007324,
+        "path": "output/playwright/intro-pacing-race-4-3.png"
+      },
+      {
+        "phase": "race",
+        "clock": 5.3333,
+        "lens": 36,
+        "path": "output/playwright/intro-pacing-race-5-2.png"
+      },
+      {
+        "phase": "race",
+        "clock": 13.5665000000001,
+        "lens": 30,
+        "path": "output/playwright/intro-pacing-race-13-4.png"
+      },
+      {
+        "phase": "race",
+        "clock": 19.6331000000001,
+        "lens": 34,
+        "path": "output/playwright/intro-pacing-race-19-5.png"
+      },
+      {
+        "phase": "race",
+        "clock": 25.9332000000002,
+        "lens": 25.8046283721924,
+        "path": "output/playwright/intro-pacing-race-25-7.png"
+      }
+    ],
+    "errors": []
+  }
+}

@@ -41,6 +41,41 @@ def bake(kind, variant, duration):
             y = (math.sin(phase)*.6 + math.sin(phase*2)*.23 + math.sin(phase*3)*.10 + math.sin(phase*4)*.04)*env
             if kind == 'woof': y += low*env*.6
             if kind == 'meow': y = (math.sin(phase)*.5+math.sin(phase*2)*.28+math.sin(phase*3)*.10)*env
+        elif kind in ('dog_wash', 'dog_jump', 'quack', 'cheer'):
+            # Rounded character voices with breath, no piercing top harmonics.
+            if kind == 'dog_wash':
+                f = (195+variant*13)*(1+.18*math.sin(t*16))
+                env = smooth(0,.035,t)*(1-smooth(duration-.15,duration,t))
+            elif kind == 'dog_jump':
+                f = (145+variant*10)*(1+.4*math.sin(math.pi*t/duration))
+                env = math.sin(math.pi*t/duration)**1.6
+            elif kind == 'quack':
+                age = t % .23
+                f = (265+variant*17)*(1-.25*smooth(0,.17,age))
+                env = smooth(0,.015,age)*(1-smooth(.07,.19,age))
+            else:
+                f = (225+variant*20)*(1+.35*math.sin(math.pi*t/duration))
+                env = smooth(0,.07,t)*(1-smooth(duration-.2,duration,t))
+            phase += TAU*f/RATE
+            y = (math.sin(phase)*.55+math.sin(phase*2)*.19+math.sin(phase*3)*.06+low*.28)*env
+            if kind == 'dog_wash': y += low*.45*env
+        elif kind in ('plastic', 'ceramic', 'cloth'):
+            env = smooth(0,.006,t)*math.exp(-t*(13 if kind=='plastic' else 6))
+            if kind == 'cloth':
+                y = low*1.2*math.sin(math.pi*t/duration)**1.4
+            else:
+                modes = (210,370,620) if kind=='plastic' else (440,720,1080)
+                for j,f in enumerate(modes):
+                    y += math.sin(TAU*f*shift*t)*env*(.35/(j+1)**2)
+                y += low*env*(1.3 if kind=='plastic' else .35)
+        elif kind in ('ladder_extend', 'ladder_retract'):
+            env = smooth(0,.025,t)*(1-smooth(duration-.08,duration,t))
+            y = low*.55*env
+            for j in range(5):
+                age=t-(.05+j*.10)
+                if age>0:
+                    y += (math.sin(TAU*235*shift*age)*.25+math.sin(TAU*390*age)*.07)*smooth(0,.005,age)*math.exp(-age*30)
+            y += math.sin(TAU*(105 if kind=='ladder_extend' else 85)*t)*.12*env
         elif kind == 'bird':
             flap = sum(math.exp(-((t-c)/.04)**2) for c in (.06,.18,.31,.45))
             y = low*flap*1.4 + air*.055*flap
@@ -75,6 +110,27 @@ def bake(kind, variant, duration):
                 # Damp, diffuse hot-grill hiss; no sharp impact or tonal squeal.
                 y = low*.85+n*.08
                 y *= .80+.12*math.sin(TAU*3*t)+.08*math.sin(TAU*7*t)
+        elif kind == 'tire_scrub':
+            # A quiet rubber squeal, rather than the old broad, loud hiss.
+            # Rounded harmonics and slow vibrato leave out the piercing top.
+            f = 744+variant*36
+            phase = TAU*f*t + 2.4*(1-math.cos(TAU*3*t))
+            env = .82+.10*math.cos(TAU*2*t)
+            y = (math.sin(phase)*.65+math.sin(phase*2)*.045+low*.06)*env
+        elif kind == 'block_land':
+            # A solid little wooden tok, with a smaller clack on its rebound.
+            for j,f in enumerate((185,350,590,880)):
+                y += math.sin(TAU*f*shift*t)*(.48/(j+1)**1.6)*math.exp(-t*(42+j*17))
+            y += low*.7*math.exp(-t*160)
+            age=t-(.072+variant*.009)
+            if age>0:
+                y += (math.sin(TAU*410*shift*age)*.14+low*.25)*smooth(0,.003,age)*math.exp(-age*95)
+        elif kind == 'house_grow':
+            # Airy toy-magic rising swoop, with a gentle rounded landing note.
+            u=t/duration
+            env=smooth(0,.08,t)*(1-smooth(duration-.20,duration,t))
+            phase=TAU*shift*(180*t+280*t*t/duration)
+            y=(math.sin(phase)*.30+math.sin(phase*2)*.035+low*(.35+.25*u))*env
         elif kind == 'clean':
             for j,f in enumerate((523.25,659.25,783.99,1046.5)):
                 age=t-j*.09
@@ -100,6 +156,7 @@ def bake(kind, variant, duration):
             y *= .88+.12*math.sin(TAU*4*t)
         if kind != 'engine': y *= smooth(0,.004,t)*(1-smooth(duration-.012,duration,t))
         data.append(y)
+    if kind != 'engine': data[0]=data[-1]=0.
     peak=max(abs(x) for x in data) or 1
     gain=.65/peak
     samples=struct.pack('<'+'h'*len(data), *(round(x*gain*32767) for x in data))
@@ -109,7 +166,7 @@ def bake(kind, variant, duration):
 
 if __name__=='__main__':
     OUT.mkdir(parents=True,exist_ok=True)
-    durations={'voice':.065,'dodge':.27,'woof':.48,'meow':.75,'bird':.56,'wood':.50,'fence':.38,'metal':.62,'brick':.43,'bush':.48,'car_bump':.35,'splash':.86,'clean':.8,'honk':.3,'chuff':.34,'whistle':1.18,'ringtone':3.,'engine':1.,'refill':1.,'fire_sizzle':1.}
+    durations={'voice':.065,'dodge':.27,'woof':.48,'meow':.75,'bird':.56,'wood':.50,'fence':.38,'metal':.62,'brick':.43,'bush':.48,'car_bump':.35,'splash':.86,'clean':.8,'honk':.3,'chuff':.34,'whistle':1.18,'ringtone':3.,'engine':1.,'refill':1.,'fire_sizzle':1.,'dog_wash':.65,'dog_jump':.32,'quack':.46,'cheer':.85,'plastic':.4,'cloth':.5,'ceramic':.65,'ladder_extend':.64,'ladder_retract':.64,'tire_scrub':2.,'block_land':.30,'house_grow':1.05}
     for kind,duration in durations.items():
         for variant in range(1 if kind in ('ringtone','engine') else 3): bake(kind,variant,duration)
     print('Baked',len(list(OUT.glob('*.wav'))),'original sound clips')

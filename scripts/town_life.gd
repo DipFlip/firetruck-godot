@@ -27,16 +27,7 @@ func _ready() -> void:
 	for i in paths.size():
 		var person:=TownProps.person(self,paths[i][0],[Color("819a83"),Color("d4a17a"),Color("8d9db6"),Color("c59099"),Color("dcbe77"),Color("9b9b7a")][i])
 		person.scale=Vector3.ONE*.85
-		var legs: Array[Node3D]=[]
-		for side in [-1,1]:
-			var pivot:=Node3D.new()
-			person.add_child(pivot)
-			pivot.position=Vector3(side*.22,.72,0)
-			# Reparent each matching trouser and shoe under a hip joint.
-			for child in person.get_children():
-				if child is MeshInstance3D and absf(child.position.x-side*.22)<.01 and child.position.y<.75:
-					child.reparent(pivot)
-			legs.append(pivot)
+		var legs:=TownProps.walking_legs(person)
 		walkers.append({"node":person,"path":paths[i],"next":1,"speed":.95+i*.06,"phase":i*1.7,"legs":legs,"hop":1.0,"from":person.position,"to":person.position,"cooldown":0.0})
 	for i in 9:
 		var bird:=_bird(i)
@@ -67,6 +58,7 @@ func _ready() -> void:
 
 func _bird(index: int) -> Dictionary:
 	var bird:=Node3D.new()
+	bird.set_meta("toy_arrival","fade")
 	add_child(bird)
 	var body:=Node3D.new()
 	bird.add_child(body)
@@ -271,14 +263,7 @@ func _physics_process(dt: float) -> void:
 			person.position+=delta.normalized()*walker.speed*dt
 			person.rotation.y=lerp_angle(person.rotation.y,atan2(-delta.x,-delta.z),1-exp(-6*dt))
 			walker.phase+=dt*6
-		var step: float=sin(walker.phase)*(.45 if not stop else .03)
-		walker.legs[0].rotation.x=step
-		walker.legs[1].rotation.x=-step
-		person.get_node("ArmLeft").rotation.x=-step
-		person.get_node("ArmRight").rotation.x=step
-		person.get_node("ArmLeft").rotation.z=-.12
-		person.get_node("ArmRight").rotation.z=.12
-		person.position.y=.16+absf(cos(walker.phase))*(.035 if not stop else .0)
+		person.position.y=.16+TownProps.pose_walk(person,walker.legs,walker.phase,not stop)
 		_keep_clear(person)
 	for bird in birds:
 		var a: float=time*.23+bird.phase

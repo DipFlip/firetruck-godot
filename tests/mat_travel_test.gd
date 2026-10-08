@@ -58,10 +58,18 @@ func run() -> void:
 	var tree: BreakableProp=game.interactions.props[0]
 	var tree_pose:=tree.global_transform
 	place(Vector3(0,.82,-78))
+	game.truck.automated_spray=true
+	game.truck.automated_aim=game.truck.global_position+Vector3(12,3,0)
+	await frames(3)
+	check(game.truck.spraying and game.hose_volume>0,"The cannon and water loop are active before driving through the exit")
 	game.truck.linear_velocity=Vector3(0,0,-18)
 	await frames(30)
 	check(travel.active and travel.destination_race and not game.truck.enabled,"Driving through the unlocked street begins the race-track loading transition")
 	travel.set_process(false)
+	var departure_water: float=game.truck.water
+	await frames(45)
+	check(not game.truck.spraying and not game.truck.spray_requested and game.truck.water==departure_water,"Travel clears the cannon's active state while physics and held input are suspended")
+	check(game.hose_volume<.001 and (game.water_audio==null or game.water_audio.volume_db< -80),"The water loop softly fades to silence during the town transition")
 	travel._update_transition(3)
 	check(travel.in_race and travel.swapped and not travel.assembly.is_empty(),"The rolled town is exchanged for the unrolling square race mat")
 	travel._update_transition(23.499-travel.clock)
@@ -69,6 +77,9 @@ func run() -> void:
 	var entry_lens: float=game.camera.size
 	travel._update_transition(.001)
 	check(game.camera.position.distance_to(before_entry)<.05 and absf(game.camera.size-entry_lens)<.01,"The race tour smoothly hands over to the entering truck")
+	await frames(3)
+	check(game.hose_volume<.001,"Held cannon input cannot restart the water sound during the full Motorway intro")
+	game.truck.automated_spray=false
 	travel._update_transition(30)
 	await frames(3)
 	check(race.active and not travel.active and game.truck.enabled and game.truck.global_position.x>390 and game.truck.global_position.z< -70 and absf(game.truck.heading-PI)<.01,"The truck enters from the race mat's north edge facing inward with control restored")
@@ -101,9 +112,14 @@ func run() -> void:
 	place(Vector3(2,.82,-54))
 	race._physics_process(.016)
 	check(race.checkpoint==1 and race.last_time==0,"Returning to finish without the circuit's gates awards no record")
-	place(Vector3(-25,.82,0))
+	# A full road-width run-off allowance is measured beyond the asphalt edge.
+	place(Vector3(0,.82,-54-RaceCourse.HALF_WIDTH*3+.5))
+	race._physics_process(.11)
+	check(race.running and race.timer_label.visible,"A lap continues almost one full road width onto the grass")
+	var old_toast: String=game.hud.toast_label.text
+	place(Vector3(0,.82,-54-RaceCourse.HALF_WIDTH*3-.5))
 	race._physics_process(.016)
-	check(not race.running,"Cutting across the infield cancels the lap")
+	check(not race.running and not race.timer_label.visible and race.timer_label.text.is_empty() and game.hud.toast_label.text==old_toast,"Exceeding the grass allowance clears the timer immediately without a cancellation message")
 	race.previous=Vector2(-2,-54)
 	place(Vector3(2,.82,-54))
 	race._physics_process(.016)
@@ -129,11 +145,16 @@ func run() -> void:
 	check(game.refill_hose.active and game.truck.water>50,"The paddock hydrant refills through the existing animated hose")
 	travel.set_process(true)
 	place(Vector3(0,.82,-74))
+	game.truck.automated_spray=true
+	game.truck.automated_aim=game.truck.global_position+Vector3(12,3,0)
 	await frames(3)
 	place(Vector3(0,.82,-83))
 	await frames(3)
 	check(travel.active and not travel.destination_race,"The north race entrance also starts the return to Maple Bay")
 	travel.set_process(false)
+	await frames(45)
+	check(not game.truck.spraying and game.hose_volume<.001,"The water loop also fades to silence during the short return transition")
+	game.truck.automated_spray=false
 	travel._update_transition(30)
 	await frames(3)
 	check(not travel.in_race and not race.active and game.town.visible and travel.root_modes.is_empty(),"Returning restores Maple Bay and stops the race scene")

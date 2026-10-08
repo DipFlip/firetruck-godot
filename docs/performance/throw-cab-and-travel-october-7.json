@@ -1,0 +1,129 @@
+{
+  "checks": [
+    "The faster rollout still waits for Start",
+    "The icon rings before the dispatcher speaks",
+    "The Motorway handover restores responsive truck control",
+    "The continuous lift-and-unroll return keeps the short travel duration",
+    "Later Motorway visits also use the short uninterrupted swap",
+    "The warmed carpet fade, ringing icon and both swaps have no browser/game console errors"
+  ],
+  "captures": [
+    {
+      "phase": "intro",
+      "time": 0.3992,
+      "path": "output/playwright/throw-browser-intro-0-25.png"
+    },
+    {
+      "phase": "intro",
+      "time": 0.8332,
+      "path": "output/playwright/throw-browser-intro-0-65.png"
+    },
+    {
+      "phase": "intro",
+      "time": 1.2665,
+      "path": "output/playwright/throw-browser-intro-1-2.png"
+    },
+    {
+      "phase": "intro",
+      "time": 2.3498,
+      "path": "output/playwright/throw-browser-intro-2-2.png"
+    },
+    {
+      "phase": "intro",
+      "time": 22.4990200000006,
+      "path": "output/playwright/throw-browser-intro-22-4.png"
+    },
+    {
+      "phase": "intro",
+      "time": 24.0156260000007,
+      "path": "output/playwright/throw-browser-intro-23-8.png"
+    },
+    {
+      "phase": "race",
+      "time": 1.24995,
+      "path": "output/playwright/throw-browser-race-1-1.png"
+    },
+    {
+      "phase": "race",
+      "time": 1.899924,
+      "path": "output/playwright/throw-browser-race-1-85.png"
+    },
+    {
+      "phase": "race",
+      "time": 2.116582,
+      "path": "output/playwright/throw-browser-race-2-05.png"
+    },
+    {
+      "phase": "race",
+      "time": 2.549898,
+      "path": "output/playwright/throw-browser-race-2-4.png"
+    },
+    {
+      "phase": "race",
+      "time": 3.19987199999999,
+      "path": "output/playwright/throw-browser-race-3-1.png"
+    },
+    {
+      "phase": "race",
+      "time": 4.71647799999998,
+      "path": "output/playwright/throw-browser-race-4-6.png"
+    },
+    {
+      "phase": "race",
+      "time": 22.2657760000006,
+      "path": "output/playwright/throw-browser-race-22-2.png"
+    },
+    {
+      "phase": "race",
+      "time": 23.5657240000006,
+      "path": "output/playwright/throw-browser-race-23-4.png"
+    },
+    {
+      "phase": "race",
+      "time": 24.4323560000007,
+      "path": "output/playwright/throw-browser-race-24-3.png"
+    },
+    {
+      "phase": "race",
+      "time": 25.7323040000007,
+      "path": "output/playwright/throw-browser-race-25-7.png"
+    },
+    {
+      "phase": "return",
+      "time": 0.716638,
+      "path": "output/playwright/throw-browser-return-0-7.png"
+    },
+    {
+      "phase": "return",
+      "time": 1.149954,
+      "path": "output/playwright/throw-browser-return-1-1.png"
+    },
+    {
+      "phase": "return",
+      "time": 1.366612,
+      "path": "output/playwright/throw-browser-return-1-3.png"
+    },
+    {
+      "phase": "return",
+      "time": 2.016586,
+      "path": "output/playwright/throw-browser-return-1-85.png"
+    },
+    {
+      "phase": "return",
+      "time": 2.449902,
+      "path": "output/playwright/throw-browser-return-2-4.png"
+    },
+    {
+      "phase": "return",
+      "time": 2.816554,
+      "path": "output/playwright/throw-browser-return-2-7.png"
+    },
+    {
+      "phase": "revisit",
+      "time": 1.183286,
+      "path": "output/playwright/throw-browser-revisit-1-1.png"
+    }
+  ],
+  "returnMs": 3297,
+  "errors": []
+}

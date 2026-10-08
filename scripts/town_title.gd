@@ -3,6 +3,7 @@ extends Control
 
 # A handful of continuous pen strokes, revealed by distance travelled. This
 # stays sharp at any phone resolution and looks written, rather than typed.
+const RACE_NAME:="Motorway Race Club"
 var strokes: Array[PackedVector2Array]=[]
 var is_race_title:=false
 var ink_width:=380.0
@@ -34,23 +35,35 @@ func _build_paths() -> void:
 		[[48,96],[121,93],[198,94],[273,95],[323,91]] # understated pen flourish
 	]
 	if is_race_title:
-		paths=paths.slice(0,5)
-		var letters: Array=[
-			[[0,81],[7,48],[14,12],[23,9],[32,30],[37,63],[43,43],[61,10],[70,7],[66,42],[63,81],[72,83]],
-			[[0,67],[7,53],[21,53],[27,66],[20,80],[6,82],[0,71],[7,53],[21,53]],
-			[[9,22],[3,70],[4,81],[14,82],[23,73]],
-			[[0,67],[7,53],[21,53],[27,66],[20,80],[6,82],[0,71],[7,53],[21,53]],
-			[[0,81],[6,52],[11,57],[8,70],[18,53],[28,55],[34,63]],
-			[[0,82],[15,12],[29,11],[47,20],[42,39],[20,48],[10,47]],
-			[[0,65],[11,49],[25,51],[27,66],[16,83],[4,83],[0,70],[11,53],[27,52],[24,78],[28,84],[40,74]],
-			[[0,81],[6,52],[11,57],[8,70],[18,53],[28,55],[34,63]],
-			[[0,82],[16,18],[21,11],[25,17],[14,52],[9,75],[18,62],[33,52],[35,58],[19,69],[33,83],[45,77]]]
-		var offsets: Array[float]=[239,318,352,384,419,491,546,592,638]
-		for i in letters.size():
-			var shifted: Array=[]
-			for point in letters[i]: shifted.append([point[0]+offsets[i],point[1]])
-			paths.append(shifted)
-		paths.append([[65,97],[230,94],[434,96],[595,95],[710,91]])
+		# The same hand-drawn pen paths as Maple Bay, laid out as the club name.
+		var glyphs: Dictionary={
+			"M":{"width":79,"paths":[paths[0]]},
+			"o":{"width":34,"paths":[[[0,67],[7,53],[21,53],[27,66],[20,80],[6,82],[0,71],[7,53],[21,53],[29,70]]]},
+			"t":{"width":31,"paths":[[[9,22],[3,70],[4,81],[14,82],[23,73]],[[0,45],[22,43]]]},
+			"r":{"width":37,"paths":[[[0,81],[6,52],[11,57],[8,70],[18,53],[28,55],[34,63]]]},
+			"w":{"width":54,"paths":[[[0,54],[3,74],[9,83],[21,61],[24,55],[24,76],[31,83],[43,61],[48,53],[43,79],[51,75]]]},
+			"a":{"width":45,"paths":[[[0,65],[11,49],[25,51],[27,66],[16,83],[4,83],[0,70],[11,53],[27,52],[24,78],[28,84],[40,74]]]},
+			"y":{"width":48,"paths":[[[13,54],[8,72],[11,83],[22,78],[33,55],[25,91],[16,113],[5,118],[0,112],[6,101],[26,93],[46,79]]]},
+			"R":{"width":54,"paths":[[[0,82],[16,12],[29,11],[47,21],[43,39],[18,47],[10,46],[28,63],[43,83],[51,75]]]},
+			"c":{"width":34,"paths":[[[29,55],[18,51],[5,57],[0,71],[6,82],[19,83],[32,75]]]},
+			"e":{"width":32,"paths":[[[1,68],[19,61],[18,53],[10,51],[1,60],[0,77],[9,84],[27,75]]]},
+			"C":{"width":57,"paths":[[[51,22],[41,12],[24,13],[10,28],[3,52],[4,74],[17,84],[34,81],[48,69]]]},
+			"l":{"width":27,"paths":[[[0,80],[16,45],[20,16],[16,12],[9,21],[3,47],[1,73],[7,83],[20,72]]]},
+			"u":{"width":44,"paths":[[[3,54],[0,72],[4,83],[17,81],[32,54],[28,76],[32,84],[42,76]]]},
+			"b":{"width":39,"paths":[[[4,82],[13,46],[22,15],[18,11],[10,20],[5,55],[2,73],[8,82],[23,83],[34,69],[31,55],[20,50],[8,63]]]},
+		}
+		paths=[]
+		var cursor:=0.0
+		for letter in RACE_NAME:
+			if letter==" ": cursor+=26; continue
+			var glyph: Dictionary=glyphs[letter]
+			for stroke in glyph.paths:
+				var shifted: Array=[]
+				for point in stroke: shifted.append([point[0]+cursor,point[1]])
+				paths.append(shifted)
+			cursor+=glyph.width
+		ink_width=cursor+12
+		paths.append([[35,97],[cursor*.3,94],[cursor*.6,96],[cursor*.82,95],[cursor-20,91]])
 
 	for path in paths:
 		var points:=PackedVector2Array()

@@ -1,0 +1,11 @@
+# Motorway crowd and introduction — 7 October 2026
+
+Food court walkers use the same hip joints, opposite arm swings and footfall bob as Maple Bay. Both towns call a shared gait, and Motorway walkers stop near the truck. Moving limbs, faces and bodies retain separate baked batches so their visible geometry can move without drawing each shoe, sleeve or eye highlight separately.
+
+The Motorway crowd uses six skin tones from light to deep, with varied hair colours. Both stands, food court walkers and named neighbours are included. The baked body palettes and carpet print contain the updated colours.
+
+The first Motorway tour turns toward the eastern stand at 8.8 seconds into the incoming intro. Its bench pieces assemble from 7.2 seconds and settle by 9.1; spectators follow and settle by 9.3. The food court has a wider framing that includes its walkers, tables, bunting, grill and adjacent campers. Its featured arrivals finish by 12.2 seconds while the camera is still viewing the court. CPU toys and baked shader scenery use matching regional delays and durations. The rest of the mat retains its scattered arrivals, and repeat visits retain the short carpet swap.
+
+Validation covers visible skin colours in baked meshes, diversity on each stand, real foot movement over a complete stride, stopping near the truck, actual spectator landing poses and featured scenery deadlines. The crowd checks, Maple Bay pedestrian/bird checks, mission reactions, scene details, toy arrival and town feedback suites pass. Camera bounds checks find no near-plane intersection across both tours and return transitions in landscape and portrait. Native Compatibility screenshots inspect benches and spectators landing during the eastern pan and the food court assembling during its close view.
+
+Chromium/WebGL screenshots confirm the same assembly timing and colours, and control resumes after arrival. The separate pass without screenshot capture reports 60 FPS at every tour sample and at handover: 1,554 frames at or below 18 ms, five between 18–25 ms, one between 35–50 ms and none above 50 ms. Browser/game errors: none. [Frame-pacing report](performance/motorway-crowd-october-7.json). The Web export is rebuilt for localhost port 8064.

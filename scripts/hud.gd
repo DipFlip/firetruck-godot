@@ -7,6 +7,7 @@ const MUTED := Color("688a9b")
 const TEAL := Color("51b5cc")
 const ORANGE := Color("ec806c")
 const TEXT_SPEED := 1.5
+const WATER_DROP:=preload("res://assets/ui/water_drop.svg")
 var game: Node3D
 # Mission labels remain hidden data sinks for mission/debug tooling.
 var mission_label: Label
@@ -127,6 +128,7 @@ func glyph_size(size_px: int) -> int:
 	return int(round(size_px*1.3))
 
 func _ready() -> void:
+	texture_filter=CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter=Control.MOUSE_FILTER_IGNORE
 	var regular:=FontVariation.new()
@@ -563,10 +565,14 @@ func _draw() -> void:
 		if map_open: _draw_map()
 		if game.phone_ringing() or (game.dialogue_active and dialogue_panel.phone_mode):
 			var phone_center:=_phone_center()
-			draw_circle(phone_center+Vector2(0,3),29,Color(INK,.2))
-			draw_circle(phone_center,29,INK)
-			draw_circle(phone_center,25,PAPER)
-			SpeechFrame.draw_phone(self,phone_center,.75,time,game.phone_ringing() or char_count<full_text.length())
+			var ring: bool=game.phone_ringing()
+			var shake:=sin(time*43)*(.35+.65*pow(.5+.5*sin(time*8),2)) if ring else 0.0
+			draw_set_transform(phone_center+Vector2(shake*2,0),shake*.13)
+			draw_circle(Vector2(0,3),29,Color(INK,.2),true,-1,true)
+			draw_circle(Vector2.ZERO,29,INK,true,-1,true)
+			draw_circle(Vector2.ZERO,25,PAPER,true,-1,true)
+			SpeechFrame.draw_phone(self,Vector2.ZERO,.75,time,ring or char_count<full_text.length())
+			draw_set_transform(Vector2.ZERO)
 		if game.navigation_active() and game.truck.global_position.distance_to(game.objective())>9:
 			_draw_navigation()
 		# Keyboard and touch aiming read from the water itself; only the mouse
@@ -602,9 +608,8 @@ func _draw_water() -> void:
 		shine.size.y=4
 		if shine.size.x>0: draw_line(shine.position+Vector2(0,2),shine.position+Vector2(shine.size.x,2),Color("b8eef2"),3,true)
 	var drop_center:=center+Vector2(-144,0)
-	draw_circle(drop_center,18,INK)
+	draw_circle(drop_center,18,INK,true,-1,true)
 	_drop(drop_center,12,Color("92e0ea") if shown_water>.15 else ORANGE)
-	for x in [-160.0,160.0]: draw_circle(center+Vector2(x,0),2.2,Color("8baeba"))
 	if game.truck.water<20:
 		draw_arc(drop_center,21,-PI/2,PI*1.5,40,Color(ORANGE,.5+sin(time*4)*.25),2,true)
 
@@ -625,11 +630,7 @@ func _draw_navigation() -> void:
 	draw_line(pos+dir*9,pos-dir*1,Color("ffd0c0"),2,true)
 
 func _drop(pos: Vector2, radius: float, color: Color) -> void:
-	var points:=PackedVector2Array([pos+Vector2(0,-radius)])
-	for i in range(25):
-		var a:=float(i)/24*PI
-		points.append(pos+Vector2(cos(a)*radius*.65,sin(a)*radius*.65))
-	draw_colored_polygon(points,color)
+	draw_texture_rect(WATER_DROP,Rect2(pos-Vector2.ONE*radius,Vector2.ONE*radius*2),false,color)
 
 func _draw_map() -> void:
 	if game.travel and game.travel.in_race:

@@ -56,6 +56,8 @@ func _process(dt: float) -> void:
 	var hop:=sin(clampf(splash_time/.65,0,1)*PI)*.42 if playful and splash_time<.65 else 0.0
 	game.town.dog.position.y=TownLayout.DOG.y+hop
 	game.town.dog.rotation.z=sin(clock*8)*.035 if hop>0 else 0.0
+	if not jumping and hop>0 and not game.intro.active and not game.travel.active:
+		game.sounds.play("dog_jump",game.town.dog.global_position,.8,1.0)
 	if jumping and hop==0: splash()
 	jumping=hop>0
 	for drop in drops:

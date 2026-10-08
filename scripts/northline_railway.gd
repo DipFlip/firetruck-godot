@@ -5,12 +5,15 @@ const TRACK_Z:=-63.0
 const LEFT_END:=-130.0
 const RIGHT_END:=130.0
 const RESISTANCE:=67.0
+const PUSH_SECONDS:=2.8
+const CAB_STANDING_POSE:=Vector3(-2.8,1.0,.50)
 var game: Node3D
 var engine: RigidBody3D
 var roof_hinge: Node3D
 var driver: Node3D
 var driver_guard: StaticBody3D
 var wheels: Array[Node3D]=[]
+var wheel_rods: Array[MeshInstance3D]=[]
 var smoke: Array[Dictionary]=[]
 var sound: AudioStreamPlayer3D
 var started:=false
@@ -24,6 +27,7 @@ var hint_sent:=false
 var assist_time:=0.0
 var boarding_time:=0.0
 var driver_from:=Vector3.ZERO
+var driver_from_yaw:=0.0
 var wait:=0.0
 var direction:=1.0
 var clock:=0.0
@@ -142,18 +146,25 @@ func _make_engine() -> void:
 	var teal:=Color("528d94")
 	var dark:=Color("365868")
 	var brass:=Color("d9b579")
-	TownProps.box(engine,Vector3(0,.95,0),Vector3(8.8,.45,2.9),dark)
-	TownProps.box(engine,Vector3(-2.8,1.6,0),Vector3(2.6,1.1,2.7),teal)
+	TownProps.box(engine,Vector3(0,.56,0),Vector3(8.8,.28,2.9),dark)
+	TownProps.box(engine,Vector3(1.45,.95,0),Vector3(5.9,.45,2.9),dark)
+	var cab_floor:=TownProps.box(engine,Vector3(-2.8,.90,0),Vector3(2.6,.16,2.5),dark)
+	cab_floor.name="CabFootwell"
 	for z in [-1.28,1.28]:
-		TownProps.box(engine,Vector3(-2.8,1.92,z),Vector3(2.4,.64,.18),teal)
-		TownProps.box(engine,Vector3(-2.8,3.31,z),Vector3(2.4,.20,.18),teal)
+		TownProps.box(engine,Vector3(-2.8,1.34,z),Vector3(2.4,.78,.18),teal)
+		TownProps.box(engine,Vector3(-2.8,3.64,z),Vector3(2.4,.20,.18),teal)
 		for x in [-3.9,-1.7]:
-			TownProps.box(engine,Vector3(x,2.72,z),Vector3(.20,1.3,.18),teal)
-	TownProps.box(engine,Vector3(-3.95,2.5,0),Vector3(.18,1.8,2.5),teal)
+			TownProps.box(engine,Vector3(x,2.64,z),Vector3(.20,1.8,.18),teal)
+	TownProps.box(engine,Vector3(-3.95,2.18,0),Vector3(.18,2.5,2.5),teal)
+	TownProps.box(engine,Vector3(-1.65,1.54,0),Vector3(.18,1.2,2.5),teal)
+	TownProps.box(engine,Vector3(-1.85,1.92,0),Vector3(.35,.15,1.5),dark)
+	for z in [-.4,.4]:
+		TownProps.cylinder(engine,Vector3(-1.96,2.08,z),.055,.3,brass)
+		TownProps.ball(engine,Vector3(-1.96,2.25,z),Vector3.ONE*.18,dark)
 	roof_hinge=Node3D.new()
 	roof_hinge.name="HingedCabRoof"
 	engine.add_child(roof_hinge)
-	roof_hinge.position=Vector3(-4.25,3.52,0)
+	roof_hinge.position=Vector3(-4.25,3.82,0)
 	TownProps.box(roof_hinge,Vector3(1.45,0,0),Vector3(2.9,.24,3.05),dark)
 	for z in [-1,1]:
 		var hinge:=TownProps.cylinder(engine,roof_hinge.position+Vector3(0,0,z),.13,.38,brass)
@@ -185,8 +196,8 @@ func _make_engine() -> void:
 				var spoke:=TownProps.box(wheel,Vector3(0,0,side*.145),Vector3(.07,.70,.035),dark)
 				spoke.rotation.z=a
 			wheels.append(wheel)
-		TownProps.box(engine,Vector3(-.4,.5,side*1.52),Vector3(6,.10,.10),brass)
-	var nameplate:=TownProps.label(engine,Vector3(-2.8,1.7,1.4),"NORTHLINE  07",48)
+		wheel_rods.append(TownProps.box(engine,Vector3(-.4,.5,side*1.52),Vector3(6,.10,.10),brass))
+	var nameplate:=TownProps.label(engine,Vector3(-2.8,1.3,1.4),"NORTHLINE  07",48)
 	nameplate.font=preload("res://assets/fonts/Nunito.ttf")
 	nameplate.pixel_size=.007
 	nameplate.billboard=BaseMaterial3D.BILLBOARD_DISABLED
@@ -238,6 +249,10 @@ func _physics_process(dt: float) -> void:
 	clock+=dt
 	driver_guard.rotation.y=atan2(game.camera.global_basis.z.x,game.camera.global_basis.z.z)
 	if not started:
+		var toward: Vector3=game.truck.global_position-driver.global_position
+		var watching: bool=toward.length()<18 or game.dialogue_actor==driver
+		var gaze:=atan2(-toward.x,-toward.z) if watching else 0.0
+		driver.rotation.y=lerp_angle(driver.rotation.y,gaze,1-exp(-5*dt))
 		var velocity:=engine.linear_velocity.x
 		engine.apply_central_force(Vector3(-signf(velocity)*minf(absf(velocity)*engine.mass/maxf(dt,.001),RESISTANCE),0,0))
 		var local: Vector3=game.truck.position-engine.position
@@ -255,21 +270,22 @@ func _physics_process(dt: float) -> void:
 			talk_to_driver(true)
 		elif hint_pending and game.dialogue_actor==driver and game.hud.char_count==game.hud.full_text.length():
 			game.end_dialogue()
-		if assist_time>=.35: _start_engine()
+		if assist_time>=PUSH_SECONDS: _start_engine()
 	else:
 		if not boarded:
 			boarding_time+=dt
 			# Open a real rear-hinged roof, hop over the sill, then settle inside.
 			roof_hinge.rotation.z=1.85*smoothstep(0,.45,boarding_time)*(1-smoothstep(1.65,2.25,boarding_time))
 			var t:=smoothstep(.45,1.65,boarding_time)
-			var seat: Vector3=engine.position+Vector3(-2.8,.78,.91)
-			driver.position=driver_from.lerp(seat,t)+Vector3.UP*sin(t*PI)*4.0
-			driver.rotation.y=lerp_angle(0,PI,t)
-			driver.rotation.x=-.17*smoothstep(1.55,2.25,boarding_time)
-			driver.get_node("ArmLeft").rotation.x=-1.15*smoothstep(1.55,2.25,boarding_time)
-			driver.get_node("ArmRight").rotation.x=-1.15*smoothstep(1.55,2.25,boarding_time)
-			for arm_name in ["ArmLeft","ArmRight"]:
-				driver.get_node(arm_name).position.y=lerpf(1.35,1.72,smoothstep(1.55,2.25,boarding_time))
+			var seat: Vector3=engine.position+CAB_STANDING_POSE
+			driver.position=driver_from.lerp(seat,t)+Vector3.UP*sin(t*PI)*5.7
+			driver.rotation.y=lerp_angle(driver_from_yaw,-PI/2,t)
+			var lean:=smoothstep(1.55,2.25,boarding_time)
+			driver.rotation.z=-.16*lean
+			# The left hand reaches the controls; the right arm drapes through the
+			# open side window while his face stays directed toward the boiler.
+			driver.get_node("ArmLeft").rotation=Vector3(.95*lean,0,-.18)
+			driver.get_node("ArmRight").rotation=Vector3(-.35*lean,0,lerpf(.12,1.15,lean))
 			if boarding_time>=2.3:
 				boarded=true
 				driver.reparent(engine,true)
@@ -289,6 +305,9 @@ func _physics_process(dt: float) -> void:
 			if not offstage: game.sounds.play("chuff",engine.global_position,.9,.15)
 	for gate in gates: gate.update_train(engine.position.x,started and boarded and not offstage,dt)
 	for wheel in wheels: wheel.rotation.z-=engine.linear_velocity.x*direction*dt/.48
+	for rod in wheel_rods:
+		rod.position.x=-.4+cos(wheels[0].rotation.z)*.19
+		rod.position.y=.48+sin(wheels[0].rotation.z)*.19
 	for light in crossings:
 		light.material_override=TownProps.material(Color("ef927b") if started and wait==0 and sin(clock*6)>0 else Color("925d53"),started and wait==0)
 	for cloud in smoke:
@@ -306,6 +325,7 @@ func _start_engine() -> void:
 	_release_push()
 	boarding_time=.001
 	driver_from=driver.position
+	driver_from_yaw=driver.rotation.y
 	driver_guard.collision_layer=0
 	if game.dialogue_active and game.dialogue_actor==driver: game.end_dialogue()
 	game.rewards.sparkle_burst(engine.position+Vector3.UP*2,22,2.5)

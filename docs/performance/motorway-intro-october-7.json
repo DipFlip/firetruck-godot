@@ -1,0 +1,96 @@
+{
+  "checks": [
+    "The mat and camera wait for Start",
+    "The first Motorway tour returns responsive truck control",
+    "Crossing Start begins an ordered lap",
+    "A lap survives 12 metres of grass beyond the asphalt edge",
+    "Going beyond the 13-metre allowance cancels and resets the timer",
+    "The next Start crossing begins another attempt after cancellation",
+    "The return uses the short carpet swap",
+    "The browser reports no game or console errors"
+  ],
+  "captures": [
+    {
+      "phase": "maple",
+      "time": 2.333822,
+      "path": "output/playwright/motorway-browser-maple-2-3.png"
+    },
+    {
+      "phase": "maple",
+      "time": 4.93371799999997,
+      "path": "output/playwright/motorway-browser-maple-4-8.png"
+    },
+    {
+      "phase": "race",
+      "time": 1.016626,
+      "path": "output/playwright/motorway-browser-race-0-8.png"
+    },
+    {
+      "phase": "race",
+      "time": 3.61652199999999,
+      "path": "output/playwright/motorway-browser-race-3-5.png"
+    },
+    {
+      "phase": "race",
+      "time": 5.99975999999997,
+      "path": "output/playwright/motorway-browser-race-5-9.png"
+    },
+    {
+      "phase": "race",
+      "time": 9.89960400000003,
+      "path": "output/playwright/motorway-browser-race-9-8.png"
+    },
+    {
+      "phase": "race",
+      "time": 13.7994480000002,
+      "path": "output/playwright/motorway-browser-race-13-7.png"
+    },
+    {
+      "phase": "race",
+      "time": 14.4494220000002,
+      "path": "output/playwright/motorway-browser-race-14-3.png"
+    },
+    {
+      "phase": "race",
+      "time": 17.0493180000003,
+      "path": "output/playwright/motorway-browser-race-17.png"
+    },
+    {
+      "phase": "race",
+      "time": 20.5158460000005,
+      "path": "output/playwright/motorway-browser-race-20-4.png"
+    },
+    {
+      "phase": "race",
+      "time": 21.1658200000005,
+      "path": "output/playwright/motorway-browser-race-21.png"
+    },
+    {
+      "phase": "race",
+      "time": 22.4657680000006,
+      "path": "output/playwright/motorway-browser-race-22-3.png"
+    },
+    {
+      "phase": "race",
+      "time": 23.1157420000006,
+      "path": "output/playwright/motorway-browser-race-23.png"
+    },
+    {
+      "phase": "race",
+      "time": 25.4989800000007,
+      "path": "output/playwright/motorway-browser-race-25-4.png"
+    },
+    {
+      "phase": "return",
+      "time": 0.899963999999999,
+      "path": "output/playwright/motorway-browser-return-0-7.png"
+    },
+    {
+      "phase": "return",
+      "time": 2.41657,
+      "path": "output/playwright/motorway-browser-return-2-2.png"
+    }
+  ],
+  "returnMs": 3128,
+  "errors": []
+}

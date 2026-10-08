@@ -1,8 +1,11 @@
 shader_type spatial;
 render_mode diffuse_burley;
 uniform float roll = 0.0;
+uniform bool unfolding = true;
 uniform bool race = false;
 uniform bool printed_toys = true;
+uniform float print_opacity = 1.0;
+uniform vec4 pond_hole = vec4(-29.0,40.0,13.0,10.0);
 uniform vec4 felt_color : source_color = vec4(.37647,.6,.345098,1.0);
 uniform sampler2D maple_print : source_color, filter_linear_mipmap, repeat_disable;
 uniform sampler2D race_print : source_color, filter_linear_mipmap, repeat_disable;
@@ -22,10 +25,16 @@ vec3 centreline(vec3 p) {
  if(into<=0.0) {
   float s=clamp((80.0-p.z)/spread,0.0,1.0);
   float wave=sin(s*3.141593);
-  // The free lip is already visible at the beginning. A travelling, asymmetric
-  // billow lifts the fabric as it is thrown out, then settles it onto the floor.
-  sheet.y=wave*wave*(sin((1.0-roll)*3.141593)*10.0
-    +roll*1.3)*(1.0+.16*sin(p.x*.055+s*9.0));
+  // The south edge is held up while the printed fabric is shaken out. Its
+  // lift tapers to zero at the moving tangent, keeping the spiral connected.
+  // Gathering the mat is separate: the unwound sheet stays on the floor.
+  if(unfolding) {
+   float held=sin(roll*3.141593)*7.0+roll*3.0;
+   float shake=1.0+.2*sin(roll*6.283185-s*4.0);
+   float billow=wave*wave*sin((1.0-roll)*3.141593)*10.0*shake;
+   sheet.y=(held*(1.0-s)*(1.0-s)+billow)
+     *(1.0+.12*sin(p.x*.055+s*9.0));
+  }
  } else {
   float pitch=1.5/6.283185;
   float core=2.35+.22*sin(p.x*.043)+.09*sin(p.x*.113);
@@ -67,7 +76,10 @@ void fragment() {
   float picnic=step(35.0,p.x)*step(p.x,70.0)*step(30.0,p.y)*step(p.y,74.0);
   ink=mix(ink,vec3(.70,.75,.53),picnic*.65);
  }
- float border=smoothstep(77.5,78.0,max(abs(p.x),abs(p.y)));
+ vec2 corner=abs(p)-vec2(75.5);
+ float edge_distance=length(max(corner,vec2(0.0)))+min(max(corner.x,corner.y),0.0)-4.5;
+ float border=smoothstep(-2.5,-2.0,edge_distance);
+ if(race && !printed_toys && length((p-pond_hole.xy)/pond_hole.zw)<1.0) discard;
  ink=mix(ink,vec3(.78,.46,.33),border);
  if(backing>.5) ink=vec3(.69,.66,.57);
  vec2 yarn=p*42.0;
@@ -88,6 +100,15 @@ void fragment() {
  if(backing>.5) {
   ink*=1.0+(noise(p*13.0)-.5)*.12+weave*.1;
   NORMAL_MAP=vec3(.5+filtered.x*.08,.5+filtered.y*.08,1.0);
+ }
+ // A stitched, fuzzy binding follows the actual sheet coordinates, so the
+ // orange hem keeps its yarn and nap as it curls or is carried away.
+ if(border>.5 && backing<.5) {
+  float along=abs(p.x)>abs(p.y) ? p.y : p.x;
+  float seam=sin(along*15.0)/(1.0+pow(fwidth(along*15.0),2.0));
+  ink*=1.0+weave*.15+(noise(p*18.0)-.5)*.16;
+  ink=mix(ink,vec3(.91,.66,.45),smoothstep(.6,.9,seam)*.28);
+  NORMAL_MAP=vec3(.5+filtered.x*.1,.5+filtered.y*.1,1.0);
  }
  vec3 fabric=ink*(.975+.025*weave);
  float print_light=printed_toys && backing<.5 ? mix(.15,.65,roll) : 1.0;
