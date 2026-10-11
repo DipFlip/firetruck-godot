@@ -773,16 +773,16 @@ func _talk_camera_size() -> float:
 	return close_size if balloon_height>0 else minf(close_size,25.8)
 
 func _conversation_pan_target() -> float:
-	# NPCs only magnify the driving view. An actual scenery interest may
-	# reserve space for its speech balloon on narrow screens.
-	if not dialogue_active or not is_instance_valid(dialogue_actor) or not camera_framing.active.any(func(point): return point.weight>.15): return 0.0
+	# Proximity only magnifies the driving view. Once a conversation opens,
+	# reserve room for its balloon even when the speaker has no scenery interest.
+	if not dialogue_active or not is_instance_valid(dialogue_actor): return 0.0
 	var p:=truck.get_global_transform_interpolated().origin
 	var screen:=camera.unproject_position(p)
 	var pixels_per_unit:=absf(camera.unproject_position(p+camera.global_basis.y).y-screen.y)
-	var truck_rect:=hud.truck_screen_rect()
-	var scene_top:=minf(truck_rect.position.y,hud.conversation_subject_rect().position.y)-camera.v_offset*pixels_per_unit
+	var scene_rect:=hud.truck_screen_rect().merge(hud.conversation_subject_rect())
+	var scene_top:=scene_rect.position.y-camera.v_offset*pixels_per_unit
 	var balloon_space:=76+hud.dialogue_panel.size.y+26-scene_top
-	var max_shift:=hud.size.y-22-(truck_rect.end.y-camera.v_offset*pixels_per_unit)
+	var max_shift:=hud.size.y-22-(scene_rect.end.y-camera.v_offset*pixels_per_unit)
 	return maxf(0,minf(max_shift,balloon_space))/maxf(.01,pixels_per_unit)*conversation_blend
 
 func return_to_main_menu() -> void:

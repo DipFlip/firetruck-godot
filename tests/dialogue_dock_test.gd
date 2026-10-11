@@ -46,7 +46,7 @@ func run() -> void:
 		previous=panel.position
 	check(game.dialogue_active and game.camera.size<25.8 and max_step<15,"Driving sixteen metres away retains the conversation zoom and smooth balloon tracking")
 	head=game.camera.unproject_position(actor.global_position+Vector3.UP*2.85)
-	check((panel.position+panel.tail_tip).distance_to(head)<1,"The rounded notch remains aimed at the on-screen speaker")
+	check((panel.get_global_transform()*panel.tail_tip).distance_to(head)<1,"The rounded notch remains aimed at the on-screen speaker as the bubble scales")
 	game.paused=true
 	var paused_position:=panel.position
 	await frames(20)

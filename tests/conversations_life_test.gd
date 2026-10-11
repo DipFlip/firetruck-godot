@@ -27,6 +27,7 @@ func click(point: Vector2, touch: bool=false) -> void:
 		event.pressed=true
 		game._unhandled_input(event)
 func run() -> void:
+	root.size=Vector2i(1280,800)
 	game=load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	game.call_timer=0
@@ -45,10 +46,9 @@ func run() -> void:
 	check(not game.hud.prompt_panel.visible,"Ladder hint stays hidden while Maya is talking")
 	var message: String=game.hud.dialogue_text
 	check(game.hud.full_text==message and game.hud.dialogue_pages.size()==1,"The entire instruction is one message")
+	check(game.dialogue_control.interrupting and game.hud.char_count==message.length(),"The first mission briefing interrupts control and shows all its words immediately")
 	click(game.hud.dialogue_panel.position+game.hud.dialogue_panel.size*.5)
-	check(game.dialogue_active and game.hud.char_count==message.length(),"Clicking the bubble reveals all words")
-	click(game.hud.dialogue_panel.position+game.hud.dialogue_panel.size*.5,true)
-	check(not game.dialogue_active,"A second tap finishes the whole message without a leftover word")
+	check(not game.dialogue_active,"Clicking acknowledges the complete mission briefing")
 	await frames(3)
 	check(game.hud.prompt_label.text=="Press E to extend the ladder" and game.hud.prompt_panel.visible,"After Maya's briefing the desktop hint only explains how to extend the ladder")
 	game.hud.touch_mode=true
@@ -72,6 +72,9 @@ func run() -> void:
 	var at: Vector2=game.camera.unproject_position(actor.global_position+Vector3.UP*1.3)
 	click(at,true)
 	check(game.dialogue_active and game.dialogue_actor==actor,"Tapping the neighbour starts another conversation after the proximity latch")
+	check(not game.dialogue_control.interrupting,"Repeat conversation permits driving")
+	click(game.hud.dialogue_panel.position+game.hud.dialogue_panel.size*.5)
+	check(game.dialogue_active and game.hud.char_count==game.hud.full_text.length(),"Clicking the repeat bubble reveals all words")
 	game.truck.position=TownLayout.MAYA+Vector3(0,1,12)
 	game.truck.reset_physics_interpolation()
 	await frames(120)
@@ -125,6 +128,9 @@ func run() -> void:
 	washed.wash_cooldown=0.0
 	washed.honk_count=0
 	game.truck.position=Vector3(-60,.85,-40)
+	# The fixture keeps the chassis frozen; explicitly enable its hose after
+	# the interrupting briefing restored that original frozen state.
+	game.truck.enabled=true
 	game.truck.automated_aim=washed.node.position+Vector3.UP*.9
 	game.truck.automated_spray=true
 	game.truck.reset_physics_interpolation()

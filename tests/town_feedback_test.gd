@@ -188,8 +188,9 @@ func run() -> void:
 	game.intro.start()
 	game.intro.update((.25)/PlayMatTravel.INTRO_PACE)
 	var camera_start: Vector3=game.camera.position
+	var opening_lens: float=game.camera.size
 	game.intro.update((2.1)/PlayMatTravel.INTRO_PACE)
-	check(camera_start.distance_to(game.camera.position)>3 and game.camera.size>140 and game.travel.mat.visible and game.intro.title.reveal==0,"The wide opening follows the held carpet before the delayed town name starts")
+	check(camera_start.distance_to(game.camera.position)>3 and game.camera.size<opening_lens and game.camera.size>game.travel.tour_lens(game.intro.clock,false) and game.travel.mat.visible and game.intro.title.reveal==0,"The wide opening smoothly narrows toward the tour while following the held carpet before the delayed town name starts")
 	await capture("/tmp/firedriver-town-intro.png")
 	game.intro.update((5.25)/PlayMatTravel.INTRO_PACE)
 	await capture("/tmp/firedriver-dog-intro.png")

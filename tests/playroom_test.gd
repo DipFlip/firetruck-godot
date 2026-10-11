@@ -44,7 +44,9 @@ func run() -> void:
 	gate.update_train(103,true,1.3)
 	check(gate.opening==0,"The boom lowers again once the complete locomotive has passed")
 	game.railway.set_physics_process(true)
-	var sign: BreakableProp=game.railway.signs[2]
+	# Use the western crossing, clear of Rowan's personal-space field and the
+	# wooden sides of the central Motorway passage.
+	var sign: BreakableProp=game.railway.signs[0]
 	await place(sign.home.origin+Vector3(0,.85,5),Vector3(0,0,-10))
 	await frames(50)
 	check(sign.loose and sign.global_position.distance_to(sign.home.origin)>.5 and absf(sign.global_basis.y.dot(Vector3.UP))<.95,"An actual truck collision knocks a railway sign over with its warning light attached")
