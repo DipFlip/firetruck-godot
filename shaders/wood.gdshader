@@ -41,6 +41,8 @@ void fragment(){
  // along: distance down the fibres. across: position in the log's cross-section.
  float along;
  vec2 across;
+ vec2 board_cell=vec2(0.0);
+ float board_length=40.0;
  if(floorboards){
   vec2 floor_at=world.xz-floor_origin;
   float row=floor((floor_at.y+4.0)/10.0);
@@ -49,6 +51,8 @@ void fragment(){
   float board=floor((floor_at.x+stagger)/length_board);
   seed=hash(row*37.0+board*73.0);
   vec2 cell=vec2(mod(floor_at.x+stagger,length_board),mod(floor_at.y+4.0,10.0));
+  board_cell=cell;
+  board_length=length_board;
   vec2 edge=min(cell,vec2(length_board,10.0)-cell);
   seam=(1.0-smoothstep(.02,.09,min(edge.x,edge.y)))*.22;
   along=cell.x;
@@ -90,9 +94,24 @@ void fragment(){
  // Only a gentle falloff towards the far floor, away from the window.
  if(floorboards){shade*=mix(1.0,.9,smoothstep(100.0,220.0,length(world.xz-floor_origin)));}
  vec3 colour=timber.rgb;
+ if(floorboards){
+  // Each plank ages differently: subtle sapwood tones, a few knots and
+  // small worn patches break the perfectly even repeated finish.
+  shade+=(h1-.5)*.18;
+  colour*=vec3(1.0+(h2-.5)*.06,1.0+(h3-.5)*.045,1.0+(h1-.5)*.09);
+  vec2 knot_at=vec2(board_length*(.18+.64*h2),2.0+6.0*h3);
+  vec2 knot=(board_cell-knot_at)/vec2(2.2,1.0);
+  float knot_radius=length(knot);
+  float knot_rings=sin(knot_radius*13.0+noise(knot)*2.0);
+  float knot_filter=1.0/(1.0+pow(fwidth(knot_radius)*13.0,2.0));
+  float knot_mask=step(.65,h1)*exp(-knot_radius*knot_radius*.65);
+  shade-=knot_mask*(.14+.055*knot_rings*knot_filter);
+  float wear=noise(board_cell*vec2(.3,1.2)+seed*83.0);
+  shade+=(wear-.5)*.045;
+ }
  // Latewood is slightly warmer and redder, as in real beech and maple.
  if(!painted){colour=mix(colour,colour*vec3(1.0,.86,.72),late*filter*.55);}
  ALBEDO=colour*shade;
- ROUGHNESS=painted ? .36 : floorboards ? .70 : .55+late*.12;
+ ROUGHNESS=painted ? .36 : floorboards ? .65+hash(seed*173.0)*.15 : .55+late*.12;
  SPECULAR=painted ? .42 : .26;
 }

@@ -30,11 +30,16 @@ func _process(dt: float) -> void:
 		bottom=.74
 	elif is_instance_valid(game.camera_subject) and game.conversation_blend>.01:
 		var subject: float=game.camera.unproject_position(game.camera_subject.global_position+Vector3.UP*2).y/height
-		# NPCs and the treetop cat remain crisp even during conversation panning.
-		if game.camera_subject==game.town.people[0] and not game.cat_rescued:
-			subject=minf(subject,game.camera.unproject_position(game.town.cat.global_position).y/height)
+		# The talking neighbour stays crisp during conversation panning.
 		top=minf(top,subject-.13)
 		bottom=maxf(bottom,subject+.13)
+	# Mission objects framed by the reusable camera interests stay crisp too.
+	for point in game.camera_framing.active:
+		if point.weight<.1: continue
+		for corner in point.world_bounds():
+			var screen_y: float=game.camera.unproject_position(corner).y/height
+			top=minf(top,screen_y-.05)
+			bottom=maxf(bottom,screen_y+.05)
 	var blend:=1-exp(-5*dt)
 	focus_top=lerpf(focus_top,top,blend)
 	focus_bottom=lerpf(focus_bottom,bottom,blend)

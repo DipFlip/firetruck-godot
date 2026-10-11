@@ -20,6 +20,10 @@ func _ready() -> void:
 	finish.set_shader_parameter("maple_print",preload("res://assets/scenery/maple_mat.png"))
 	if ResourceLoader.exists("res://assets/scenery/race_mat.png"):
 		finish.set_shader_parameter("race_print",load("res://assets/scenery/race_mat.png"))
+	for world in ["maple","race"]:
+		for suffix in ["clean","arrival"]:
+			var path: String="res://assets/scenery/%s_mat_%s.png" % [world,suffix]
+			if ResourceLoader.exists(path): finish.set_shader_parameter(world+"_"+suffix,load(path))
 	material_override=finish
 	if not print_fade_shader:
 		print_fade_shader=Shader.new()
@@ -35,6 +39,9 @@ func _ready() -> void:
 
 func show_mat(is_race: bool, amount: float, centre: Vector3=Vector3.ZERO, unfolding: bool=true) -> void:
 	position=centre+Vector3.UP*.14
+	# The settled print sits between felt (.03) and the road (.055), so the
+	# emerging 3D ribbon can replace its ink without disappearing beneath it.
+	if is_race: position.y=centre.y+lerpf(.04,.14,smoothstep(0,.08,amount))
 	rotation=Vector3.ZERO
 	finish.set_shader_parameter("race",is_race)
 	amount=clampf(amount,0,1)
@@ -52,6 +59,10 @@ func show_mat(is_race: bool, amount: float, centre: Vector3=Vector3.ZERO, unfold
 static func rollout_amount(elapsed: float, seconds: float=ROLLOUT_SECONDS) -> float:
 	# A quick throw carries the roll outward, then the loose fabric settles.
 	return pow(1-clampf(elapsed/seconds,0,1),2.4)
+
+func set_arrival_progress(progress: float) -> void:
+	finish.set_shader_parameter("arrival_progress",progress)
+	print_fade.set_shader_parameter("arrival_progress",progress)
 
 func fade_print(opacity: float) -> void:
 	if opacity>=1: return

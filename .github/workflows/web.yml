@@ -25,6 +25,8 @@ jobs:
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/braking_test.gd
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/birds_test.gd
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/dialogue_dock_test.gd
+          "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/bubble_departure_test.gd
+          "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/quest_camera_lifecycle_test.gd
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/visibility_guards_test.gd
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/ladder_test.gd
           "$GODOT_BIN" --headless --fixed-fps 60 --path . --script tests/cannon_aim_test.gd

@@ -47,7 +47,7 @@ func run() -> void:
 	check(rear.is_finite() and absf(rear.z-1.95)<.025,"The rear number sits on a closed tank wall")
 	model.free()
 	game.intro.start()
-	game.intro.update(7.6)
+	game.intro.update((7.6)/PlayMatTravel.INTRO_PACE)
 	var travel: PlayMatTravel=game.travel
 	check(travel.mat.visible and travel.mat.finish.get_shader_parameter("roll")==0.0,"The actual flattened map remains under the rising buildings during close shots")
 	check(travel.mat.mesh.get_aabb().size.y>=.89,"The rolled carpet has a real underside and a thick closed hem")
@@ -71,11 +71,11 @@ func run() -> void:
 	for item in baked:
 		var colours: PackedColorArray=item.node.mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
 		for colour in colours: kinds[roundi(colour.a*4)]=true
-	check(not baked.is_empty() and kinds.has(2) and kinds.has(3) and kinds.has(4),"Baked scenery contains separate building-rise, toy-drop and small-detail sprout data without splitting its draw batches")
+	check(not baked.is_empty() and kinds.has(2) and kinds.keys().all(func(kind): return kind in [1,2,3,4]),"Baked houses retain per-vertex growth data and every batch uses a valid arrival kind")
 	var details:=travel.assembly.filter(func(item): return not item.gpu and item.sprout and item.instance>=0)
 	check(details.size()>500,"Hundreds of tiny flower and leaf parts sprout instead of raining down")
 	var detail: Dictionary=details[0]
-	travel.grow_assembly(detail.delay+.07)
+	travel.grow_assembly(detail.delay+detail.span*.5)
 	var growing: Transform3D=detail.node.global_transform*detail.node.multimesh.get_instance_transform(detail.instance)
 	check(growing.origin.y<=detail.transform.origin.y+.001 and growing.basis.get_scale().length()<detail.transform.basis.get_scale().length(),"Small details scale up at their planted location without a sky offset")
 	var rounded:=true
@@ -95,17 +95,16 @@ func run() -> void:
 	var ordered:=west.size()>10
 	for i in range(1,west.size()): ordered=ordered and west[i].delay>=west[i-1].delay
 	check(ordered and (west[-1].delay-west[0].delay)*(PlayMatTravel.ARRIVAL_END-PlayMatTravel.ARRIVAL_START)>2.5,"The first perimeter wall assembles in a travelling cascade")
-	var spread:=true
-	# Each quadrant gets early, middle and late arrivals rather than a cohort
-	# timed to whichever neighbourhood the camera is currently showing.
-	for quadrant in [Vector2(-1,-1),Vector2(-1,1),Vector2(1,-1),Vector2(1,1)]:
-		var buckets: Dictionary={}
-		for x in range(8,70,8):
-			for z in range(8,70,8):
-				var delay:=PlayMatTravel.arrival_delay(Vector3(x*quadrant.x,0,z*quadrant.y),3)
-				if delay>=.28: buckets[mini(2,floori((delay-.28)/.54*3))]=true
-		spread=spread and buckets.size()==3
-	check(spread,"Every map quadrant receives scattered arrivals throughout the assembly")
+	var births: Dictionary={}
+	var first_birth:=1.0
+	var last_birth:=0.0
+	for x in range(-70,71,8):
+		for z in range(-70,71,8):
+			var delay:=PlayMatTravel.arrival_delay(Vector3(x,0,z),3)
+			births[floori(delay*20)]=true
+			first_birth=minf(first_birth,delay)
+			last_birth=maxf(last_birth,delay)
+	check(births.size()>=10 and last_birth-first_birth>.5,"Camera-timed toys still assemble continuously around the mat throughout the tour")
 	var grain: Color=first.node.multimesh.get_instance_custom_data(first.instance)
 	travel.grow_assembly(first.delay+.06)
 	var falling: Transform3D=first.node.global_transform*first.node.multimesh.get_instance_transform(first.instance)
@@ -115,7 +114,7 @@ func run() -> void:
 	check(blocks.all(func(item): return item.settled),"All staggered blocks settle before camera handover")
 	game.intro.finish()
 	check(first.node.multimesh.get_instance_transform(first.instance).is_equal_approx(first.node.global_transform.affine_inverse()*first.transform),"Skip/completion restores exact block poses")
-	check(baked.all(func(item): return item.node.material_override==item.original_material and item.node.custom_aabb==item.bounds),"Completion restores the normal materials and tight scenery culling bounds")
+	check(baked.all(func(item): return item.node.material_override==item.original_material and item.node.mesh==item.original_mesh and item.node.custom_aabb==item.bounds),"Completion restores the normal materials and tight scenery culling bounds")
 	travel.begin_assembly(false)
 	var replay:=travel.assembly.filter(func(item): return item.gpu)
 	check(replay.all(func(item): return baked.any(func(old): return old.node==item.node and old.material==item.material)),"The live intro reuses the actual materials prepared during background warmup")

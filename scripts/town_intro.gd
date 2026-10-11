@@ -2,6 +2,7 @@ class_name TownIntro
 extends Node
 
 const LENGTH:=24.0
+const PLAY_SECONDS:=LENGTH/PlayMatTravel.INTRO_PACE
 var game: Node3D
 var active:=false
 var clock:=0.0
@@ -9,6 +10,7 @@ var shot:=0
 var overlay: Control
 var shade: ColorRect
 var title: TownTitle
+var truck_destination:=Vector3.ZERO
 
 func _ready() -> void:
 	overlay=Control.new()
@@ -28,7 +30,10 @@ func _ready() -> void:
 func start() -> void:
 	if active: return
 	clock=0
+	truck_destination=game.truck.global_position
+	truck_destination.y=.855
 	active=true
+	game.hud.reset_water_entrance()
 	game.end_dialogue()
 	game.truck.freeze=true
 	game.truck.enabled=false
@@ -36,6 +41,7 @@ func start() -> void:
 	game.truck.hide()
 	game.marker.hide()
 	game.job_label.hide()
+	for fire in game.get_tree().get_nodes_in_group("toy_fires"): fire.hide()
 	game.camera.far=450
 	overlay.show()
 	if OS.has_feature("web"): JavaScriptBridge.eval("window.firetruckIntro(true)")
@@ -46,6 +52,7 @@ func start() -> void:
 		for smoke in game.atmosphere.smoke: smoke.hide()
 		for ember in game.atmosphere.embers: ember.hide()
 		game.atmosphere.fire_light.light_energy=0
+		for bird in game.life.birds: bird.node.hide()
 		game.travel.suspend_maple()
 		game.travel.set_world_visible(true)
 		game.travel.begin_assembly(false)
@@ -54,23 +61,28 @@ func start() -> void:
 	update(0)
 
 func update(dt: float) -> void:
-	clock+=dt
+	clock+=dt*PlayMatTravel.INTRO_PACE
 	if clock>=LENGTH: finish(); return
 	shot=0 if clock<6.5 else 1 if clock<10.5 else 2 if clock<14.5 else 3 if clock<18.5 else 4
 	if game.travel:
 		game.travel.mat.show_mat(false,RollingMat.rollout_amount(clock))
-		game.travel.mat.fade_print(1-smoothstep(19,22.5,clock))
+		game.travel.mat.fade_print(1-smoothstep(PlayMatTravel.PRINT_FADE_START,PlayMatTravel.PRINT_FADE_END,clock))
 		game.travel.grow_assembly(PlayMatTravel.arrival_progress(clock))
 		game.travel.assembly_camera(clock,false)
 		if clock>=21.5:
 			var t:=smoothstep(21.5,LENGTH,clock)
+			var drive:=PlayMatTravel.entrance_progress((clock-22.0)/2.0)
+			game.truck.arrival_pose(truck_destination+Vector3(0,0,lerpf(-10,0,drive)),PI,-10*drive,clock-21.5)
 			var target: Vector3=game.truck.global_position
 			var focus:=PlayMatTravel.tour_focus(21.5,false).lerp(target,t)
 			game.camera.position=focus+game.travel.handover_offset(Vector3(19,15,22).lerp(game.camera_offset,t),t)
 			game.camera.look_at(focus)
 			game.camera.size=lerpf(game.travel.tour_lens(21.5,false),25.8,t)
 			game.travel.cinematic_shadows(focus)
+			game.travel.prepare_handover_view(focus,t,false)
 			game.truck.show()
+		if clock>=19.0: game.life.intro_flight(dt,smoothstep(19,19.6,clock))
+		if clock>=PlayMatTravel.SCENERY_READY and not game.travel.assembly.is_empty(): game.travel.finish_assembly()
 	title.reveal=smoothstep(4.0,19.0,clock)
 	title.opacity=smoothstep(3.4,4.2,clock)*(1-smoothstep(22.0,23.7,clock))
 	title.queue_redraw()
@@ -85,18 +97,26 @@ func finish() -> void:
 		game.travel.set_world_visible(true)
 		game.travel.resume_maple()
 		game.town.fire_amount=1-game.fire_progress
+	for fire in game.get_tree().get_nodes_in_group("toy_fires"): fire.show()
 	overlay.hide()
 	if OS.has_feature("web"): JavaScriptBridge.eval("window.firetruckIntro(false)")
 	game.dog_puddle.clock=.8
 	game.town.dog.position=TownLayout.DOG
 	game.town.dog.rotation.z=0
+	game.life.intro_flight(0)
 	game.life.clear_start_area()
+	game.truck.global_position=truck_destination
+	game.truck.heading=PI
+	game.truck.rotation.y=PI
+	game.truck.linear_velocity=Vector3(0,0,5*PlayMatTravel.INTRO_PACE) if clock>=LENGTH-.1 else Vector3.ZERO
+	game.truck.previous_velocity=game.truck.linear_velocity
+	game.truck.reset_physics_interpolation()
 	game.camera_focus=game.truck.position
-	game.camera.position=game.truck.position+game.camera_offset
+	game.camera.position=game.truck.position+game.gameplay_camera_offset()
 	game.camera.look_at(game.truck.position)
 	game.camera.size=25.8
 	game.camera.far=250
-	game.sun.directional_shadow_max_distance=game.gameplay_shadow_distance
+	game.sun.directional_shadow_max_distance=game.gameplay_shadow_distance+maxf(0,game.gameplay_camera_offset().length()-game.camera_offset.length())
 	game.truck.show()
 	game.truck.freeze=false
 	game.truck.enabled=true

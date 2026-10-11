@@ -3,7 +3,7 @@ extends Node
 
 # One reusable bank for quiet, varied local Foley. No per-particle audio nodes
 # or sample generation in the frame loop, including the browser build.
-const LEVELS:={"bird":-25.0,"dodge":-22.0,"woof":-21.0,"meow":-23.0,"wood":-18.0,"fence":-21.0,"metal":-22.0,"brick":-19.0,"bush":-28.0,"car_bump":-20.0,"splash":-20.0,"clean":-22.0,"honk":-24.0,"chuff":-25.0,"whistle":-25.0,"refill":-25.0,"fire_sizzle":-24.0,"dog_wash":-25.0,"dog_jump":-24.0,"ladder_extend":-25.0,"ladder_retract":-25.0,"plastic":-23.0,"cloth":-28.0,"ceramic":-25.0,"quack":-26.0,"cheer":-27.0,"tire_scrub":-44.0,"block_land":-22.0,"house_grow":-26.0}
+const LEVELS:={"bird":-25.0,"dodge":-22.0,"woof":-21.0,"meow":-23.0,"wood":-18.0,"fence":-21.0,"metal":-22.0,"brick":-19.0,"bush":-28.0,"car_bump":-20.0,"splash":-20.0,"clean":-22.0,"honk":-24.0,"chuff":-25.0,"whistle":-25.0,"refill":-29.0,"hydrant_jet":-27.0,"fire_sizzle":-24.0,"dog_wash":-25.0,"dog_jump":-24.0,"ladder_extend":-25.0,"ladder_retract":-25.0,"plastic":-23.0,"cloth":-28.0,"ceramic":-25.0,"quack":-26.0,"cheer":-27.0,"tire_scrub":-44.0,"block_land":-22.0,"house_grow":-26.0}
 var game: Node3D
 var bank: Dictionary={}
 var players: Array[AudioStreamPlayer3D]=[]
@@ -19,10 +19,14 @@ var truck_velocity:=Vector3.ZERO
 var in_pool:=false
 var cat_time:=4.0
 var loops: Dictionary={}
+var hydrant_emitters: Dictionary={}
 var loop_levels: Dictionary={"refill":0.0,"fire_sizzle":0.0,"tire_scrub":0.0}
 var loop_active: Dictionary={"refill":false,"fire_sizzle":false,"tire_scrub":false}
 var fire_contact_until:=-1.0
+var fire_contact_position:=TownLayout.FIRE+Vector3.UP*1.6
 const IMPACTS:=["wood","fence","metal","brick","bush","car_bump","plastic","cloth","ceramic"]
+const HOUSE_VARIANTS:=6
+var last_house_variant:=-1
 
 func _ready() -> void:
 	name="TownAudio"
@@ -34,7 +38,7 @@ func _ready() -> void:
 	_update_listener()
 	for kind in LEVELS.keys()+["voice"]:
 		var variants: Array[AudioStreamWAV]=[]
-		for i in 3: variants.append(load("res://assets/audio/town/%s_%d.wav" % [kind,i]))
+		for i in (HOUSE_VARIANTS if kind=="house_grow" else 3): variants.append(load("res://assets/audio/town/%s_%d.wav" % [kind,i]))
 		bank[kind]=variants
 	for i in 12:
 		players.append(_spatial_player())
@@ -78,16 +82,30 @@ func _update_listener() -> void:
 func play(kind: String, at: Vector3, strength: float=1.0, cooldown: float=.18, pitch: float=1.0) -> bool:
 	if game.paused or game.loading or not bank.has(kind): return false
 	_update_listener()
-	if listener.global_position.distance_to(at)>80 or time-float(last.get(kind,-100))<cooldown: return false
+	var perimeter: bool=kind=="block_land" and (game.intro and game.intro.active or game.travel and game.travel.active)
+	var reach:=240.0 if perimeter else 80.0
+	if listener.global_position.distance_to(at)>reach or time-float(last.get(kind,-100))<cooldown: return false
 	last[kind]=time
 	counts[kind]=int(counts.get(kind,0))+1
+	var variant:=rng.randi_range(0,bank[kind].size()-1)
+	if kind=="house_grow":
+		if last_house_variant>=0:
+			variant=rng.randi_range(0,HOUSE_VARIANTS-2)
+			if variant>=last_house_variant: variant+=1
+		last_house_variant=variant
 	if DisplayServer.get_name()=="headless": return true
 	for player in players:
 		if player.playing: continue
 		player.global_position=at
-		player.stream=bank[kind][rng.randi_range(0,2)]
+		player.stream=bank[kind][variant]
+		# The tour hears the entire wooden cascade. Inverse-distance plus
+		# max-distance fading made the southern edge effectively silent. Keep
+		# its stereo direction but use a consistent, quiet cinematic level.
+		player.attenuation_model=AudioStreamPlayer3D.ATTENUATION_DISABLED if perimeter else AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+		player.max_distance=0 if perimeter else reach
+		player.unit_size=6
 		player.pitch_scale=pitch*rng.randf_range(.94,1.06)
-		player.volume_db=float(LEVELS[kind])+linear_to_db(clampf(strength,.2,1.2))
+		player.volume_db=float(LEVELS[kind])+(-6.0 if perimeter else 0.0)+linear_to_db(clampf(strength,.2,1.2))
 		if kind in IMPACTS: player.volume_db+=linear_to_db(.85)
 		player.play()
 		return true
@@ -124,12 +142,14 @@ func _process(dt: float) -> void:
 	for player in players: player.stream_paused=game.paused
 	ringtone.stream_paused=game.paused
 	for player in loops.values(): player.stream_paused=game.paused
+	for emitter in hydrant_emitters.values(): emitter.player.stream_paused=game.paused
 	if game.paused: return
 	_update_listener()
+	_update_hydrant_jets(dt)
 	time+=dt
 	var refilling: bool=game.refill_hose!=null and game.refill_hose.active and game.truck.water<game.truck.tank_capacity
 	_update_loop("refill",refilling,game.truck.global_position,dt)
-	_update_loop("fire_sizzle",time<fire_contact_until,TownLayout.FIRE+Vector3.UP*1.6,dt)
+	_update_loop("fire_sizzle",time<fire_contact_until,fire_contact_position,dt)
 	var tire_gain: float=game.truck.effects.tire_sound_strength if not game.loading else 0.0
 	_update_loop("tire_scrub",tire_gain>0,game.truck.global_position,dt,tire_gain)
 	var ringing: bool=game.phone_ringing()
@@ -154,10 +174,11 @@ func _process(dt: float) -> void:
 		cat_time=rng.randf_range(9,15)
 		if not game.cat_rescued and not game.rescue_running: play("meow",game.town.cat.global_position,.7,3)
 
-func fire_hit(amount: float) -> void:
+func fire_hit(amount: float, at: Vector3) -> void:
 	if game.paused or amount<=0: return
 	# Renew a short contact window, rather than restarting audio per droplet.
 	fire_contact_until=time+.12
+	fire_contact_position=at
 
 func _update_loop(kind: String, active: bool, at: Vector3, dt: float, target_gain: float=1.0) -> void:
 	active=active and listener.global_position.distance_to(at)<80
@@ -176,3 +197,27 @@ func _update_loop(kind: String, active: bool, at: Vector3, dt: float, target_gai
 	loop_levels[kind]=gain
 	player.volume_db=float(LEVELS[kind])+linear_to_db(maxf(.00001,gain))
 	if not active and gain<.001: player.stop()
+
+func _update_hydrant_jets(dt: float) -> void:
+	for source in game.get_tree().get_nodes_in_group("broken_hydrant_sources"):
+		var at: Vector3=source.prop.home.origin+Vector3.UP*.4
+		var active: bool=source.prop.loose and source.is_visible_in_tree() and source.can_process() and not game.loading and not game.intro.active and not game.travel.active and listener.global_position.distance_to(at)<45
+		if not hydrant_emitters.has(source):
+			if not active: continue
+			var player:=_spatial_player()
+			player.max_distance=45
+			player.volume_db=-80
+			var clip: AudioStreamWAV=bank.hydrant_jet[rng.randi_range(0,2)]
+			clip.loop_mode=AudioStreamWAV.LOOP_FORWARD
+			clip.loop_end=clip.data.size()/2
+			player.stream=clip
+			player.pitch_scale=rng.randf_range(.96,1.04)
+			hydrant_emitters[source]={"player":player,"gain":0.0}
+		var emitter: Dictionary=hydrant_emitters[source]
+		emitter.player.global_position=at
+		if active and not emitter.player.playing and emitter.gain<.001:
+			counts.hydrant_jet=int(counts.get("hydrant_jet",0))+1
+			if DisplayServer.get_name()!="headless": emitter.player.play()
+		emitter.gain=lerpf(emitter.gain,1.0 if active else 0.0,1-exp(-7*dt))
+		emitter.player.volume_db=float(LEVELS.hydrant_jet)+linear_to_db(maxf(.00001,emitter.gain))
+		if not active and emitter.gain<.001: emitter.player.stop()

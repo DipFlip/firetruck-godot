@@ -1,0 +1,33 @@
+{
+  "captures": [
+    {
+      "path": "output/playwright/crowd-idles-web-0.png",
+      "fps": 60,
+      "drawCalls": 543
+    },
+    {
+      "path": "output/playwright/crowd-idles-web-1.png",
+      "fps": 60,
+      "drawCalls": 543
+    },
+    {
+      "path": "output/playwright/crowd-idles-web-2.png",
+      "fps": 60,
+      "drawCalls": 543
+    },
+    {
+      "path": "output/playwright/crowd-idles-web-3.png",
+      "fps": 60,
+      "drawCalls": 545
+    }
+  ],
+  "renderFrames": [
+    469,
+    38,
+    0,
+    0,
+    0
+  ],
+  "fps": 60,
+  "errors": []
+}

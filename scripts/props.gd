@@ -19,7 +19,7 @@ static func model(path: String, parent: Node3D) -> Node3D:
 	parent.add_child(node)
 	return node
 
-static func collider(parent: Node3D, pos: Vector3, size: Vector3) -> void:
+static func collider(parent: Node3D, pos: Vector3, size: Vector3) -> StaticBody3D:
 	var body:=StaticBody3D.new()
 	parent.add_child(body)
 	body.position=pos
@@ -28,6 +28,7 @@ static func collider(parent: Node3D, pos: Vector3, size: Vector3) -> void:
 	shape.size=size
 	c.shape=shape
 	body.add_child(c)
+	return body
 
 static func material(color: Color, glow: bool = false) -> StandardMaterial3D:
 	var key := str(color) + str(glow)
@@ -175,6 +176,17 @@ static func tree(parent: Node3D, pos: Vector3, size: float = 1.0) -> Node3D:
 	collider(root,Vector3(0,1.25,0),Vector3(0.48,2.5,0.48)*size)
 	return root
 
+static func traffic_cone(parent: Node3D, at: Vector3) -> Node3D:
+	var cone:=toy_group(parent,at,"drop","TrafficCone")
+	var orange:=Color("ed9560")
+	# Three touching frusta keep the white band flush with the tapered cone,
+	# with no overlaid surfaces to flicker or form a raised white ring.
+	cylinder(cone,Vector3.UP*.265,.50,.53,orange,.288)
+	cylinder(cone,Vector3.UP*.62,.288,.18,Color("f5f1df"),.216)
+	cylinder(cone,Vector3.UP*.855,.216,.29,orange,.10)
+	box(cone,Vector3.UP*.05,Vector3(1.1,.1,1.1),orange)
+	return cone
+
 static func house(parent: Node3D, pos: Vector3, color: Color, title: String, height: float = 5.0) -> void:
 	var root:=Node3D.new()
 	root.name=title.to_pascal_case()
@@ -192,6 +204,7 @@ static func person(parent: Node3D, pos: Vector3, shirt: Color, skin_tone: Color=
 	var p:=Node3D.new()
 	p.name="Neighbour"
 	p.set_meta("toy_arrival","drop")
+	p.set_meta("omit_mat_print",true)
 	parent.add_child(p)
 	p.position=pos
 	var skin:=Color("d9a17b")
@@ -232,6 +245,18 @@ static func person(parent: Node3D, pos: Vector3, shirt: Color, skin_tone: Color=
 		ball(p,Vector3(0,2.57,0.1),Vector3(0.48,0.46,0.5),hair)
 	soften_toy_shine(p)
 	return p
+
+# Optional head joint for lively toy crowds. Keep every facial feature, hair
+# piece and ear under the same pivot; blinking remains a separate small batch.
+static func articulate_head(person: Node3D) -> Node3D:
+	var pivot:=Node3D.new()
+	pivot.name="HeadPivot"
+	person.add_child(pivot)
+	pivot.position=Vector3(0,1.55,0)
+	for child in person.get_children():
+		if child==pivot: continue
+		if child is MeshInstance3D and child.position.y>=1.6 or child.name=="Eyes": child.reparent(pivot)
+	return pivot
 
 static func walking_legs(person: Node3D) -> Array[Node3D]:
 	var legs: Array[Node3D]=[]
@@ -355,7 +380,7 @@ static func visual_bounds(toy: Node3D) -> AABB:
 
 static func small_arrival(node: Node3D, size: Vector3) -> bool:
 	if node.has_meta("assembly_group") or node.get_meta("toy_arrival","")=="grow": return false
-	if node.name=="Neighbour" or node.get_meta("toy_kind","")=="GardenTree": return false
+	if node.name=="Neighbour" or node.get_meta("toy_kind","") in ["GardenTree","Animal"]: return false
 	if node is BreakableProp and node.kind=="tree": return false
 	# Bushes and larger toys keep their tumble; details below 1.7m sprout in place.
 	return size.abs().x<1.7 and size.abs().y<1.7 and size.abs().z<1.7

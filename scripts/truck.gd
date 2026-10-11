@@ -12,6 +12,7 @@ var drive_surface: Callable
 var surface_sample: Dictionary={}
 var train_push_z:=NAN
 var aim_assist: Callable
+var personal_spaces: Array[PersonalSpace]=[]
 var assisted := false
 const WATER_SPEED := 22.0 # Nozzle speed relative to the moving truck.
 const WATER_GRAVITY := 26.0
@@ -80,6 +81,7 @@ var mouse_aiming := false
 var spraying := false
 var spray_requested:=false
 var empty_spray_cooldown:=0.0
+var input_blocked_until_release:=false
 var enabled := true
 var grounded := false
 var charge := 0.0
@@ -340,11 +342,13 @@ func reset_truck() -> void:
 	for material in body_materials: material.set_shader_parameter("squash",1.0)
 
 func drive_input() -> Vector2:
-	if not enabled: return Vector2.ZERO
+	if not enabled or input_blocked_until_release: return Vector2.ZERO
 	if use_automation: return automated_drive
 	return touch_drive if touch_drive.length()>.01 else Input.get_vector("left","right","forward","back")
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+	for field in personal_spaces:
+		if is_instance_valid(field): field.repel(state)
 	if drive_surface.is_valid():
 		surface_sample=drive_surface.call(state.transform.origin)
 		var surface_y: float=surface_sample.height+.8
@@ -368,6 +372,11 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	state.linear_velocity=velocity
 
 func _physics_process(dt: float) -> void:
+	if input_blocked_until_release:
+		var held:=touch_drive.length()>.12 or touch_aim.length()>.12
+		for action in ["left","right","forward","back","jump","interact","brake","map","pause","recover","spray","aim_left","aim_right","aim_up","aim_down"]:
+			held=held or Input.is_action_pressed(action)
+		if not held: input_blocked_until_release=false
 	elapsed += dt
 	splash_clock=maxf(0,splash_clock-dt)
 	var probe := PhysicsRayQueryParameters3D.create(global_position,global_position+Vector3.DOWN*3,1,[get_rid()])
@@ -381,7 +390,7 @@ func _physics_process(dt: float) -> void:
 	# supports are separated. Account for that geometry when detecting contact.
 	support_height=.8 if drive_surface.is_valid() else (.8+absf(ground_normal.dot(global_basis.z))*1.1)/maxf(.4,ground_normal.y)
 	grounded = ground_distance<=support_height+.3
-	var braking:=enabled and Input.is_action_pressed("brake")
+	var braking:=enabled and not input_blocked_until_release and Input.is_action_pressed("brake")
 	brake_engagement=lerpf(brake_engagement,1.0 if braking else 0.0,1-exp(-10*dt))
 	var planar:=Vector3(linear_velocity.x,0,linear_velocity.z)
 	# Sliding brakes and stationary bracing need different responses. Once
@@ -427,8 +436,8 @@ func _physics_process(dt: float) -> void:
 	if jump_blocked_until_release and not Input.is_action_pressed("jump"):
 		jump_blocked_until_release=false
 		charge=0
-	if enabled and not jump_blocked_until_release and Input.is_action_pressed("jump") and grounded: charge = minf(charge+dt,0.75)
-	if enabled and not jump_blocked_until_release and Input.is_action_just_released("jump") and charge>0:
+	if enabled and not input_blocked_until_release and not jump_blocked_until_release and Input.is_action_pressed("jump") and grounded: charge = minf(charge+dt,0.75)
+	if enabled and not input_blocked_until_release and not jump_blocked_until_release and Input.is_action_just_released("jump") and charge>0:
 		if grounded:
 			apply_central_impulse(Vector3.UP*mass*lerpf(4,full_jump_speed,charge/0.75))
 			jump_pitch_velocity+=lerpf(.8,1.6,charge/.75)
@@ -452,7 +461,7 @@ func _physics_process(dt: float) -> void:
 		wheel_steers[i].rotation.y=steering if front_axles[i] else 0.0
 	for i in lights.size(): lights[i].material_override = TownProps.material(Color("92efff") if sin(elapsed*9+i*PI)>0 else Color("47738d"),true)
 	if not Input.is_action_pressed("spray"): pointer_spray_blocked=false
-	spray_requested = enabled and (automated_spray if use_automation else touch_aim.length()>.12 or (Input.is_action_pressed("spray") and not pointer_spray_blocked) or Input.is_action_pressed("aim_up") or Input.is_action_pressed("aim_down") or Input.is_action_pressed("aim_left") or Input.is_action_pressed("aim_right"))
+	spray_requested = enabled and not input_blocked_until_release and (automated_spray if use_automation else touch_aim.length()>.12 or (Input.is_action_pressed("spray") and not pointer_spray_blocked) or Input.is_action_pressed("aim_up") or Input.is_action_pressed("aim_down") or Input.is_action_pressed("aim_left") or Input.is_action_pressed("aim_right"))
 	_update_aim(dt)
 	spraying=water>0 and spray_requested
 	empty_spray_cooldown=maxf(0,empty_spray_cooldown-dt)

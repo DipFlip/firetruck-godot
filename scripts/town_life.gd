@@ -23,7 +23,7 @@ func _ready() -> void:
 		[Vector3(41,.16,-8),Vector3(41,.16,-31),Vector3(58,.16,-31),Vector3(58,.16,-5),Vector3(41,.16,-5)],
 		[Vector3(-5,.16,24),Vector3(-5,.16,5),Vector3(-31,.16,5),Vector3(-31,.16,31),Vector3(-5,.16,31)],
 		[Vector3(5,.16,43),Vector3(5,.16,65),Vector3(30,.16,65),Vector3(30,.16,41),Vector3(5,.16,41)],
-		[Vector3(-41,.16,-9),Vector3(-41,.16,-31),Vector3(-59,.16,-31),Vector3(-59,.16,-5),Vector3(-41,.16,-5)]]
+		[Vector3(-43,.16,-9),Vector3(-43,.16,-31),Vector3(-59,.16,-31),Vector3(-59,.16,-5),Vector3(-43,.16,-5)]]
 	for i in paths.size():
 		var person:=TownProps.person(self,paths[i][0],[Color("819a83"),Color("d4a17a"),Color("8d9db6"),Color("c59099"),Color("dcbe77"),Color("9b9b7a")][i])
 		person.scale=Vector3.ONE*.85
@@ -265,13 +265,26 @@ func _physics_process(dt: float) -> void:
 			walker.phase+=dt*6
 		person.position.y=.16+TownProps.pose_walk(person,walker.legs,walker.phase,not stop)
 		_keep_clear(person)
+	_update_flying_birds()
+	_update_ground_birds(dt)
+
+func intro_flight(dt: float, opacity: float=1.0) -> void:
+	# Advance only airborne birds while town traffic and pedestrians stay held.
+	time+=dt
+	for bird in birds:
+		bird.node.show()
+		if not bird.has("art"): bird.art=bird.node.find_children("*","GeometryInstance3D",true,false)
+		for part in bird.art: part.transparency=1-opacity
+	_update_flying_birds()
+
+func _update_flying_birds() -> void:
 	for bird in birds:
 		var a: float=time*.23+bird.phase
 		var p: Vector3=bird.center+Vector3(cos(a)*bird.radius,sin(time*.7+bird.phase)*1.2,sin(a)*bird.radius*.65)
 		bird.node.position=p
 		bird.node.rotation.y=atan2(sin(a),-cos(a)*.65)
 		if TownProps.near_view(game.camera,p,2): _pose_bird(bird,1,0,0,time*13+bird.phase)
-	_update_ground_birds(dt)
+
 
 func _update_ground_birds(dt: float) -> void:
 	var truck: Vector3=game.truck.global_position

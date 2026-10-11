@@ -32,7 +32,8 @@ func _ready() -> void:
 	var blocks:=Node3D.new()
 	blocks.name="BoundaryBlocks"
 	add_child(blocks)
-	# A continuous player-only boundary seals small decorative gaps and train exits.
+	# A continuous boundary contains the truck and loose toys, including gaps
+	# between the decorative blocks and the train exits.
 	for side in [-1,1]:
 		_wall(Vector3(side*81,1.2,0),Vector3(2.8,3.6,164.8))
 		_wall(Vector3(0,1.2,side*81),Vector3(164.8,3.6,2.8))
@@ -129,17 +130,17 @@ static func make_room_props(parent: Node3D) -> Node3D:
 	back_wall.material_override=wallpaper
 	back_wall.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	room.add_child(back_wall)
-	back_wall.position=Vector3(0,90,-154)
-	TownProps.box(room,Vector3(0,3,-152),Vector3(600,6,4),Color("d9ba91"))
+	back_wall.position=Vector3(0,90,-138)
+	TownProps.box(room,Vector3(0,3,-136),Vector3(600,6,4),Color("d9ba91"))
 	var west_wall:=MeshInstance3D.new()
 	west_wall.name="WestStarryWallpaper"
 	west_wall.mesh=wallpaper_plane
 	west_wall.material_override=wallpaper
 	west_wall.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	room.add_child(west_wall)
-	west_wall.position=Vector3(-154,90,0)
+	west_wall.position=Vector3(-138,90,0)
 	west_wall.rotation.y=PI/2
-	TownProps.box(room,Vector3(-152,3,0),Vector3(4,6,600),Color("d9ba91"))
+	TownProps.box(room,Vector3(-136,3,0),Vector3(4,6,600),Color("d9ba91"))
 	# A child's room uses larger objects than the little traffic-mat town.
 	var drawers:=Node3D.new()
 	room.add_child(drawers)
@@ -178,21 +179,18 @@ static func make_room_props(parent: Node3D) -> Node3D:
 		seam.material_override=TownProps.material(Color("67452f"))
 		ball.add_child(seam)
 		seam.rotation=angle
-	# A mismatched pair of sneakers, left just outside the western edge.
+	# Soft low-top sneakers: a curved rubber sole, rounded fabric toe and a
+	# genuinely open collar, rather than a stack of boxes resembling boots.
 	for i in 2:
 		var shoe:=Node3D.new()
+		shoe.name="Sneaker"+str(i+1)
 		room.add_child(shoe)
-		shoe.position=Vector3(-119-i*12,0,51-i*20)
+		shoe.position=Vector3(34+i*18,0,116+i*4)
 		shoe.rotation.y=.4-i*.9
-		TownProps.box(shoe,Vector3(0,2,0),Vector3(28,4,12),Color("e9dfc9"))
-		TownProps.ball(shoe,Vector3(5,5,0),Vector3(19,8,11),Color("799ca5"))
-		TownProps.box(shoe,Vector3(-7,7.5,0),Vector3(10,13,11),Color("799ca5"))
-		TownProps.ball(shoe,Vector3(-7,14,0),Vector3(8,1.4,8),Color("394b55"))
-		TownProps.box(shoe,Vector3(9,4,0),Vector3(9,3,12),Color("e9dfc9"))
-		for x in [-2,1,4,7]: TownProps.box(shoe,Vector3(x,9-.16*x,0),Vector3(.65,.65,7),Color("f5eddb"))
+		_make_sneaker(shoe,Color("75979e") if i==0 else Color("789594"),i)
 	var bin:=Node3D.new()
 	room.add_child(bin)
-	bin.position=Vector3(-118,0,-51)
+	bin.position=Vector3(-125,0,41)
 	bin.name="OpenWastepaperBasket"
 	var basket:=TownProps.cylinder(bin,Vector3(0,14,0),9.5,28,Color("81968e"),12)
 	var hollow:=basket.mesh.duplicate() as CylinderMesh
@@ -225,9 +223,10 @@ static func make_room_props(parent: Node3D) -> Node3D:
 	# An old wooden pull train and a teddy, away from either town's exit.
 	for i in 3:
 		var toy:=Node3D.new()
+		toy.name="WoodenPullTrain"+str(i+1)
 		room.add_child(toy)
-		toy.position=Vector3(20+i*23,0,115+i*2)
-		toy.rotation.y=-.12
+		toy.position=Vector3(-118,0,-74+i*23)
+		toy.rotation.y=PI/2
 		TownProps.box(toy,Vector3(0,6,0),Vector3(20,6,11),Color("c18059"))
 		TownProps.box(toy,Vector3(-4,12,0),Vector3(9,8,10),Color("5f9497") if i==0 else Color("cda55e"))
 		if i==0: TownProps.cylinder(toy,Vector3(5,13,0),2,9,Color("5f9497"))
@@ -248,5 +247,101 @@ static func make_room_props(parent: Node3D) -> Node3D:
 		TownProps.ball(teddy,Vector3(x*.5,21,5),Vector3.ONE*1.1,Color("3d4241"))
 	TownProps.ball(teddy,Vector3(0,18,5.2),Vector3(6,4,3),Color("dec298"))
 	TownProps.ball(teddy,Vector3(0,19,7),Vector3(2,1.5,1),Color("3d4241"))
+	# Pull furnishings toward the mat without shrinking the toys themselves.
+	for item in room.get_children():
+		if not item is Node3D or item is MeshInstance3D: continue
+		for axis in [0,2]:
+			var at: float=item.position[axis]
+			if absf(at)>80: item.position[axis]=signf(at)*(80+(absf(at)-80)*.65)
 	TownProps.merge_fixed_geometry(room,[],"room_decor")
 	return room
+
+static func _make_sneaker(parent: Node3D, colour: Color, side: int) -> void:
+	var sole:=SurfaceTool.new()
+	sole.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var layers: Array[Vector2]=[Vector2(.2,.96),Vector2(.55,1),Vector2(1.8,1),Vector2(2.35,.97),Vector2(2.55,.94)]
+	for layer in layers.size()-1:
+		for i in 48:
+			var a:=i*TAU/48
+			var b:=(i+1)*TAU/48
+			_shoe_quad(sole,_sole_point(a,layers[layer]),_sole_point(b,layers[layer]),_sole_point(b,layers[layer+1]),_sole_point(a,layers[layer+1]))
+	for i in 48:
+		var a:=i*TAU/48
+		var b:=(i+1)*TAU/48
+		sole.add_vertex(Vector3(0,layers[-1].x,0)); sole.add_vertex(_sole_point(a,layers[-1])); sole.add_vertex(_sole_point(b,layers[-1]))
+	_shoe_mesh(parent,sole,Color("e9dfc9"),"RubberSole")
+	var upper:=SurfaceTool.new()
+	upper.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var sections: Array[Vector3]=[Vector3(-4,10.0,4.8),Vector3(-1,9.0,5.0),Vector3(3,7.4,5.5),Vector3(7,6.5,5.65),Vector3(10,5.8,4.8),Vector3(12.6,4.8,2.6),Vector3(13.3,3.3,.1)]
+	for section in sections.size()-1:
+		for step in 4:
+			var from:=_shoe_section(sections,section,step/4.0)
+			var to:=_shoe_section(sections,section,(step+1)/4.0)
+			for i in 24:
+				var a:=i*PI/24
+				var b:=(i+1)*PI/24
+				_shoe_quad(upper,_upper_point(from,a),_upper_point(from,b),_upper_point(to,b),_upper_point(to,a))
+	_shoe_mesh(parent,upper,colour,"FabricToe")
+	# Four rings form the outside, padded lip and inside of the ankle opening.
+	var collar:=SurfaceTool.new()
+	collar.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rings: Array[Vector3]=[Vector3(3.0,4.9,4.7),Vector3(9.6,5.0,4.8),Vector3(9.3,3.9,3.5),Vector3(5.4,3.5,3.1)]
+	for layer in rings.size()-1:
+		for i in 40:
+			var a:=i*TAU/40
+			var b:=(i+1)*TAU/40
+			_shoe_quad(collar,_collar_point(a,rings[layer]),_collar_point(b,rings[layer]),_collar_point(b,rings[layer+1]),_collar_point(a,rings[layer+1]))
+	_shoe_mesh(parent,collar,colour.darkened(.08),"OpenCollar")
+	TownProps.ball(parent,Vector3(-8,5.4,0),Vector3(7.2,.35,6.3),Color("3b5055"))
+	var tongue:=TownProps.ball(parent,Vector3(-1.5,8.65,0),Vector3(9,.8,5.4),colour.lightened(.12))
+	tongue.rotation.z=-.23
+	# Crossed laces follow the instep; small eyelets and a stitched side stripe
+	# keep the shoes readable in the room-wide intro without giant lace bars.
+	for x in [-3.0,-.3,2.4,5.1]:
+		var y: float=9.1-(x+3)*.28
+		for sign in [-1,1]:
+			TownProps.ball(parent,Vector3(x,y,sign*2.7),Vector3(.55,.28,.55),Color("d8d4c4"))
+			var a:=Vector3(x-.65,y+.16,sign*2.7)
+			var b:=Vector3(x+.65,y-.15,-sign*2.7)
+			var lace:=TownProps.cylinder(parent,(a+b)*.5,.19,a.distance_to(b),Color("f5eddb"))
+			lace.quaternion=Quaternion(Vector3.UP,(b-a).normalized())
+	for sign in [-1,1]:
+		var stripe:=TownProps.box(parent,Vector3(0,4.4,sign*4.94),Vector3(7,.9,.18),colour.lightened(.3))
+		stripe.rotation.z=.22
+	var loop:=TownProps.box(parent,Vector3(-12.7,8.3,0),Vector3(.65,2.6,1.6),colour.darkened(.18))
+	loop.rotation.z=-.18
+	# Slightly splayed tongues and loose lace ends make the pair feel left there.
+	var loose:=TownProps.cylinder(parent,Vector3(-4,9.3,2.6 if side==0 else -2.6),.18,3.2,Color("f5eddb"))
+	loose.rotation=Vector3(.4,0,.6)
+
+static func _sole_point(angle: float, layer: Vector2) -> Vector3:
+	return Vector3(cos(angle)*14*layer.y,layer.x,sin(angle)*(5.65+.55*cos(angle))*layer.y)
+
+static func _upper_point(section: Vector3, angle: float) -> Vector3:
+	return Vector3(section.x,2.6+sin(angle)*(section.y-2.6),cos(angle)*section.z)
+
+static func _shoe_section(sections: Array[Vector3], index: int, t: float) -> Vector3:
+	var a:=sections[maxi(0,index-1)]
+	var b:=sections[index]
+	var c:=sections[index+1]
+	var d:=sections[mini(sections.size()-1,index+2)]
+	return .5*((2*b)+(-a+c)*t+(2*a-5*b+4*c-d)*t*t+(-a+3*b-3*c+d)*t*t*t)
+
+static func _collar_point(angle: float, ring: Vector3) -> Vector3:
+	return Vector3(-8+cos(angle)*ring.y,ring.x,sin(angle)*ring.z)
+
+static func _shoe_quad(builder: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+	for vertex in [a,b,c,a,c,d]: builder.add_vertex(vertex)
+
+static func _shoe_mesh(parent: Node3D, builder: SurfaceTool, colour: Color, label: String) -> void:
+	builder.index()
+	builder.generate_normals()
+	var mesh:=MeshInstance3D.new()
+	mesh.name=label
+	mesh.mesh=builder.commit()
+	var finish:=TownProps.material(colour).duplicate() as StandardMaterial3D
+	finish.roughness=.85
+	finish.metallic_specular=.25
+	finish.clearcoat_enabled=false
+	mesh.material_override=finish
+	parent.add_child(mesh)

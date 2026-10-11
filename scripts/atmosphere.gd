@@ -3,13 +3,14 @@ extends Node3D
 
 var steam: Array[Dictionary]=[]
 var steam_pool: Array[MeshInstance3D]=[]
-var steam_clock:=0.0
 var smoke: Array[MeshInstance3D]=[]
 var embers: Array[MeshInstance3D]=[]
 var time:=0.0
 var game: Node3D
 var fire_light: OmniLight3D
+var fire: ToyFire
 var fountain_drops: Array[MeshInstance3D]=[]
+var fountain: Node3D
 
 const ROAD_REACH:=79.6
 var road_material: Material
@@ -87,16 +88,32 @@ func _ready() -> void:
 				_flower(p,Color("e65d9a") if n%2 else Color("a479df"))
 	# Pocket park: a little fountain makes the neighbourhood feel inhabited.
 	var center:=Vector3(-23,0,-10)
-	TownProps.cylinder(self,center+Vector3.UP*.06,3.0,.12,Color("c8bca1"))
-	TownProps.cylinder(self,center+Vector3.UP*.36,2.1,.6,Color("bcaf92"))
-	var basin:=TownProps.cylinder(self,center+Vector3.UP*.68,1.88,.08,Color("62a5a6"))
+	fountain=TownProps.toy_group(self,center,"grow","ParkFountain")
+	TownProps.cylinder(fountain,Vector3.UP*.06,3.0,.12,Color("c8bca1"))
+	TownProps.cylinder(fountain,Vector3.UP*.36,2.1,.6,Color("bcaf92"))
+	var basin:=TownProps.cylinder(fountain,Vector3.UP*.68,1.88,.08,Color("62a5a6"))
 	basin.material_override=water
-	TownProps.cylinder(self,center+Vector3.UP*.9,.32,1.5,Color("dacbad"))
-	TownProps.cylinder(self,center+Vector3.UP*1.64,.84,.22,Color("d3c4a4"))
+	TownProps.cylinder(fountain,Vector3.UP*.9,.32,1.5,Color("dacbad"))
+	TownProps.cylinder(fountain,Vector3.UP*1.64,.84,.22,Color("d3c4a4"))
+	# Match the solid stone tiers rather than blocking an invisible square.
+	var fountain_body:=StaticBody3D.new()
+	fountain_body.name="FountainStone"
+	fountain.add_child(fountain_body)
+	for tier in [Vector3(3.0,.12,.06),Vector3(2.1,.6,.36),Vector3(.32,1.5,.9),Vector3(.84,.22,1.64)]:
+		var collision:=CollisionShape3D.new()
+		var stone:=CylinderShape3D.new()
+		stone.radius=tier.x
+		stone.height=tier.y
+		collision.shape=stone
+		collision.position.y=tier.z
+		fountain_body.add_child(collision)
 	for i in range(36):
-		var d:=TownProps.ball(self,center+Vector3.UP*1.72,Vector3.ONE*.09,Color("bce0d2"))
+		var d:=TownProps.ball(fountain,Vector3.UP*1.72,Vector3.ONE*.09,Color("bce0d2"))
 		d.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		fountain_drops.append(d)
+	var moving: Array[Node3D]=[]
+	moving.append_array(fountain_drops)
+	TownProps.merge_fixed_geometry(fountain,moving,"park_fountain")
 	# A station forecourt, hose practice markings, and little street props.
 	for n in range(5):
 		TownProps.box(self,Vector3(-14+n*1.7,.11,19.0),Vector3(1.55,.1,2.4),Color("bcb6a0"))
@@ -112,38 +129,21 @@ func _ready() -> void:
 				if absf(p)+.75>ROAD_REACH-.5: continue
 				TownProps.box(self,Vector3(line,0.075,p),Vector3(0.13,0.02,1.5),Color("f4d898")).set_meta("batch_static",true)
 				TownProps.box(self,Vector3(p,0.08,line),Vector3(1.5,0.02,0.13),Color("f4d898")).set_meta("batch_static",true)
-	var smoke_material:=TownProps.effect_material(preload("res://shaders/smoke.gdshader"))
-	for i in range(12):
-		var puff:=MeshInstance3D.new()
-		var quad:=QuadMesh.new()
-		quad.size=Vector2.ONE
-		puff.mesh=quad
-		puff.material_override=TownProps.effect_instance(smoke_material)
-		add_child(puff)
-		puff.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		smoke.append(puff)
-	var steam_material:=TownProps.effect_material(preload("res://shaders/steam.gdshader"))
-	for i in 24:
-		var puff:=MeshInstance3D.new()
-		puff.mesh=QuadMesh.new()
-		puff.material_override=TownProps.effect_instance(steam_material)
-		puff.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		puff.visible=false
-		add_child(puff)
-		steam_pool.append(puff)
-	var flame_material:=ShaderMaterial.new()
-	flame_material.shader=preload("res://shaders/flame.gdshader")
-	for flame in town.flames: flame.material_override=flame_material
-	for i in range(9):
-		var ember:=TownProps.ball(self,Vector3.ZERO,Vector3.ONE*.07,Color("ffc377"))
-		ember.material_override=TownProps.material(Color("ffc377"),true)
-		embers.append(ember)
-	fire_light=OmniLight3D.new()
-	add_child(fire_light)
-	fire_light.position=TownLayout.FIRE+Vector3.UP*2.0
-	fire_light.light_color=Color("ffb660")
-	fire_light.omni_range=5.0
-	fire_light.light_energy=0.5
+	fire=ToyFire.new()
+	fire.name="BarbecueFire"
+	fire.game=game
+	fire.position=TownLayout.FIRE
+	fire.flames=town.flames
+	add_child(fire)
+	town.fire=fire
+	game.maple_fire=fire
+	# Existing warmup and intro code refers to these pools; all behaviour now
+	# lives in ToyFire, shared with the Motorway and future emergencies.
+	steam=fire.steam
+	steam_pool=fire.steam_pool
+	smoke=fire.smoke
+	embers=fire.embers
+	fire_light=fire.fire_light
 
 func _flower(p: Vector3, color: Color) -> void:
 	var parts: Array[MeshInstance3D]=[]
@@ -159,36 +159,7 @@ func _flower(p: Vector3, color: Color) -> void:
 func _process(dt: float) -> void:
 	if game.paused: return
 	time+=dt
-	steam_clock-=dt
-	if game.fire_feedback>.1 and steam_clock<=0:
-		steam_clock=.09
-		for mesh in steam_pool:
-			if mesh.visible: continue
-			mesh.visible=true
-			mesh.position=TownLayout.FIRE+Vector3(randf_range(-.65,.65),1.6,randf_range(-.65,.65))
-			steam.append({"mesh":mesh,"life":1.15,"velocity":Vector3(randf_range(-.3,.3),1.7,randf_range(-.3,.3))})
-			break
-	for i in range(steam.size()-1,-1,-1):
-		var puff:=steam[i]
-		puff.life-=dt
-		puff.mesh.position+=puff.velocity*dt
-		puff.mesh.scale=Vector3.ONE*(.75+(1.15-puff.life)*1.5)
-		puff.mesh.look_at(game.camera.global_position)
-		TownProps.effect_opacity(puff.mesh,minf(1,(1.15-puff.life)*8)*maxf(0,puff.life)*.58)
-		if puff.life<=0: puff.mesh.visible=false; steam.remove_at(i)
 	for i in (fountain_drops.size() if TownProps.near_view(game.camera,Vector3(-23,1,-10),4) else 0):
 		var t:=fmod(time*.8+float(i%6)/6,1.0)
 		var a:=float(i/6)*TAU/6
-		fountain_drops[i].position=Vector3(-23+cos(a)*t*1.6,1.72+1.2*t-2.2*t*t,-10+sin(a)*t*1.6)
-	for i in smoke.size():
-		var t:=fmod(time*.27+i/12.0,1.0)
-		smoke[i].position=TownLayout.FIRE+Vector3(t*1.2+sin(time+i)*.18,2.2+t*4.5,t*.5)
-		smoke[i].scale=Vector3.ONE*(.9+t*2.6)*maxf(.01,game.town.fire_amount)
-		TownProps.effect_opacity(smoke[i],(1-t)*0.48)
-		smoke[i].look_at(game.camera.global_position)
-		smoke[i].visible=game.town.fire_amount>0
-	for i in embers.size():
-		var t:=fmod(time*.55+i/9.0,1.0)
-		embers[i].position=TownLayout.FIRE+Vector3(sin(i*3.7)*t,1.8+t*2.8,cos(i*4.2)*t)
-		embers[i].visible=game.town.fire_amount>0
-	fire_light.light_energy=(0.5+sin(time*14)*.1)*game.town.fire_amount
+		fountain_drops[i].position=Vector3(cos(a)*t*1.6,1.72+1.2*t-2.2*t*t,sin(a)*t*1.6)

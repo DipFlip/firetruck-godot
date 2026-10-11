@@ -30,10 +30,10 @@ func run() -> void:
 	game.truck.use_automation=true
 	await frames(3)
 	# PCM continuity: silent ends, no clipping, no discontinuities from voice
-	# phase resets, and three distinct samples for each local reaction.
+	# phase resets, and a varied sample bank for each local reaction.
 	var clean:=true
 	for kind in game.sounds.bank:
-		clean=clean and game.sounds.bank[kind].size()==3
+		clean=clean and game.sounds.bank[kind].size()==(TownAudio.HOUSE_VARIANTS if kind=="house_grow" else 3)
 		for wav in game.sounds.bank[kind]:
 			var data: PackedByteArray=wav.data
 			clean=clean and data.decode_s16(0)==0 and data.decode_s16(data.size()-2)==0
@@ -47,7 +47,7 @@ func run() -> void:
 				previous=sample
 			clean=clean and peak<24000
 			if kind=="voice": clean=clean and biggest_step<3500
-	check(clean,"Every sound has three bounded, silent-ended variants; voice waveforms are smooth")
+	check(clean,"Every sound has bounded, silent-ended variants; voice waveforms are smooth")
 	check(game.sounds.players.size()==12 and game.hud.syllables.size()==3,"Sound voices are pooled and dialogue uses the baked three-syllable bank")
 	game.hud.begin_dialogue("MAYA","Hello there!")
 	if DisplayServer.get_name()!="headless":
@@ -151,7 +151,7 @@ func run() -> void:
 	game.sounds._process(.1)
 	check(count("splash")>splashes,"Entering pool water with downward momentum plays a splash")
 	await frames(130)
-	# The first call rings audibly for a few seconds before any text arrives.
+	# The first call rings until picked up; answering releases its audio gently.
 	game.truck.freeze=false
 	await place(Vector3(0,.85,12))
 	game.call_timer=game.PHONE_RING_SECONDS
@@ -161,7 +161,9 @@ func run() -> void:
 	game._update_dispatch(2.0)
 	check(rings>0 and not game.dialogue_active and game.phone_ringing(),"A ringtone leads the initial operator message for more than two seconds")
 	game._update_dispatch(1.05)
-	check(game.dialogue_active and game.hud.speaker_key=="DISPATCH","The operator speaks only after the complete ring lead-in")
+	check(not game.dialogue_active and game.dialogue_control.waiting_for_phone,"The first call keeps ringing until the player picks up")
+	game.dialogue_control.pickup()
+	check(game.dialogue_active and game.hud.speaker_key=="DISPATCH","Picking up starts the operator conversation")
 	game.sounds._process(.016)
 	check(game.sounds.ring_gain>0 and game.sounds.ring_gain<1 and game.sounds.ringtone.volume_db< -24,"Answering fades the ringing note instead of cutting it off mid-waveform")
 	game.sounds._process(.12)
@@ -184,12 +186,12 @@ func run() -> void:
 	check(rail.direction>0 and rail.engine.global_basis.x.x>.9,"The next return faces east again rather than reversing")
 	# Moving native screenshots show the new barbecue and handwritten overlay.
 	game.intro.start()
-	game.intro.update(.25)
+	game.intro.update((.25)/PlayMatTravel.INTRO_PACE)
 	var camera_start: Vector3=game.camera.position
-	game.intro.update(2.1)
+	game.intro.update((2.1)/PlayMatTravel.INTRO_PACE)
 	check(camera_start.distance_to(game.camera.position)>3 and game.camera.size>140 and game.travel.mat.visible and game.intro.title.reveal==0,"The wide opening follows the held carpet before the delayed town name starts")
 	await capture("/tmp/firedriver-town-intro.png")
-	game.intro.update(5.25)
+	game.intro.update((5.25)/PlayMatTravel.INTRO_PACE)
 	await capture("/tmp/firedriver-dog-intro.png")
 	var border_start:=PlayMatTravel.tour_focus(8.25,false)
 	var border_end:=PlayMatTravel.tour_focus(9.55,false)
@@ -204,23 +206,23 @@ func run() -> void:
 			smooth=smooth and before.distance_to(after)<.8
 		check(smooth,"The %s camera follows a continuous curve without jumps at tour waypoints" % ("race" if is_race else "town"))
 	game.intro.clock=8.25
-	game.intro.update(0)
+	game.intro.update((0)/PlayMatTravel.INTRO_PACE)
 	var border_basis: Basis=game.camera.basis
 	var border_size: float=game.camera.size
 	game.intro.clock=15.05
-	game.intro.update(0)
+	game.intro.update((0)/PlayMatTravel.INTRO_PACE)
 	check(not game.camera.basis.is_equal_approx(border_basis) and game.camera.size<border_size,"The camera turns into town and moves closer to highlight the buildings")
 	game.intro.clock=12
-	game.intro.update(0)
+	game.intro.update((0)/PlayMatTravel.INTRO_PACE)
 	check(game.intro.title.reveal>.3 and game.intro.title.reveal<.8 and game.intro.title.opacity==1,"The title continues writing across the tour rather than finishing in the opening")
 	game.intro.clock=21.0
-	game.intro.update(0)
+	game.intro.update((0)/PlayMatTravel.INTRO_PACE)
 	check(game.intro.title.reveal==1 and game.intro.title.opacity==1,"The finished town name holds for several seconds before truck handover")
 	game.intro.clock=21.499
-	game.intro.update(0)
+	game.intro.update((0)/PlayMatTravel.INTRO_PACE)
 	var before_handover: Transform3D=game.camera.transform
 	var before_lens: float=game.camera.size
-	game.intro.update(.001)
+	game.intro.update((.001)/PlayMatTravel.INTRO_PACE)
 	check(game.camera.position.distance_to(before_handover.origin)<.05 and absf(game.camera.size-before_lens)<.01,"The intro tour hands over without a camera or lens jump")
 	game.intro.finish()
 	game.set_process(false)

@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-08",
+  "browser": "Chromium WebGL 2",
+  "real_hose_contacts": [
+    {
+      "fire": "BarbecueFire",
+      "progress": 0.0726,
+      "active_steam_puffs": 2,
+      "water_required": 2.72727272727273,
+      "hiss_position": [49, 1.6, -19],
+      "sampled_fps": 60,
+      "draw_calls": 932
+    },
+    {
+      "fire": "FoodCourtFire",
+      "progress": 0.07056,
+      "active_steam_puffs": 3,
+      "water_required": 2.85714285714286,
+      "hiss_position": [462, 1.6, 16],
+      "sampled_fps": 60,
+      "draw_calls": 680
+    }
+  ],
+  "steam_and_hiss_release_after_spray": "passed on both maps",
+  "fires_hidden_during_mat_transition": true,
+  "browser_errors": [],
+  "physics": {
+    "test": "Actual rigid-body tent pushed at 16 m/s toward the Motorway wall",
+    "maximum_tent_centre_x": 75.8228454589844,
+    "wall_inner_x": 79.5,
+    "perimeter_layer_in_all_prop_masks": true
+  },
+  "track_details": {
+    "cones": 14,
+    "additional_cones": 10,
+    "new_cones_on_clear_grass": true,
+    "flags": 26,
+    "flag_draw_batches": 2,
+    "visible_ties_per_flag": 2
+  },
+  "native_regressions": [
+    "shared_fire_and_track_props_test",
+    "refinement_test",
+    "scene_details_test",
+    "mat_travel_test",
+    "town_feedback_test",
+    "camera_framing_test",
+    "mission_reactions_test"
+  ]
+}

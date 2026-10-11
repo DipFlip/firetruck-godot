@@ -62,12 +62,19 @@ func run() -> void:
 		game.intro.start()
 		for i in 480:
 			var time:=i*.05
-			game.intro.update(time-game.intro.clock)
+			game.intro.update((time-game.intro.clock)/PlayMatTravel.INTRO_PACE)
 			scan(time,"maple-portrait" if portrait else "maple")
 		game.intro.finish()
+		for x in [-72,-36,0,36,72]:
+			game.truck.global_position=Vector3(x,.85,76)
+			game.camera_focus=game.truck.global_position
+			game.camera.global_position=game.camera_focus+game.gameplay_camera_offset()
+			game.camera.look_at(game.camera_focus)
+			game.camera.size=25.8
+			scan(0,"maple-southern-edge")
 		game.travel.race_visited=false
 		game.travel.start(true)
-		for i in 520:
+		for i in int(ceil(game.travel.duration/.05)):
 			var time:=i*.05
 			game.travel._update_transition(time-game.travel.clock)
 			scan(time,"race-portrait" if portrait else "race")
@@ -80,7 +87,7 @@ func run() -> void:
 			game.camera.size=25.8
 			scan(0,"motorway-southern-edge")
 		game.travel.start(false)
-		for i in 84:
+		for i in int(ceil(game.travel.duration/.05)):
 			var time:=i*.05
 			game.travel._update_transition(time-game.travel.clock)
 			scan(time,"return")

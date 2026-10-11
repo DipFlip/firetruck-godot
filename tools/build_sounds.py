@@ -7,6 +7,7 @@ import math, random, struct, wave
 RATE = 22050
 OUT = Path(__file__).resolve().parents[1] / 'assets/audio/town'
 TAU = math.tau
+HOUSE_GROW_DURATIONS = (1.28, 1.46, 1.36, 1.55, 1.24, 1.42)
 
 def smooth(a, b, t):
     u = max(0., min(1., (t-a)/(b-a)))
@@ -15,6 +16,7 @@ def smooth(a, b, t):
 def bake(kind, variant, duration):
     rng = random.Random(731 + variant*97 + sum(map(ord, kind)))
     data, phase, low, prev = [], 0., 0., 0.
+    water_low, water_soft = 0., 0.
     shift = 1 + (variant-1)*.045
     for i in range(round(duration*RATE)):
         t = i/RATE
@@ -97,17 +99,22 @@ def bake(kind, variant, duration):
             for j in range(4):
                 age=t-.16-j*.13
                 if age>0: y += math.sin(TAU*(650+240*j)*age)*math.exp(-age*35)*.12
-        elif kind in ('refill', 'fire_sizzle'):
-            if kind == 'refill':
-                # Pressurised water with a soft pump note and little glugs.
-                y = low*(.72+.12*math.sin(TAU*2*t)) + math.sin(TAU*84*shift*t)*.06
-                for j in range(5):
-                    age=t-(.10+j*.17)
-                    if 0<age<.09:
-                        phase=TAU*(310*age-850*age*age)
-                        y += math.sin(phase)*math.sin(math.pi*age/.09)**2*.055
+        elif kind in ('refill', 'hydrant_jet', 'fire_sizzle'):
+            if kind in ('refill', 'hydrant_jet'):
+                # Low-passed, rounded water instead of a tonal pump whistle.
+                # The open jet has more body; the attached hose murmurs softly.
+                cutoff = .045 if kind == 'refill' else .09
+                water_low += cutoff*(n-water_low)
+                water_soft += cutoff*(water_low-water_soft)
+                env = smooth(0,.06,t)*(1-smooth(duration-.08,duration,t))
+                y = water_soft*(2.1 if kind == 'refill' else 2.8)*env
+                for j in range(6 if kind == 'refill' else 9):
+                    age = t-(.08+j*(.14 if kind == 'refill' else .16)+variant*.009)
+                    if 0 < age < .17:
+                        # Soft air bubbles fall in pitch as they open into water.
+                        bubble = TAU*((200+variant*11+j*8)*age-280*age*age)
+                        y += math.sin(bubble)*smooth(0,.014,age)*math.exp(-age*27)*.035*env
             else:
-                # Damp, diffuse hot-grill hiss; no sharp impact or tonal squeal.
                 y = low*.85+n*.08
                 y *= .80+.12*math.sin(TAU*3*t)+.08*math.sin(TAU*7*t)
         elif kind == 'tire_scrub':
@@ -126,11 +133,23 @@ def bake(kind, variant, duration):
             if age>0:
                 y += (math.sin(TAU*410*shift*age)*.14+low*.25)*smooth(0,.003,age)*math.exp(-age*95)
         elif kind == 'house_grow':
-            # Airy toy-magic rising swoop, with a gentle rounded landing note.
+            # A toy house assembles with rounded wooden steps and a low roof
+            # settling knock. No sustained synth glissando or ringing chord.
+            taps = ((.10,.30,.52),(.14,.38,.57),(.08,.24,.43,.60),
+                    (.16,.34,.55),(.11,.42,.62),(.09,.27,.48,.64))[variant]
             u=t/duration
-            env=smooth(0,.08,t)*(1-smooth(duration-.20,duration,t))
-            phase=TAU*shift*(180*t+280*t*t/duration)
-            y=(math.sin(phase)*.30+math.sin(phase*2)*.035+low*(.35+.25*u))*env
+            env=smooth(0,.07,t)*(1-smooth(duration*.68,duration*.86,t))
+            water_low += .035*(n-water_low)
+            y=water_low*.32*env*(.45+.55*math.sin(math.pi*min(1,u/.85)))
+            for j, fraction in enumerate(taps+(.78,)):
+                age=t-duration*fraction
+                if age<0: continue
+                roof=j==len(taps)
+                f=(92+variant*4) if roof else (112+variant*7+j*9)
+                impact=smooth(0,.007,age)*math.exp(-age*(15 if roof else 24))
+                y+=(math.sin(TAU*f*age)*(.34 if roof else .18)
+                    +math.sin(TAU*f*1.83*age)*.055
+                    +low*.12)*impact
         elif kind == 'clean':
             for j,f in enumerate((523.25,659.25,783.99,1046.5)):
                 age=t-j*.09
@@ -166,7 +185,9 @@ def bake(kind, variant, duration):
 
 if __name__=='__main__':
     OUT.mkdir(parents=True,exist_ok=True)
-    durations={'voice':.065,'dodge':.27,'woof':.48,'meow':.75,'bird':.56,'wood':.50,'fence':.38,'metal':.62,'brick':.43,'bush':.48,'car_bump':.35,'splash':.86,'clean':.8,'honk':.3,'chuff':.34,'whistle':1.18,'ringtone':3.,'engine':1.,'refill':1.,'fire_sizzle':1.,'dog_wash':.65,'dog_jump':.32,'quack':.46,'cheer':.85,'plastic':.4,'cloth':.5,'ceramic':.65,'ladder_extend':.64,'ladder_retract':.64,'tire_scrub':2.,'block_land':.30,'house_grow':1.05}
+    durations={'voice':.065,'dodge':.27,'woof':.48,'meow':.75,'bird':.56,'wood':.50,'fence':.38,'metal':.62,'brick':.43,'bush':.48,'car_bump':.35,'splash':.86,'clean':.8,'honk':.3,'chuff':.34,'whistle':1.18,'ringtone':3.,'engine':1.,'refill':1.4,'hydrant_jet':1.8,'fire_sizzle':1.,'dog_wash':.65,'dog_jump':.32,'quack':.46,'cheer':.85,'plastic':.4,'cloth':.5,'ceramic':.65,'ladder_extend':.64,'ladder_retract':.64,'tire_scrub':2.,'block_land':.30,'house_grow':1.05}
     for kind,duration in durations.items():
-        for variant in range(1 if kind in ('ringtone','engine') else 3): bake(kind,variant,duration)
+        variants = len(HOUSE_GROW_DURATIONS) if kind=='house_grow' else 1 if kind in ('ringtone','engine') else 3
+        for variant in range(variants):
+            bake(kind,variant,HOUSE_GROW_DURATIONS[variant] if kind=='house_grow' else duration)
     print('Baked',len(list(OUT.glob('*.wav'))),'original sound clips')

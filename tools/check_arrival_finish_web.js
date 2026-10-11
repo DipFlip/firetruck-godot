@@ -1,0 +1,56 @@
+async page => {
+ const errors=[],checks=[];
+ page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('pageerror',e=>errors.push(String(e)));
+ const state=()=>page.evaluate(()=>JSON.parse(window.firetruckTouch.telemetry));
+ const check=(ok,label)=>{if(!ok)throw Error(label);checks.push(label);};
+ const wait=predicate=>page.waitForFunction(predicate,null,{timeout:60000});
+ const cmd=async(action,args={})=>{await page.evaluate(({action,args})=>{Object.assign(window.firetruckQA,args,{action});window.firetruckQA.sequence++},{action,args});await page.waitForTimeout(300);};
+ const sample=async()=>page.evaluate(()=>{
+  window.arrivalSamples=[];
+  clearInterval(window.arrivalSampler);
+  window.arrivalSampler=setInterval(()=>{if(!window.firetruckTouch.telemetry)return;const s=JSON.parse(window.firetruckTouch.telemetry);window.arrivalSamples.push({intro:s.intro,transition:s.transition,clock:s.intro?s.intro_clock:s.transition_clock,scale:s.water_entrance_scale,far:s.camera_far,assembly:s.assembly_items,world:s.world});},35);
+ });
+ const samples=()=>page.evaluate(()=>window.arrivalSamples);
+ const meterCheck=(rows,label)=>{
+  const scales=rows.filter(s=>s.intro||s.transition).map(s=>s.scale);
+  check(scales.some(v=>v===0)&&scales.some(v=>v>.05&&v<.95)&&Math.max(...scales)>1.025&&Math.max(...scales)<1.09,label+' meter grows from zero and makes one slight overshoot');
+ };
+ await page.setViewportSize({width:1280,height:800});
+ await page.goto("http://localhost:8064/?qa=travel&review=seamless-arrivals-final");
+ await wait(()=>document.querySelector('#progress').getAttribute('aria-valuenow')==='100');
+ check((await state()).intro_clock===0,'The opening intro still waits for Start');
+ await sample();
+ await page.getByRole('button',{name:'Start',exact:true}).click();
+ await wait(()=>JSON.parse(window.firetruckTouch.telemetry).intro_clock>23.05);
+ const before=await state();
+ check(before.intro && before.assembly_items===0,'Maple finishes its scenery batches during the final pan before control');
+ await page.screenshot({path:'output/playwright/maple-final-pan-ready.png'});
+ await wait(()=>!JSON.parse(window.firetruckTouch.telemetry).intro);
+ const maple=await samples();
+ meterCheck(maple,'Maple');
+ check(maple.some(s=>s.intro&&s.clock>23.4&&s.far===250),'Maple reaches the gameplay shadow clipping range while still in the intro');
+ check((await state()).water_entrance_scale===1,'The meter is already settled when the opening view is reached');
+ await page.screenshot({path:'output/playwright/maple-seamless-handoff.png'});
+ await wait(()=>JSON.parse(window.firetruckTouch.telemetry).pickup_ready);
+ await page.keyboard.press('Space');await page.waitForTimeout(250);await page.keyboard.press('Enter');
+ await cmd('start_train');await wait(()=>JSON.parse(window.firetruckTouch.telemetry).north_exit_open);
+ await cmd('pose',{x:0,z:-74});await sample();await cmd('pose',{x:0,z:-83});
+ await wait(()=>JSON.parse(window.firetruckTouch.telemetry).transition);
+ await wait(()=>JSON.parse(window.firetruckTouch.telemetry).transition_clock>22.6);
+ const raceBefore=await state();
+ check(raceBefore.transition&&raceBefore.assembly_items===0&&raceBefore.camera_far===500,'Motorway also finishes scenery and shadow depth during the final pan');
+ await page.screenshot({path:'output/playwright/motorway-final-pan-ready.png'});
+ await wait(()=>!JSON.parse(window.firetruckTouch.telemetry).transition);
+ const motorway=await samples();meterCheck(motorway,'Motorway');
+ check((await state()).water_entrance_scale===1,'Motorway settles the meter before releasing control');
+ await cmd('pose',{x:0,z:-74});await sample();await cmd('pose',{x:0,z:-83});
+ await wait(()=>JSON.parse(window.firetruckTouch.telemetry).transition);
+ await wait(()=>!JSON.parse(window.firetruckTouch.telemetry).transition);
+ const returning=await samples();meterCheck(returning,'Short return');
+ const end=await state();
+ check(end.world==='maple_bay'&&end.camera_far===250&&end.water_entrance_scale===1,'Short returns reach the same ready view and settled meter');
+ await page.screenshot({path:'output/playwright/maple-return-meter.png'});
+ await page.evaluate(()=>clearInterval(window.arrivalSampler));
+ check(errors.length===0,'All arrival paths complete without console or engine errors');
+ return {checks,maxMeterScale:{maple:Math.max(...maple.map(s=>s.scale)),motorway:Math.max(...motorway.map(s=>s.scale)),returning:Math.max(...returning.map(s=>s.scale))},errors};
+}

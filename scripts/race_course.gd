@@ -68,21 +68,26 @@ static func distance_to_track(point: Vector2) -> float:
 		closest=minf(closest,point.distance_squared_to(a.lerp(b,t)))
 	return sqrt(closest)
 
-static func ribbon(inner: float, outer: float, lift: float, paint: Material) -> MeshInstance3D:
+static func ribbon(inner: float, outer: float, lift: float, paint: Material, edge_distance: bool=false) -> MeshInstance3D:
 	var path:=points()
 	var vertices:=PackedVector3Array()
 	var normals:=PackedVector3Array()
 	var uvs:=PackedVector2Array()
 	var indices:=PackedInt32Array()
+	var edge_length:=0.0
+	var previous_edge:=Vector3.ZERO
 	for i in path.size():
 		var before:=path[maxi(0,i-1)] if i>0 else path[-2]
 		var after:=path[mini(path.size()-1,i+1)] if i<path.size()-1 else path[1]
 		var tangent: Vector3=(after-before).normalized()
 		var side:=Vector3(-tangent.z,0,tangent.x).normalized()
+		var edge:=path[i]+side*(inner+outer)*.5
+		if i>0: edge_length+=edge.distance_to(previous_edge)
+		previous_edge=edge
 		for width in [inner,outer]:
 			vertices.append(path[i]+side*width+Vector3.UP*(lift+.055))
 			normals.append(side.cross(tangent).normalized())
-			uvs.append(Vector2(distances[i],width))
+			uvs.append(Vector2(edge_length if edge_distance else distances[i],width))
 		if i<path.size()-1:
 			var n:=i*2
 			indices.append_array([n,n+2,n+1,n+1,n+2,n+3])
@@ -97,6 +102,9 @@ static func ribbon(inner: float, outer: float, lift: float, paint: Material) -> 
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
 	result.mesh=mesh
 	result.material_override=paint
+	if edge_distance:
+		result.material_override=paint.duplicate()
+		result.material_override.set_shader_parameter("stripe_period",edge_length/maxf(1,round(edge_length/4.0)))
 	return result
 
 # A broad, C1-continuous bowl: the rim and central floor meet the slopes

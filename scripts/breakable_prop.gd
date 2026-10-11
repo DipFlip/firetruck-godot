@@ -1,8 +1,34 @@
 class_name BreakableProp
 extends RigidBody3D
 
+const ANCHORED_MASK:=1|2|16|Playroom.WALL_LAYER
+const LOOSE_MASK:=ANCHORED_MASK|8
+
+# Shared gameplay values: levels supply positions and art, never duplicate
+# knock-over thresholds, masses or return timing for the same prop type.
+const SETTINGS:={
+	"tree":{"impact":15.0,"mass":1.5},
+	"hydrant":{"impact":8.0,"mass":.85,"respawn":5.0,"fade_out":1.0,"fade_in":.5},
+	"lamp":{"impact":5.5,"mass":.48},
+	"bench":{"impact":4.0,"mass":.55},
+	"fence":{"impact":3.5,"mass":.45},
+	"bush":{"impact":1.8,"mass":.16},
+	"planter":{"impact":2.8,"mass":.3},
+	"rail_sign":{"impact":4.5,"mass":.35},
+	"camper":{"impact":9.0,"mass":1.8},
+	"picnic_table":{"impact":4.0,"mass":.6},
+	"tent":{"impact":3.0,"mass":.35},
+	"parked_racer":{"impact":3.0,"mass":.8},
+	"race_grill":{"impact":3.0,"mass":.6},
+	"flower_pot":{"impact":2.0,"mass":.3},
+	"traffic_cone":{"impact":1.5,"mass":.16},
+	"tire_stack":{"impact":2.0,"mass":.4}
+}
 @export var impact_speed := 5.0
 @export var respawn_seconds := 10.0
+var fade_out_seconds:=2.0
+var fade_in_seconds:=1.0
+var ground_effect: PropGroundEffects
 var game: Node3D
 var kind := "prop"
 var radius := .5
@@ -23,10 +49,16 @@ var sweep_half:=Vector3.ZERO
 var sweep_radius:=0.0
 
 func _ready() -> void:
+	var settings: Dictionary=SETTINGS.get(kind,{})
+	impact_speed=settings.get("impact",impact_speed)
+	mass=settings.get("mass",.6)
+	respawn_seconds=settings.get("respawn",respawn_seconds)
+	fade_out_seconds=settings.get("fade_out",fade_out_seconds)
+	fade_in_seconds=settings.get("fade_in",fade_in_seconds)
 	freeze=true
 	freeze_mode=RigidBody3D.FREEZE_MODE_STATIC
 	collision_layer=1
-	collision_mask=19
+	collision_mask=ANCHORED_MASK
 	continuous_cd=true
 	linear_damp=.55
 	angular_damp=.9
@@ -39,7 +71,14 @@ func _ready() -> void:
 
 func finish_setup() -> void:
 	home=global_transform
+	meshes.clear()
 	_collect_meshes(self)
+	# Ground remnants belong to the fixture, including on future maps. They
+	# live beside it so the water/stump stays at home as the body tumbles.
+	if kind in ["tree","hydrant"] and not is_instance_valid(ground_effect):
+		ground_effect=PropGroundEffects.new()
+		ground_effect.prop=self
+		get_parent().add_child(ground_effect)
 
 func _cache_sweep() -> void:
 	if not spawn_shape: return
@@ -78,8 +117,8 @@ func _physics_process(dt: float) -> void:
 		# Once it has started to topple, a prop also lands on the raised road,
 		# curb and paving surfaces instead of sinking through to the ground slab.
 		# Enabling this at the base would lift it out of the paving instead.
-		if age>.3 and age<respawn_seconds: collision_mask=27
-		if age>respawn_seconds-2: _opacity(clampf((respawn_seconds-age)/2,0,1))
+		if age>.3 and age<respawn_seconds: collision_mask=LOOSE_MASK
+		if age>respawn_seconds-fade_out_seconds: _opacity(clampf((respawn_seconds-age)/fade_out_seconds,0,1))
 		if age>=respawn_seconds:
 			freeze=true
 			collision_layer=0
@@ -93,12 +132,12 @@ func _physics_process(dt: float) -> void:
 			appearing=true
 			age=0
 			collision_layer=1
-			collision_mask=19
+			collision_mask=ANCHORED_MASK
 		return
 	if appearing:
 		age+=dt
-		_opacity(minf(1,age))
-		if age>=1: appearing=false
+		_opacity(minf(1,age/fade_in_seconds))
+		if age>=fade_in_seconds: appearing=false
 	# Sweep the truck's leading supports before the rigid solver stops it on
 	# the anchored prop. A glancing scrape uses its closing speed, not speed alone.
 	var velocity: Vector3=game.truck.linear_velocity
@@ -156,13 +195,11 @@ func _home_clear() -> bool:
 
 # Both mats create the same breakable body before scenery batching. Keeping
 # it under its own world makes arrival animation, suspension and respawn local.
-static func from_parts(parent: Node3D, owner_game: Node3D, prop_kind: String, origin: Vector3, parts: Array, size: Vector3, center: Vector3, threshold: float, weight: float, prop_radius: float) -> BreakableProp:
+static func from_parts(parent: Node3D, owner_game: Node3D, prop_kind: String, origin: Vector3, parts: Array, size: Vector3, center: Vector3, prop_radius: float) -> BreakableProp:
 	var prop:=BreakableProp.new()
 	prop.game=owner_game
 	prop.kind=prop_kind
 	prop.name=prop_kind.to_pascal_case()
-	prop.impact_speed=threshold
-	prop.mass=weight
 	prop.radius=prop_radius
 	parent.add_child(prop)
 	prop.global_position=origin
@@ -180,6 +217,16 @@ static func from_parts(parent: Node3D, owner_game: Node3D, prop_kind: String, or
 	prop.center_of_mass_mode=RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
 	prop.center_of_mass=center
 	prop.finish_setup()
+	return prop
+
+static func tree_from_parts(parent: Node3D, owner_game: Node3D, origin: Vector3, parts: Array, size: float) -> BreakableProp:
+	var prop:=from_parts(parent,owner_game,"tree",origin,parts,Vector3(.5,4.5,.5)*size,Vector3.UP*2.25*size,.34*size)
+	var crown:=CollisionShape3D.new()
+	var sphere:=SphereShape3D.new()
+	sphere.radius=1.35*size
+	crown.shape=sphere
+	crown.position.y=4.1*size
+	prop.add_child(crown)
 	return prop
 
 static func _remove_static(node: Node) -> void:

@@ -34,7 +34,10 @@ func run() -> void:
 	for drop in game.dog_puddle.drops: splashing=splashing or drop.age<.6
 	check(splashing,"The dog splashes real visible droplets after assembly resumes")
 	await frames(540)
-	check(not game.intro.active and not game.truck.freeze and game.truck.enabled,"The paced intro restores the driving camera and controls")
+	check(not game.intro.active and game.dialogue_control.waiting_for_phone and game.truck.freeze,"The paced intro reaches the driving camera and waits for the initial phone pickup")
+	game.dialogue_control.pickup()
+	game.end_dialogue()
+	check(not game.truck.freeze and game.truck.enabled,"Acknowledging the initial call restores driving")
 	game.intro.start()
 	await frames(5)
 	var event:=InputEventAction.new()
@@ -54,6 +57,9 @@ func run() -> void:
 	game._water_hit(TownLayout.DOG+Vector3(1,.10,0),2)
 	await frames(2)
 	check(puddle.clean==1 and not puddle.surfaces[0].visible,"Enough water removes the puddle")
+	# Finish the blocking completion sequence before testing train driving.
+	await frames(120)
+	game.end_dialogue()
 	# Push the locomotive using actual rigid-body contacts, then add backwards
 	# water recoil. No mission activation, velocity or progress is injected.
 	var rail: NorthlineRailway=game.railway
@@ -79,6 +85,8 @@ func run() -> void:
 		var direction:=Vector3(1,0,.45).normalized()
 		game.truck.automated_drive=Vector2(direction.dot(game.camera.global_basis.x),-direction.dot(ahead.normalized()))
 		await frames(1)
+		# Rowan's first recoil briefing now blocks driving until acknowledged.
+		if game.dialogue_active and game.dialogue_actor==rail.driver: game.end_dialogue()
 	check(rail.pushed_once and not rail.started,"Driving into the train alone is too weak to start its engine")
 	check(rail.push_locked,"Actual rear contact gently locks the truck into the push")
 	check(absf(game.truck.position.z-rail.engine.position.z)<.12 and absf(angle_difference(game.truck.heading,-PI/2))<.08,"An off-centre, crooked approach settles onto the train centreline despite diagonal steering")
@@ -132,8 +140,8 @@ func run() -> void:
 	game.truck.position=Vector3(0,.85,12)
 	game.truck.linear_velocity=Vector3.ZERO
 	game.truck.reset_physics_interpolation()
-	await frames(180)
-	check(rail.boarded and rail.driver.visible and rail.driver.get_parent()==rail.engine and absf(rail.roof_hinge.rotation.z)<.001 and rail.driver_guard.collision_layer==0,"The visible conductor jumps through the hinged roof, rides in the cab, and releases the outside personal-space zone")
+	await frames(205)
+	check(rail.boarded and rail.driver.visible and rail.driver.get_parent()==rail.engine and absf(rail.roof_hinge.rotation.z)<.001 and not rail.driver_guard.enabled,"The visible conductor jumps through the hinged roof, rides in the cab, and releases the outside personal-space zone")
 	var moving: float=rail.engine.position.x
 	await frames(150)
 	check(rail.engine.position.x>moving+4 and rail.smoke.any(func(cloud): return cloud.age<2.8),"The running train moves under engine power and puffs smoke")

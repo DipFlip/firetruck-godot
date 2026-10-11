@@ -11,6 +11,7 @@ var jumping:=false
 
 func _ready() -> void:
 	name="BiscuitPuddle"
+	set_meta("omit_mat_print",true)
 	position=TownLayout.DOG
 	for i in 2:
 		var mesh:=MeshInstance3D.new()

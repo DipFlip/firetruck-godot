@@ -38,7 +38,7 @@ func run() -> void:
 	proxy.free()
 	for at in [1.2,5.0,8.5,19.4]:
 		game.intro.start()
-		game.intro.update(at)
+		game.intro.update((at)/PlayMatTravel.INTRO_PACE)
 		check(game.intro.active and (at>=5 or not travel.assembly.is_empty() and not travel.root_modes.is_empty()),"Intro unrolls the printed mat and assembles scenery with simulation suspended")
 		if at==1.2:
 			check(travel.assembly.any(func(item): return item.drop and item.instance>=0),"Boundary blocks participate individually in the assembly")
@@ -48,10 +48,11 @@ func run() -> void:
 		check(travel.assembly.is_empty() and travel.root_modes.is_empty() and game.truck.enabled and not game.truck.freeze,"Skipping any intro phase restores scenery, physics and control")
 	game.travel.set_process(true)
 	await frames(2)
-	check(travel.north_gate.collision_layer==Playroom.WALL_LAYER,"The north road stays physically closed before the stalled train is moved")
-	game.railway.started=true
-	await frames(115)
-	check(travel.gate_opening>=.99 and travel.north_gate.collision_layer==0,"Starting Northline permanently reveals the one northbound town exit")
+	check(not travel.north_exit_clear() and game.railway.engine.position.x==0,"The locomotive itself closes the north road before being moved")
+	game.railway.engine.position.x=12
+	game.railway.engine.reset_physics_interpolation()
+	await frames(2)
+	check(travel.north_exit_clear(),"Moving Northline clear of the road reveals the northbound town exit")
 	game.pool_progress=.55
 	game.pool_basin.set_fill(.55)
 	game.dog_done=true
@@ -72,7 +73,7 @@ func run() -> void:
 	check(game.hose_volume<.001 and (game.water_audio==null or game.water_audio.volume_db< -80),"The water loop softly fades to silence during the town transition")
 	travel._update_transition(3)
 	check(travel.in_race and travel.swapped and not travel.assembly.is_empty(),"The rolled town is exchanged for the unrolling square race mat")
-	travel._update_transition(23.499-travel.clock)
+	travel._update_transition(23.499/PlayMatTravel.INTRO_PACE+PlayMatTravel.DEPARTURE_LEAD-travel.clock)
 	var before_entry: Vector3=game.camera.position
 	var entry_lens: float=game.camera.size
 	travel._update_transition(.001)
@@ -87,7 +88,7 @@ func run() -> void:
 	check(game.pool_progress==.55 and game.dog_done and tree.global_transform.is_equal_approx(tree_pose),"Travel preserves partially completed missions and independent town props")
 	await frames(30)
 	check(game.truck.global_position.x>390,"The truck's out-of-bounds protection uses the active mat, avoiding reset loops")
-	check(race.people.size()==3 and race.spectators.size()>=12 and race.walkers.size()>=4,"The paddock has named neighbours, spectators and strolling campers")
+	check(race.people.size()==4 and race.spectators.size()>=12 and race.walkers.size()>=4,"The paddock has named neighbours, spectators and strolling campers")
 	check(absf(race.gates[0].basis.x.dot(Vector3.RIGHT))<.01,"The start arch spans across the eastbound road")
 	check(not ToyRaceTrack.crosses_pose(Vector3(2,.82,6),Vector3(-2,.82,2),3),"Driving underneath Sky Bridge cannot earn its elevated checkpoint")
 	place(Vector3(-17,.82,-71))

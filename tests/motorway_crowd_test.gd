@@ -34,15 +34,15 @@ func run() -> void:
 	var tones: Dictionary={}
 	var skin_in_batches:=true
 	for actor in actors:
-		var skin: Color=actor.get_node("Head").get_active_material(0).albedo_color
+		var skin: Color=actor.get_node("HeadPivot/Head").get_active_material(0).albedo_color
 		tones[skin.to_html(false)]=true
 		skin_in_batches=skin_in_batches and visible_skin(actor,skin)
 	check(tones.size()>=6 and skin_in_batches,"Light through deep skin tones appear in the rendered Motorway crowd, including baked bodies")
-	for centre in [Vector3(73,0,-22),Vector3(-71,0,42)]:
+	for centre in [Vector3(73,0,-22),ToyRaceTrack.WEST_STAND]:
 		var stand_tones: Dictionary={}
 		for actor in race.spectators:
 			if Vector2(actor.position.x-centre.x,actor.position.z-centre.z).length()<12:
-				stand_tones[actor.get_node("Head").get_active_material(0).albedo_color.to_html(false)]=true
+				stand_tones[actor.get_node("HeadPivot/Head").get_active_material(0).albedo_color.to_html(false)]=true
 		check(stand_tones.size()>=5,"Each audience stand contains a varied crowd")
 	game.intro.finish()
 	game.travel.start(true)

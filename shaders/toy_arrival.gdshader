@@ -8,9 +8,7 @@ uniform float metal = 0.0;
 uniform float specular = .42;
 uniform float clearcoat = .28;
 uniform float progress = 0.0;
-uniform vec2 hero = vec2(-49.0,-22.0);
 uniform bool print_mode = false;
-uniform bool race_scene = false;
 varying float present;
 float seed_for(vec2 p,float kind) {
  // Nearest-grid hashing tolerates the GPU mesh UV compression error.
@@ -24,26 +22,11 @@ mat3 tumble(float x,float z) {
 void vertex() {
  vec3 pivot=vec3(UV2.x,0.0,UV2.y);
  float kind=floor(COLOR.a*4.0+.5);
- // Scatter births throughout the whole mat, independently of the tour.
+ // The loading pass bakes the shared, camera-aware CPU schedule into UV.
+ // This avoids duplicate timing rules and any per-frame vertex lookups.
  float seed=seed_for(UV2,kind);
- float delay=.28+sqrt(seed)*.54;
- float distance=length(UV2-hero);
- bool food_court=UV2.x>=40.0 && UV2.x<=78.0 && UV2.y>=10.0 && UV2.y<=70.0;
- bool east_audience=length(UV2-vec2(73.0,-22.0))<12.0;
- if(race_scene) {
-  delay=.14+sqrt(seed)*.68;
-  if(length(UV2-vec2(0.0,-54.0))<12.0) delay=.015+seed*.025;
-  else if(food_court) delay=((kind==2.0 ? 9.85 : 10.1+seed*.9)-1.85)/19.65;
-  else if(east_audience) delay=(7.2+seed*.55-1.85)/19.65;
-  else if(length(UV2-vec2(-71.0,42.0))<12.0) delay=.688550+seed*.021628;
- } else {
-  if(kind==2.0 && distance<8.0) delay=.015;
-  else if(kind==3.0 && distance<20.0) delay=.045+seed*.015;
- }
- bool featured=!race_scene && (kind==2.0 && distance<8.0 || kind==3.0 && distance<20.0);
- float span=featured ? .07 : (kind==2.0 || kind==4.0 ? .155 : .12);
- if(race_scene && food_court) span=(kind==2.0 ? 1.6 : 1.15)/19.65;
- else if(race_scene && east_audience) span=1.35/19.65;
+ float delay=UV.x;
+ float span=max(.00001,UV.y);
  float t=clamp((progress-delay)/span,0.0,1.0);
  present=kind==1.0 ? step(.00001,progress) : step(.00001,t);
  if(print_mode) { VERTEX.y*=.001; present=1.0; }

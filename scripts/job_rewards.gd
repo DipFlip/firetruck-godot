@@ -42,23 +42,51 @@ func _ready() -> void:
 		star_pool.append(star)
 		free_stars.append(star)
 
-func celebrate(job: String, at: Vector3, speaker: String, words: String) -> void:
+func celebrate(job: String, at: Vector3, speaker: String, words: String, animate_actor: bool=true) -> void:
 	if completed.has(job): return
 	completed[job]=true
 	var actor: Node3D
 	var race_job: bool=game.travel and game.travel.in_race
 	if race_job:
 		actor=game.travel.race.people[ToyRaceTrack.NAMES.find(speaker)]
+	elif speaker=="ROWAN": actor=game.railway.driver
 	else:
-		actor=game.town.people[{"LEO":1,"JUNE":2,"OLIVER":3}[speaker]]
-	if game.dialogue_active and game.hud.speaker_key==speaker: game.end_dialogue(true)
-	if not game.dialogue_active:
-		game.camera_subject=actor
-		game._set_conversation_camera(true)
-	pending.append({"speaker":speaker,"words":words,"actor":actor,"race":race_job,"remaining":THANK_YOU_DELAY})
-	if DisplayServer.get_name()!="headless": sound.play()
-	if job=="dog": game.sounds.play("woof",game.town.dog.global_position,1.0,2.0)
+		actor=game.town.people[{"MAYA":0,"LEO":1,"JUNE":2,"OLIVER":3}[speaker]]
+	pending.append({"speaker":speaker,"words":words,"actor":actor,"race":race_job,"remaining":THANK_YOU_DELAY,"started":false,"animate":animate_actor,"job":job})
+	if pending.size()==1: _begin_reward(pending[0])
 	sparkle_burst(at,28,3.4 if job=="pool" else 1.1,.55 if job=="pool" else 1.0)
+
+func controls_locked() -> bool:
+	return not pending.is_empty() and pending[0].race==game.travel.in_race
+
+func _begin_reward(reward: Dictionary) -> void:
+	reward.started=true
+	# Queue first, so closing an existing speech bubble retains the input lock.
+	if game.dialogue_active: game.end_dialogue(true)
+	game.dialogue_control.begin(true)
+	game.camera_subject=reward.actor
+	game._set_conversation_camera(true)
+	if reward.animate:
+		reward.home_y=reward.actor.position.y
+		reward.left=reward.actor.get_node("ArmLeft").rotation
+		reward.right=reward.actor.get_node("ArmRight").rotation
+		reward.actor.set_meta("mission_celebrating",true)
+	if DisplayServer.get_name()!="headless": sound.play()
+	if reward.job=="dog": game.sounds.play("woof",game.town.dog.global_position,1.0,2.0)
+
+func _pose_celebration(reward: Dictionary) -> void:
+	if not reward.animate: return
+	var age: float=THANK_YOU_DELAY-reward.remaining
+	var lift:=smoothstep(0,.2,age)*(1-smoothstep(1.35,THANK_YOU_DELAY,age))
+	# Two little hops, with a soft landing before the speech begins.
+	var hop:=maxf(0,sin(clampf((age-.15)/.55,0,1)*PI))
+	hop+=maxf(0,sin(clampf((age-.8)/.55,0,1)*PI))*.72
+	reward.actor.position.y=reward.home_y+hop*.65
+	reward.actor.get_node("ArmLeft").rotation=(reward.left as Vector3).lerp(Vector3(0,0,-2.65),lift)
+	reward.actor.get_node("ArmRight").rotation=(reward.right as Vector3).lerp(Vector3(0,0,2.65),lift)
+	if reward.remaining==0:
+		reward.actor.position.y=reward.home_y
+		reward.actor.remove_meta("mission_celebrating")
 
 func sparkle_burst(at: Vector3, count: int=12, radius: float=1.1, squash: float=1.0) -> void:
 	for i in count:
@@ -100,21 +128,20 @@ func _process(dt: float) -> void:
 			s.mesh.hide()
 			free_stars.append(s.mesh)
 			sparkles.remove_at(i)
-	for reward in pending: reward.remaining=maxf(0,reward.remaining-dt)
-	if game.dialogue_active or game.rescue_running: return
-	for i in pending.size():
-		var reward:=pending[i]
-		if reward.race!=game.travel.in_race: continue
-		var distance: float=game.truck.global_position.distance_to(reward.actor.global_position)
-		if distance>12 and game.camera_subject==reward.actor: game._set_conversation_camera(false)
-		if reward.remaining>0 or distance>9: continue
-		game.talk(reward.speaker+"  /  THANK YOU",reward.words,game.stage)
-		if reward.race:
-			game.travel.race.chatter_latches[ToyRaceTrack.NAMES.find(reward.speaker)]=true
-		else:
-			game.proximity_latches[{"LEO":1,"JUNE":2,"OLIVER":3}[reward.speaker]]=true
-		pending.remove_at(i)
-		break
+	if not controls_locked() or game.rescue_running: return
+	var reward:=pending[0]
+	if not reward.started:
+		if game.dialogue_active: return
+		_begin_reward(reward)
+	reward.remaining=maxf(0,reward.remaining-dt)
+	_pose_celebration(reward)
+	if reward.remaining>0 or game.dialogue_active: return
+	pending.pop_front()
+	game.talk(reward.speaker+"  /  THANK YOU",reward.words,game.stage,true)
+	if reward.race:
+		game.travel.race.chatter_latches[ToyRaceTrack.NAMES.find(reward.speaker)]=true
+	elif reward.speaker!="ROWAN":
+		game.proximity_latches[{"MAYA":0,"LEO":1,"JUNE":2,"OLIVER":3}[reward.speaker]]=true
 
 func _chime() -> AudioStreamWAV:
 	var result:=AudioStreamWAV.new()

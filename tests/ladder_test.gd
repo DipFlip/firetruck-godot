@@ -73,9 +73,10 @@ func run() -> void:
 	check(game.truck.ladder_busy and game.truck.ladder_deployed,"Retraction waits safely while the cat is on the ladder")
 	await frames(200)
 	check(game.cat_rescued and game.town.cat.get_parent()==game.town.people[0] and game.town.cat_cuddling,"Pippin hops down, bounds into Maya’s arms, and gets petted")
-	check(not game.truck.ladder_deployed and not game.truck.freeze,"Ladder stows and truck is released after the rescue")
+	check(not game.truck.ladder_deployed and game.truck.freeze,"Ladder stows while the celebration and first thank-you keep the truck steady")
 	check(game.hud.speaker_key=="MAYA" and game.barbecue_call_delay>0,"Maya thanks the player and schedules a later barbecue call")
 	close_dialogue()
+	check(game.truck.enabled and not game.truck.freeze,"Acknowledging Maya restores driving after the full rescue celebration")
 	check(game.stage==5 and activations==1,"Rescue enters a quiet exploration interval exactly once")
 	# Return to the pre-rescue state to exercise recovery during the animation.
 	game.cat_rescued=false

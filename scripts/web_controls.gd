@@ -4,6 +4,7 @@ extends Node
 var game: Node3D
 var state: JavaScriptObject
 var jump_down:=false
+var stick_down:=false
 var sequences: Dictionary={}
 var last_view:=Vector2.ZERO
 var last_talking:=false
@@ -74,7 +75,30 @@ func _physics_process(_dt: float) -> void:
 				var point:=RaceCourse.gate_position(i)
 				var direction:=RaceCourse.gate_direction(i)
 				race_gates.append({"x":point.x,"y":point.y+.85,"z":point.z,"dx":direction.x,"dz":direction.y})
-			state.telemetry=JSON.stringify({"render_histogram":qa_render_histogram,"max_render_ms":qa_max_render_ms,"render_frames":Engine.get_frames_drawn(),"process_frames":Engine.get_process_frames(),"process_ms":Performance.get_monitor(Performance.TIME_PROCESS)*1000,"physics_ms":Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)*1000,"render_scale":game.get_viewport().scaling_3d_scale,"focused":bool(state.focused),"world":"race_track" if game.travel.in_race else "maple_bay","transition":game.travel.active,"transition_clock":game.travel.clock,"lap_running":game.travel.race.running,"lap_time":game.travel.race.lap_time,"race_checkpoint":game.travel.race.checkpoint,"race_gates":race_gates,"loose_race_props":game.travel.race.props.filter(func(prop): return prop.loose).size(),"last_lap":game.travel.race.last_time,"surface_error":qa_surface_error,"flat_height_step":qa_flat_step,"race_drive_frames":qa_drive_frames,"best_lap":game.travel.race.best_time,"north_exit_open":game.travel.gate_opening>=.99,"warmup_pool":game.pool_shader_warmed,"neighbours":neighbours,"speaker":game.hud.speaker_key,"truck_position":[game.truck.position.x,game.truck.position.z],"dialogue_revealed":game.hud.char_count,"dialogue_font":game.hud.dialogue_font_size,"dialogue_rect":[game.hud.dialogue_panel.position.x,game.hud.dialogue_panel.position.y,game.hud.dialogue_panel.size.x,game.hud.dialogue_panel.size.y],"logical_view":[game.hud.size.x,game.hud.size.y],"speed":game.truck.linear_velocity.length(),"water":game.truck.water,"fire_progress":game.fire_progress,"audio_counts":game.sounds.counts,"cannon_spraying":game.truck.spraying,"hose_gain":game.hose_volume,"conversation_blend":game.conversation_blend,"ladder":game.truck.ladder_deployed,"charge":game.truck.charge,"height":game.truck.position.y,"paused":game.paused,"talking":game.dialogue_active,"fps":Engine.get_frames_per_second(),"loading":game.loading,"draw_calls":Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),"objects":Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),"dialogue_lines":game.hud.dialogue_label.get_line_count(),"dialogue_text":game.hud.full_text,"pages":game.hud.dialogue_pages.size(),"batched":game.batched_decorations,"merged_scenery":game.merged_scenery,"scenery_cached":game.town.has_node("BakedScenery"),"camera_size":game.camera.size,"cat_carried":game.town.cat_cuddling,"train_push_locked":game.railway.push_locked,"intro":game.intro.active,"intro_shot":game.intro.shot,"intro_clock":game.intro.clock,"game_clock":game.elapsed,"train_started":game.railway.started,"train_boarded":game.railway.boarded,"train_position":[game.railway.engine.position.x,game.railway.engine.position.z]})
+			var hydrants: Array=[]
+			var fixtures: Array[BreakableProp]=[]
+			if game.travel.in_race: fixtures.append(game.travel.race.hydrant)
+			else: fixtures.assign(game.interactions.hydrant_props)
+			for fixture in fixtures:
+				var effect: PropGroundEffects=fixture.ground_effect
+				var home: Vector3=fixture.home.origin-game.truck.world_origin
+				hydrants.append({"x":home.x,"z":home.z,"loose":fixture.loose,"age":fixture.age,"respawn":fixture.respawn_seconds,"jet_visible":effect.is_visible_in_tree(),"jet_time":effect.time,"opacity":1-fixture.meshes[0].transparency})
+			var interests: Array=[]
+			for point in game.camera_framing.active:
+				var bounds: Array=[]
+				for corner in point.world_bounds():
+					var screen: Vector2=game.camera.unproject_position(corner)
+					bounds.append([screen.x,screen.y])
+				interests.append({"name":point.name,"weight":point.weight,"bounds":bounds})
+			var truck_frame: Rect2=game.hud.truck_screen_rect()
+			state.framing=JSON.stringify({"interests":interests,"truck":[truck_frame.position.x,truck_frame.position.y,truck_frame.size.x,truck_frame.size.y],"pool_progress":game.pool_progress})
+			var fires: Array=[]
+			for fire in get_tree().get_nodes_in_group("toy_fires"):
+				fires.append({"name":fire.name,"visible":fire.is_visible_in_tree(),"progress":fire.progress,"steam":fire.steam.size(),"feedback":fire.feedback,"water_required":fire.water_required,"position":[fire.global_position.x,fire.global_position.y,fire.global_position.z]})
+			state.fire_effects=JSON.stringify({"fires":fires,"sizzle":game.sounds.loop_active.fire_sizzle,"sizzle_gain":game.sounds.loop_levels.fire_sizzle,"sound_position":[game.sounds.fire_contact_position.x,game.sounds.fire_contact_position.y,game.sounds.fire_contact_position.z]})
+
+			var attention: NPCAttention=game.dialogue_control.attention
+			state.telemetry=JSON.stringify({"npc_attention":{"visible":attention.visible,"index":attention.actor_index,"clock":attention.clock,"rect":[attention.position.x,attention.position.y,attention.size.x,attention.size.y]},"water_entrance_scale":game.hud.water_entrance_scale,"camera_far":game.camera.far,"assembly_items":game.travel.assembly.size(),"interrupting":game.dialogue_control.interrupting,"phone_waiting":game.dialogue_control.waiting_for_phone,"pickup_ready":game.dialogue_control.phone_clock>=1,"truck_frozen":game.truck.freeze,"challenge":game.travel.race.challenge.telemetry(),"hydrants":hydrants,"render_histogram":qa_render_histogram,"max_render_ms":qa_max_render_ms,"render_frames":Engine.get_frames_drawn(),"process_frames":Engine.get_process_frames(),"process_ms":Performance.get_monitor(Performance.TIME_PROCESS)*1000,"physics_ms":Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)*1000,"render_scale":game.get_viewport().scaling_3d_scale,"focused":bool(state.focused),"world":"race_track" if game.travel.in_race else "maple_bay","transition":game.travel.active,"transition_clock":game.travel.clock,"lap_running":game.travel.race.running,"lap_time":game.travel.race.lap_time,"race_checkpoint":game.travel.race.checkpoint,"race_gates":race_gates,"loose_race_props":game.travel.race.props.filter(func(prop): return prop.loose).size(),"last_lap":game.travel.race.last_time,"surface_error":qa_surface_error,"flat_height_step":qa_flat_step,"race_drive_frames":qa_drive_frames,"best_lap":game.travel.race.best_time,"north_exit_open":game.travel.north_exit_clear(),"warmup_pool":game.pool_shader_warmed,"neighbours":neighbours,"speaker":game.hud.speaker_key,"truck_position":[game.truck.position.x,game.truck.position.z],"dialogue_revealed":game.hud.char_count,"dialogue_font":game.hud.dialogue_font_size,"dialogue_rect":[game.hud.dialogue_panel.position.x,game.hud.dialogue_panel.position.y,game.hud.dialogue_panel.size.x,game.hud.dialogue_panel.size.y],"logical_view":[game.hud.size.x,game.hud.size.y],"speed":game.truck.linear_velocity.length(),"water":game.truck.water,"fire_progress":game.fire_progress,"audio_counts":game.sounds.counts,"cannon_spraying":game.truck.spraying,"hose_gain":game.hose_volume,"conversation_blend":game.conversation_blend,"ladder":game.truck.ladder_deployed,"charge":game.truck.charge,"height":game.truck.position.y,"paused":game.paused,"talking":game.dialogue_active,"fps":Engine.get_frames_per_second(),"loading":game.loading,"draw_calls":Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),"objects":Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),"dialogue_lines":game.hud.dialogue_label.get_line_count(),"dialogue_text":game.hud.full_text,"pages":game.hud.dialogue_pages.size(),"batched":game.batched_decorations,"merged_scenery":game.merged_scenery,"scenery_cached":game.town.has_node("BakedScenery"),"camera_size":game.camera.size,"cat_carried":game.town.cat_cuddling,"train_push_locked":game.railway.push_locked,"intro":game.intro.active,"intro_shot":game.intro.shot,"intro_clock":game.intro.clock,"game_clock":game.elapsed,"train_started":game.railway.started,"train_boarded":game.railway.boarded,"train_position":[game.railway.engine.position.x,game.railway.engine.position.z]})
 	game.hud.touch_mode=bool(state.enabled)
 	game.hud.touch_portrait=bool(state.portrait)
 	var view:=Vector2(float(state.width),float(state.height))
@@ -103,6 +127,13 @@ func _physics_process(_dt: float) -> void:
 		jump_down=false
 	game.truck.touch_drive=Vector2(float(state.driveX),float(state.driveY)).limit_length(1)
 	game.truck.touch_aim=Vector2(float(state.aimX),float(state.aimY)).limit_length(1)
+	var stick_pressed: bool=game.truck.touch_drive.length()>.55 or game.truck.touch_aim.length()>.55
+	if stick_pressed and not stick_down and (game.dialogue_control.interrupting or game.dialogue_control.waiting_for_phone):
+		if game.travel.in_race and game.travel.race.challenge.offering:
+			var direction: float=game.truck.touch_drive.x if absf(game.truck.touch_drive.x)>.55 else game.truck.touch_aim.x
+			if absf(direction)>.55: _send("left" if direction<0 else "right")
+		else: _send("forward")
+	stick_down=stick_pressed
 	for action in ["ladder","pause","map","recover"]:
 		var sequence:=int(state[action])
 		if sequence!=int(sequences.get(action,0)):
@@ -115,7 +146,7 @@ func _physics_process(_dt: float) -> void:
 			Input.action_press("jump")
 			_send("jump")
 		else: Input.action_release("jump")
-	var talking: bool=game.dialogue_active and not game.pool_basin.contains_truck()
+	var talking: bool=game.dialogue_control.waiting_for_phone or game.dialogue_control.attention.visible or game.dialogue_active and (game.dialogue_control.interrupting or not game.pool_basin.contains_truck())
 	if talking!=last_talking:
 		last_talking=talking
 		JavaScriptBridge.eval("window.firetruckDialogue(%s)" % ("true" if last_talking else "false"))
@@ -152,6 +183,11 @@ func _qa_update() -> void:
 			game.camera_focus=game.truck.global_position
 			game.camera.global_position=game.camera_focus+game.gameplay_camera_offset()
 			game.camera.look_at(game.camera_focus)
+		"visit_race":
+			if game.intro.active: game.intro.finish()
+			if not game.travel.in_race:
+				game.travel.start(true)
+				game.travel.finish()
 		"start_train":
 			game.railway.started=true
 			game.railway.boarded=true
@@ -172,6 +208,11 @@ func _qa_update() -> void:
 			qa_driving=false
 			game.truck.drive_guide=game.railway.guide_push
 			game.truck.top_speed=16.875
+		"challenge_finish":
+			# Opt-in visual QA exercises the same result/ceremony handoff.
+			if not game.travel.in_race or not game.travel.race.challenge.active: return
+			if float(qa.value)>0: game.travel.race.challenge.finish_player()
+			else: game.travel.race.challenge.show_result("Quinn wins this time!")
 
 		"fill_pool":
 			if game.travel.in_race: return
@@ -185,6 +226,12 @@ func _qa_update() -> void:
 			game.truck.water=game.truck.tank_capacity
 			game.truck.use_automation=true
 			game.truck.automated_aim=TownLayout.FIRE+Vector3.UP*1.8
+			game.truck.automated_spray=true
+		"spray_race_fire":
+			if not game.travel.in_race: return
+			game.truck.water=game.truck.tank_capacity
+			game.truck.use_automation=true
+			game.truck.automated_aim=game.travel.race.grill_fire.global_position+Vector3.UP*1.8
 			game.truck.automated_spray=true
 		"stop_spray":
 			game.truck.automated_spray=false

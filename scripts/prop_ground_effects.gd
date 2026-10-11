@@ -40,6 +40,7 @@ func _make_stump() -> void:
 
 func _make_water() -> void:
 	name="BrokenHydrantWater"
+	add_to_group("broken_hydrant_sources")
 	TownProps.cylinder(self,Vector3(0,.12,0),.18,.24,Color("577584"))
 	TownProps.cylinder(self,Vector3(0,.244,0),.125,.014,Color("293f49"))
 	water=MultiMeshInstance3D.new()

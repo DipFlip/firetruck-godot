@@ -9,6 +9,12 @@ uniform vec4 pond_hole = vec4(-29.0,40.0,13.0,10.0);
 uniform vec4 felt_color : source_color = vec4(.37647,.6,.345098,1.0);
 uniform sampler2D maple_print : source_color, filter_linear_mipmap, repeat_disable;
 uniform sampler2D race_print : source_color, filter_linear_mipmap, repeat_disable;
+uniform sampler2D maple_clean : source_color, filter_linear_mipmap, repeat_disable;
+uniform sampler2D race_clean : source_color, filter_linear_mipmap, repeat_disable;
+// Linear data: R/G are the local replacement interval, B is coverage.
+uniform sampler2D maple_arrival : filter_linear, repeat_disable;
+uniform sampler2D race_arrival : filter_linear, repeat_disable;
+uniform float arrival_progress = -1.0;
 varying vec2 printed;
 varying float backing;
 // A continuous, thick felt sheet winds from its loose printed lip into an
@@ -71,6 +77,13 @@ void fragment() {
  if(printed_toys) {
   if(race) ink=texture(race_print,(p+vec2(80.0))/160.0).rgb;
   else ink=texture(maple_print,(p+vec2(80.0))/160.0).rgb;
+  if(arrival_progress>=0.0) {
+   vec2 uv=(p+vec2(80.0))/160.0;
+   vec3 timing=race ? texture(race_arrival,uv).rgb : texture(maple_arrival,uv).rgb;
+   vec3 ground=race ? texture(race_clean,uv).rgb : texture(maple_clean,uv).rgb;
+   float replacement=smoothstep(timing.r,max(timing.r+.003,timing.g),arrival_progress)*timing.b;
+   ink=mix(ink,ground,replacement);
+  }
  } else {
   ink=mix(ink,vec3(.57,.69,.47),smoothstep(-80.0,80.0,p.y));
   float picnic=step(35.0,p.x)*step(p.x,70.0)*step(30.0,p.y)*step(p.y,74.0);

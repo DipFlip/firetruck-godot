@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-08",
+  "browser": "Chromium WebGL 2",
+  "url": "http://localhost:8064/?qa=travel&review=camera-framing",
+  "approach_before_greeting": [
+    {"truck_z": 24, "blend": 0, "lens": 25.7992},
+    {"truck_z": 19, "blend": 0.0817, "lens": 25.3033},
+    {"truck_z": 14, "blend": 0.3809, "lens": 23.1359},
+    {"truck_z": 9, "blend": 0.7773, "lens": 20.3617},
+    {"truck_z": 4, "blend": 0.9690, "lens": 19.0186},
+    {"truck_z": 1, "blend": 1.0000, "lens": 18.8003}
+  ],
+  "pool": {
+    "input": "Mouse hose with Shift brake, real projectile contacts",
+    "progress_before": 0,
+    "progress_after": 0.0576,
+    "truck_and_all_pool_bounds_in_view": true,
+    "lens": 19.9966,
+    "sampled_fps": 58
+  },
+  "portrait": {
+    "viewport_css": [390, 564],
+    "logical_view": [459, 664],
+    "truck_and_all_pool_bounds_in_view": true,
+    "lens": 42.2510,
+    "sampled_fps": 60
+  },
+  "browser_errors": [],
+  "native_checks": [
+    "camera_framing_test: approach, release, full pool bounds, generic registration, independent Motorway missions, map reset, rounded tail polygons",
+    "hud_layout_test: seven screens with twelve approach directions each",
+    "dialogue_dock_test: world and phone balloons, pause and main menu",
+    "dispatch_test: approach continuity, held nearby framing, phone anchor and mission calls",
+    "mission_reactions_test: held camera through mission completion and thank-you dialogue",
+    "mat_travel_test: both worlds and camera handover",
+    "tuning_test: close and regular views, driving control and pool geometry"
+  ]
+}

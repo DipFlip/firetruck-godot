@@ -10,17 +10,32 @@ extends Node3D
 var time := 0.0
 var truck: Node3D
 var foliage: Array[Node3D]=[]
-var fire_amount := 1.0
+var fire: ToyFire
+var fire_amount:=1.0:
+	get: return fire.intensity if is_instance_valid(fire) else fire_amount
+	set(value):
+		fire_amount=value
+		if is_instance_valid(fire): fire.intensity=value
 var cat_cuddling:=false
-var water_response := 0.0
 
 func _ready() -> void:
+	for animal in [cat,dog]:
+		if animal:
+			animal.set_meta("toy_arrival","drop")
+			animal.set_meta("toy_kind","Animal")
 	if get_child_count()>0:
 		_gather_foliage()
+		# Adapt the editable baked tree before gameplay captures the cat pose.
+		cat.position=TownLayout.CAT_PERCH
+		for art in foliage:
+			if art.get_parent().position.distance_to(TownLayout.CAT_TREE)<.1: art.scale=Vector3.ONE*TownLayout.CAT_TREE_SIZE
+		for child in get_children():
+			if child is MeshInstance3D and child.position.distance_to(Vector3(17,2.8,-8.6))<.01: child.position=TownLayout.CAT_BRANCH
 		TownProps.apply_toy_finish(self)
 		for art in foliage: TownProps.soften_toy_shine(art)
 		for person in people:
 			person.set_meta("toy_arrival","drop")
+			person.set_meta("omit_mat_print",true)
 			TownProps.soften_toy_shine(person)
 		return
 	seed(42)
@@ -54,9 +69,9 @@ func _ready() -> void:
 	TownProps.house(self,Vector3(-49,0,-22),Color("ccaa79"),"WILLOW COTTAGE",5)
 	# Mission clearing: tree rescue near the station.
 	TownProps.box(self,Vector3(14,0.06,-9),Vector3(13,0.1,9),Color("b9c895"))
-	TownProps.tree(self,Vector3(17,0,-10),1.05)
-	TownProps.box(self,Vector3(17,2.8,-8.6),Vector3(0.28,0.22,3.1),Color("93674d"))
-	cat = _animal(Vector3(17,2.93,-7.2),Color("edc382"),true)
+	TownProps.tree(self,TownLayout.CAT_TREE,TownLayout.CAT_TREE_SIZE)
+	TownProps.box(self,TownLayout.CAT_BRANCH,Vector3(0.28,0.22,3.1),Color("93674d"))
+	cat = _animal(TownLayout.CAT_PERCH,Color("edc382"),true)
 	cat.rotation.y=PI
 	people.append(TownProps.person(self,TownLayout.MAYA,Color("ecb354")))
 	TownProps.house(self,Vector3(49,0,-25),Color("76a3a1"),"LEO'S COTTAGE",5)
@@ -71,15 +86,15 @@ func _ready() -> void:
 	people.append(TownProps.person(self,TownLayout.LEO,Color("6d9cb2")))
 	# Optional jobs have their own targets and persistent state.
 	dog = _animal(TownLayout.DOG,Color("876445"),false)
+	dog.set_meta("toy_arrival","drop")
+	dog.set_meta("toy_kind","Animal")
 	people.append(TownProps.person(self,TownLayout.JUNE,Color("b88ca1")))
 	TownProps.box(self,TownLayout.POOL+Vector3.UP*0.35,Vector3(10,0.7,6),Color("eee6ce"),true)
 	pool_water = TownProps.box(self,TownLayout.POOL+Vector3.UP*0.72,Vector3(8.8,0.08,4.8),Color("5eb8cc"))
 	people.append(TownProps.person(self,TownLayout.OLIVER,Color("e99869")))
 	for pos in [Vector3(-5,.1,12),Vector3(5,.1,-29),Vector3(31,.1,6),Vector3(-30.5,.1,30.5),Vector3(41,.1,-12),Vector3(5,.1,55),Vector3(-41,.1,-9)]:
 		hydrants.append(pos)
-		TownProps.cylinder(self,pos+Vector3(0,0.5,0),0.25,1,Color("dd6950"))
-		TownProps.ball(self,pos+Vector3(0,1,0),Vector3(0.6,0.4,0.6),Color("f0bd69"))
-		TownProps.box(self,pos+Vector3(0,0.65,0),Vector3(0.9,0.23,0.25),Color("dd6950"))
+		FireHydrant.build_art(self,pos)
 	for pos in [Vector3(-26,0,9),Vector3(-27,0,-10),Vector3(9,0,23),Vector3(27,0,13),Vector3(-10,0,26),Vector3(56,0,-8),Vector3(-49,0,30),Vector3(9,0,46),Vector3(48,0,46),Vector3(-48,0,47)]:
 		TownProps.tree(self,pos,randf_range(0.85,1.4))
 	# Irregular groves and isolated trees occupy clear lawn, with open roads,
@@ -108,6 +123,8 @@ func _ready() -> void:
 
 func _animal(pos: Vector3, color: Color, is_cat: bool) -> Node3D:
 	var root := Node3D.new()
+	root.set_meta("toy_arrival","drop")
+	root.set_meta("toy_kind","Animal")
 	add_child(root)
 	root.position=pos
 	TownProps.ball(root,Vector3(0,0.5,0),Vector3(0.5,0.6,0.95) if is_cat else Vector3(0.8,0.7,1.3),color)
@@ -140,11 +157,9 @@ func _process(dt: float) -> void:
 		if truck and not TownProps.near_view(truck.camera,foliage[i].global_position+Vector3.UP*3,6): continue
 		foliage[i].rotation.z=sin(time*0.8+i*1.6)*0.009
 		foliage[i].rotation.x=cos(time*0.6+i)*0.006
-	for i in flames.size():
-		flames[i].visible=fire_amount>0
-		flames[i].scale=Vector3(0.6,1.3+sin(time*8+i)*0.5,0.6)*maxf(0.05,fire_amount)*(1.0-water_response*.2)
 	for i in people.size():
 		var person:=people[i]
+		if person.get_meta("mission_celebrating",false): continue
 		if truck and not TownProps.near_view(truck.camera,person.global_position+Vector3.UP,3): continue
 		person.scale.y=1+sin(time*2+i)*0.009
 		var eyes: Node3D=person.get_node_or_null("Eyes")

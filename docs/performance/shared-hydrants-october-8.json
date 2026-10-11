@@ -1,0 +1,66 @@
+{
+  "checks": [
+    "The maple_bay hydrant has the shared five-second return",
+    "A real browser collision starts the maple_bay water jet",
+    "The broken-pipe water continues animating",
+    "The maple_bay hydrant returns and switches off its jet at five seconds",
+    "The race_track hydrant has the shared five-second return",
+    "A real browser collision starts the race_track water jet",
+    "The broken-pipe water continues animating",
+    "The race_track hydrant returns and switches off its jet at five seconds",
+    "Both shared fixtures work without browser/engine errors"
+  ],
+  "results": [
+    {
+      "world": "maple_bay",
+      "remainingMs": 4983,
+      "broken": {
+        "age": 0.05,
+        "jet_time": 0.0667,
+        "jet_visible": true,
+        "loose": true,
+        "opacity": 1,
+        "respawn": 5,
+        "x": -5,
+        "z": 12
+      },
+      "returned": {
+        "age": 0.0166666666666667,
+        "jet_time": 5.01651399999998,
+        "jet_visible": false,
+        "loose": false,
+        "opacity": 0.0333333611488342,
+        "respawn": 5,
+        "x": -5,
+        "z": 12
+      },
+      "fps": 60
+    },
+    {
+      "world": "race_track",
+      "remainingMs": 4982,
+      "broken": {
+        "age": 0.1,
+        "jet_time": 0.116662,
+        "jet_visible": true,
+        "loose": true,
+        "opacity": 1,
+        "respawn": 5,
+        "x": -12,
+        "z": -68
+      },
+      "returned": {
+        "age": 0.0666666666666667,
+        "jet_time": 5.01646599999998,
+        "jet_visible": false,
+        "loose": false,
+        "opacity": 0.133333325386047,
+        "respawn": 5,
+        "x": -12,
+        "z": -68
+      },
+      "fps": 60
+    }
+  ],
+  "errors": []
+}

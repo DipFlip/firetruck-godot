@@ -3,6 +3,8 @@ extends Node3D
 
 const ORIGIN:=Vector3(400,0,0)
 const SPAWN:=Vector3(0,.855,-73)
+const WEST_STAND:=Vector3(-52,0,15)
+const BROADCAST_POINT:=Vector3(-39,0,14)
 const LAP_LIMIT:=RaceCourse.HALF_WIDTH*3.0 # One full road width of grass beyond either edge.
 const SAVE_PATH:="user://race_record_v2.cfg"
 static var GATES: Array[Vector2]:
@@ -13,6 +15,7 @@ static var GATES: Array[Vector2]:
 			result.append(Vector2(p.x,p.z))
 		return result
 var game: Node3D
+var challenge: RaceChallenge
 var mat: RollingMat
 var active:=false
 var running:=false
@@ -36,12 +39,17 @@ var spectators: Array[Node3D]=[]
 var walkers: Array[Dictionary]=[]
 var chatter_latches: Dictionary={}
 var animation_clock:=0.0
+var grill_fire: ToyFire
 var ducks: Array[Node3D]=[]
 var duck_states: Array[Dictionary]=[]
 var audience_states: Array[Dictionary]=[]
+var actor_rigs: Dictionary={}
 var pond_wet:=false
 var pond_splash_clock:=0.0
 var crowd_index:=0
+var broadcast_head: Node3D
+var camera_operator: Node3D
+var broadcast_pan:=PI
 const CROWD_SKIN_TONES: Array[Color]=[Color("edc6a5"),Color("d9a17b"),Color("b88160"),Color("986747"),Color("744c36"),Color("543c31")]
 const CROWD_HAIR_TONES: Array[Color]=[Color("4b3830"),Color("302c29"),Color("694f3f"),Color("99523b"),Color("292826"),Color("c8c6b4")]
 const BRIDGE_SAFETY_LAYER:=64
@@ -49,7 +57,7 @@ const BRIDGE_RAIL_OFFSET:=8.15
 const BRIDGE_RAIL_HALF_THICKNESS:=.12
 const BRIDGE_RAIL_BOTTOM:=.62
 const BRIDGE_RAIL_TOP:=.82
-const NAMES: Array[String]=["KIT","SAMI","NORA"]
+const NAMES: Array[String]=["KIT","SAMI","NORA","QUINN"]
 const HYDRANT_POINT:=Vector3(-12,0,-68)
 
 func _ready() -> void:
@@ -98,9 +106,13 @@ func _ready() -> void:
 	# Optional hose jobs share the truck's existing hit and aiming paths.
 	var spill:=TownProps.box(self,Vector3(58,.045,7),Vector3(7,.025,5),Color("765d4b"))
 	jobs.append({"title":"Rinse the pit-lane spill","point":Vector3(58,.06,7),"radius":4.5,"progress":0.0,"mesh":spill,"done":false})
-	var heat:=TownProps.ball(self,Vector3(62,1.9,16),Vector3(1.8,2.3,1.8),Color("f3a653"))
-	heat.material_override=TownProps.effect_material(preload("res://shaders/flame.gdshader"))
-	jobs.append({"title":"Cool the food-stand flare-up","point":Vector3(62,1.9,16),"radius":2.6,"progress":0.0,"mesh":heat,"done":false})
+	grill_fire=ToyFire.new()
+	grill_fire.name="FoodCourtFire"
+	grill_fire.game=game
+	grill_fire.water_required=1.0/.35
+	var grill: BreakableProp=props.filter(func(prop): return prop.kind=="race_grill")[0]
+	grill.add_child(grill_fire)
+	jobs.append({"title":"Cool the food-stand flare-up","point":Vector3(62,1.9,16),"radius":2.6,"progress":0.0,"mesh":grill_fire,"fire":grill_fire,"done":false})
 	var dirt:=TownProps.box(self,Vector3(43,1.8,50.97),Vector3(5.6,1.8,.03),Color("8d765d"))
 	jobs.append({"title":"Wash the dusty camper","point":Vector3(43,1.8,51),"radius":3.8,"progress":0.0,"mesh":dirt,"done":false})
 	_make_hydrant(HYDRANT_POINT)
@@ -112,7 +124,8 @@ func _ready() -> void:
 	for mesh_node in fixed:
 		if mesh_node is MeshInstance3D and mesh_node.get_child_count()==0: mesh_node.set_meta("batch_static",true)
 	# Nested building meshes are already combined by the imported toy assets.
-	TownProps.merge_fixed_geometry(buildings,[],"race_paddock")
+	TownProps.merge_fixed_geometry(buildings,[broadcast_head],"race_paddock")
+	TownProps.merge_fixed_geometry(broadcast_head,[],"broadcast_camera_head")
 	timer_label=Label.new()
 	timer_label.add_theme_font_override("font",preload("res://assets/fonts/Nunito.ttf"))
 	timer_label.add_theme_font_size_override("font_size",23)
@@ -123,6 +136,10 @@ func _ready() -> void:
 	timer_label.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	game.hud.add_child(timer_label)
 	timer_label.hide()
+	challenge=RaceChallenge.new()
+	challenge.race=self
+	challenge.game=game
+	add_child(challenge)
 	hide()
 	process_mode=Node.PROCESS_MODE_DISABLED
 
@@ -170,26 +187,7 @@ func _camper(parent: Node3D, at: Vector3, colour: Color) -> void:
 	for x in [-1.8,1.8]: TownProps.box(parent,at+Vector3(x,3.7,0),Vector3(.09,.16,5),Color("927556"))
 
 func _make_hydrant(at: Vector3) -> void:
-	hydrant=BreakableProp.new()
-	hydrant.game=game
-	hydrant.kind="hydrant"
-	hydrant.impact_speed=8.0
-	hydrant.mass=.85
-	hydrant.radius=.3
-	add_child(hydrant)
-	hydrant.position=at
-	var shape:=CollisionShape3D.new()
-	var bounds:=BoxShape3D.new()
-	bounds.size=Vector3(.6,1.1,.6)
-	shape.shape=bounds
-	shape.position.y=.55
-	hydrant.add_child(shape)
-	hydrant.spawn_shape=bounds
-	hydrant.spawn_offset=shape.position
-	TownProps.cylinder(hydrant,Vector3.UP*.5,.25,1,Color("dd6950"))
-	TownProps.ball(hydrant,Vector3.UP,Vector3(.6,.4,.6),Color("f0bd69"))
-	TownProps.box(hydrant,Vector3(0,.65,0),Vector3(.9,.23,.25),Color("dd6950"))
-	hydrant.finish_setup()
+	hydrant=FireHydrant.spawn(self,game,to_global(at))
 	props.append(hydrant)
 
 func driving_surface(at: Vector3) -> Dictionary:
@@ -206,6 +204,7 @@ func activate() -> void:
 	status_clock=0
 
 func deactivate() -> void:
+	challenge.cancel()
 	game.truck.drive_surface=Callable()
 	game.truck.surface_sample.clear()
 	suspend_bodies()
@@ -239,14 +238,20 @@ static func crosses_pose(from: Vector3, to: Vector3, index: int) -> bool:
 
 func _physics_process(dt: float) -> void:
 	if not active or game.paused or game.travel.active: return
+	challenge.update(dt)
+	if challenge.controls_locked():
+		timer_label.hide()
+		return
 	var p:=Vector2(game.truck.global_position.x-ORIGIN.x,game.truck.global_position.z)
 	if running and track_distance(p)>LAP_LIMIT:
+		if challenge.active: challenge.show_result("You left the course. Let's try again!\nCome back anytime and challenge me again!")
 		running=false
 		checkpoint=0
 		checkpoint_flag.hide()
 		lap_time=0
 		timer_label.text=""
 		timer_label.hide()
+		if challenge.result_open: return
 	if running: lap_time+=dt
 	var next:=checkpoint if running else 0
 	if crosses_pose(Vector3(previous.x,previous_height,previous.y),game.truck.global_position-ORIGIN,next):
@@ -267,8 +272,8 @@ func _physics_process(dt: float) -> void:
 	if game.refill_hose.active: game.truck.water=minf(game.truck.tank_capacity,game.truck.water+25*dt)
 	_update_pond(dt)
 	# The clock follows every 60 Hz race tick; layout does not need that rate.
-	timer_label.text="LAP  "+format_time(lap_time) if running else ""
-	timer_label.visible=running and not game.dialogue_active
+	timer_label.text=("RACE  "+format_time(challenge.elapsed)+"  ·  "+("QUINN FINISHED" if challenge.rival_finish>=0 else "CHASE QUINN!") if challenge.active else "LAP  "+format_time(lap_time)) if running or challenge.active else ""
+	timer_label.visible=(running or challenge.active) and not game.dialogue_active
 	status_clock+=dt
 	if status_clock>.1:
 		status_clock=0
@@ -286,9 +291,12 @@ func _complete_lap() -> void:
 		saved.set_value("race","best_seconds",best_time)
 		var error:=saved.save(SAVE_PATH)
 		if error!=OK: game.toast("Lap complete: "+format_time(last_time)+" · record could not be saved")
-		else: game.toast("Lap complete: "+format_time(last_time))
-	else: game.toast("Lap complete: "+format_time(last_time))
+		elif not challenge.active: game.toast("Lap complete: "+format_time(last_time))
+	elif not challenge.active: game.toast("Lap complete: "+format_time(last_time))
 	_update_billboard()
+	if challenge.active:
+		challenge.finish_player()
+		return
 	# The finish line starts the next lap immediately; racing is unlimited.
 	lap_time=0
 	checkpoint=1
@@ -303,15 +311,21 @@ func _update_billboard() -> void:
 func water_hit(point: Vector3, amount: float) -> bool:
 	var local:=point-ORIGIN
 	for job in jobs:
+		if job.has("fire"): job.point=job.fire.global_position-ORIGIN+Vector3.UP*1.8
 		if job.done or local.distance_to(job.point)>job.radius: continue
-		job.progress=minf(1,job.progress+amount*.35)
-		if not job.has("original_scale"): job.original_scale=job.mesh.scale
-		job.mesh.scale=job.original_scale*Vector3(1,maxf(.015,1-job.progress),1)
+		if job.has("camera_interest"): job.camera_interest.engage()
+		if job.has("fire"):
+			if not job.fire.apply_water(amount): return false
+			job.progress=job.fire.progress
+		else:
+			job.progress=minf(1,job.progress+amount*.35)
+			if not job.has("original_scale"): job.original_scale=job.mesh.scale
+			job.mesh.scale=job.original_scale*Vector3(1,maxf(.015,1-job.progress),1)
 		if job.progress>=1:
 			job.done=true
-			job.mesh.hide()
+			if not job.has("fire"): job.mesh.hide()
 			var camper: bool=job==jobs[2]
-			game.rewards.celebrate("race_"+job.title,point,"NORA" if camper else "SAMI","Thank you! Our camper is ready for another race weekend!" if camper else "Thank you for helping! The pit lane and sandwiches are in good hands.")
+			game.rewards.celebrate("race_"+job.title,ORIGIN+job.point,"NORA" if camper else "SAMI","Thank you! Our camper is ready for another race weekend!" if camper else "Thank you for helping! The pit lane and sandwiches are in good hands.")
 		return true
 	return false
 
@@ -320,6 +334,7 @@ func aim_target(origin: Vector3, requested: Vector3) -> Variant:
 	var best: Variant=null
 	var score:=INF
 	for job in jobs:
+		if job.has("fire"): job.point=job.fire.global_position-ORIGIN+Vector3.UP*1.8
 		if job.done: continue
 		var target: Vector3=ORIGIN+job.point
 		var planar:=Vector3(target.x-origin.x,0,target.z-origin.z)
@@ -336,7 +351,7 @@ func _build_pond_ground() -> void:
 	var c:=RaceCourse.POND_CENTRE
 	var r:=RaceCourse.POND_RADIUS
 	for rect in [Rect2(-80,-80,c.x-r.x+80,160),Rect2(c.x+r.x,-80,80-c.x-r.x,160),Rect2(c.x-r.x,-80,r.x*2,c.y-r.y+80),Rect2(c.x-r.x,c.y+r.y,r.x*2,80-c.y-r.y)]:
-		TownProps.collider(self,Vector3(rect.get_center().x,-.5,rect.get_center().y),Vector3(rect.size.x,1,rect.size.y))
+		TownProps.collider(self,Vector3(rect.get_center().x,-.5,rect.get_center().y),Vector3(rect.size.x,1,rect.size.y)).add_to_group("race_grass")
 	var soil:=SurfaceTool.new()
 	soil.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var ground_faces:=PackedVector3Array()
@@ -397,6 +412,7 @@ func _build_pond_ground() -> void:
 	add_child(surface)
 
 func _build_course() -> void:
+	var existing:=get_children()
 	RaceCourse.points()
 	var paint:=ShaderMaterial.new()
 	paint.shader=preload("res://shaders/race_road.gdshader")
@@ -414,8 +430,8 @@ func _build_course() -> void:
 	var curb:=paint.duplicate() as ShaderMaterial
 	curb.set_shader_parameter("curb",true)
 	for side in [-1,1]:
-		var edge:=RaceCourse.ribbon(-7.1 if side<0 else 6.5,-6.5 if side<0 else 7.1,.025,curb)
-		edge.name="StripedRaisedCurb"
+		var edge:=RaceCourse.ribbon(-7.1 if side<0 else 6.5,-6.5 if side<0 else 7.1,.025,curb,true)
+		edge.name="StripedRaisedCurbWest" if side<0 else "StripedRaisedCurbEast"
 		edge.set_meta("assembly_group",2)
 		add_child(edge)
 		var edge_body:=StaticBody3D.new()
@@ -427,14 +443,40 @@ func _build_course() -> void:
 	# One continuous deck and rail ribbon follows the same curve as the road.
 	# The arch posts stand on its widened shoulders, not on empty air.
 	_build_bridge()
+	_build_bridge_shade()
 	# The road, deck, supports and rails rise together from the printed bridge.
 	for piece in get_children():
-		if piece.has_meta("assembly_group"): piece.set_meta("toy_pivot",Vector3(0,0,4))
+		if piece.has_meta("assembly_group"):
+			piece.set_meta("toy_pivot",Vector3(0,0,4))
+			if not piece in existing: piece.set_meta("mat_print_replacement",true)
 	var entrance:=TownProps.box(self,Vector3(0,.025,-66.75),Vector3(10,.05,21.5),Color("738888"))
 	entrance.name="EntranceRoadInsideHem"
 	for z in range(-76,-56,4): TownProps.box(self,Vector3(0,.07,z),Vector3(.13,.02,1.5),Color("f1dcaa"))
 	TownProps.box(self,Vector3(-28,.035,-67),Vector3(43,.06,8),Color("899793"))
 	TownProps.box(self,Vector3(57,.035,22),Vector3(10,.06,45),Color("899793"))
+
+func _build_bridge_shade() -> void:
+	# A soft contact shade on both felt and lower asphalt makes the elevated
+	# deck's separation readable even with the browser's modest shadow budget.
+	var path:=RaceCourse.points()
+	var tool:=SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in range(16*RaceCourse.STEPS,22*RaceCourse.STEPS):
+		for corner in [Vector2i(i,-1),Vector2i(i+1,-1),Vector2i(i,1),Vector2i(i,1),Vector2i(i+1,-1),Vector2i(i+1,1)]:
+			var p:=path[corner.x]
+			var edge: Vector3=p+_road_side(path,corner.x)*corner.y*10.0
+			tool.set_uv(Vector2(p.y,corner.y*10.0))
+			tool.set_normal(Vector3.UP)
+			tool.add_vertex(Vector3(edge.x,.096,edge.z))
+	var shade:=MeshInstance3D.new()
+	shade.name="BridgeGroundShade"
+	shade.mesh=tool.commit()
+	var finish:=ShaderMaterial.new()
+	finish.shader=preload("res://shaders/bridge_shade.gdshader")
+	shade.material_override=finish
+	shade.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	shade.set_meta("assembly_group",2)
+	add_child(shade)
 
 func _build_boundary() -> void:
 	var blocks:=Node3D.new()
@@ -545,9 +587,17 @@ func _build_paddock(parent: Node3D) -> void:
 		var tires:=TownProps.toy_group(parent,p,"drop","TireStack")
 		for n in 3: TownProps.cylinder(tires,Vector3.UP*(.25+n*.45),.8,.4,Color("42515b"))
 	for p in [Vector3(48,0,11),Vector3(65,0,11),Vector3(-13,0,-61),Vector3(-41,0,-62)]:
-		var cone:=TownProps.toy_group(parent,p,"drop","TrafficCone")
-		TownProps.cylinder(cone,Vector3.UP*.5,.5,1,Color("ed9560"),.1)
-		TownProps.box(cone,Vector3.UP*.05,Vector3(1.1,.1,1.1),Color("ed9560"))
+		TownProps.traffic_cone(parent,p)
+	var path:=RaceCourse.points()
+	for knot in [3,4,6,10,11,12,13,14,16,23]:
+		var index: int=knot*RaceCourse.STEPS
+		var direction: Vector3=(path[index+1]-path[index-1]).normalized()
+		var outer:=Vector3(direction.z,0,-direction.x).normalized()
+		var at: Vector3=path[index]+outer*(RaceCourse.HALF_WIDTH+2.8)
+		if ((Vector2(at.x,at.z)-RaceCourse.POND_CENTRE)/RaceCourse.POND_RADIUS).length()<1.12:
+			at=path[index]-outer*(RaceCourse.HALF_WIDTH+2.8)
+		at.y=0
+		TownProps.traffic_cone(parent,at)
 	for p in [Vector3(-47,0,-10),Vector3(-38,0,-10),Vector3(60,0,28),Vector3(71,0,28),Vector3(37,0,50),Vector3(47,0,50)]:
 		var planter:=TownProps.toy_group(parent,p,"drop","FlowerPot")
 		TownProps.cylinder(planter,Vector3.UP*.4,.65,.8,Color("c98b65"),.8)
@@ -559,6 +609,7 @@ func _build_paddock(parent: Node3D) -> void:
 	for i in 150:
 		var p:=Vector3(rng.randf_range(-73,73),0,rng.randf_range(-73,73))
 		if RaceCourse.distance_to_track(Vector2(p.x,p.z))<12 or absf(p.x)<8 and p.z< -52: continue
+		if p.distance_to(WEST_STAND)<14 or p.distance_to(BROADCAST_POINT)<6: continue
 		if p.distance_to(Vector3(53,0,46))<29 or p.distance_to(Vector3(-26,0,-67))<23 or p.distance_to(Vector3(-43,0,-4))<16: continue
 		if p.x< -58 and p.z>27 and p.z<55 or p.x>58 and p.z> -37 and p.z< -8: continue
 		if ((Vector2(p.x,p.z)-RaceCourse.POND_CENTRE)/(RaceCourse.POND_RADIUS+Vector2(3,3))).length()<1: continue
@@ -575,21 +626,24 @@ func _build_paddock(parent: Node3D) -> void:
 		var stands:=Node3D.new()
 		stands.name="WestAudiencePlatform" if side<0 else "EastAudiencePlatform"
 		parent.add_child(stands)
-		stands.position=Vector3(-71,0,42) if side<0 else Vector3(73,0,-22)
-		stands.rotation.y=side*PI/2
+		stands.position=WEST_STAND if side<0 else Vector3(73,0,-22)
+		stands.rotation.y=PI if side<0 else PI/2
 		for row in 3:
 			TownProps.box(stands,Vector3(0,.45+row*.7,row*1.4),Vector3(12,.5,1.8),Color("cfa77b"),true)
 			TownProps.box(stands,Vector3(0,1.3+row*.7,row*1.4+.6),Vector3(12,.6,.16),Color("b37f59"))
 			for seat in 3:
-				var person:=_person(self,stands.position+stands.basis*Vector3(-4+seat*4,.7+row*.7,row*1.4),Color("dcaa60") if (row+seat)%2 else Color("8daeb5"))
+				var person:=_person(self,stands.position+stands.basis*Vector3(-4+seat*4,.7+row*.7,row*1.4),Color("dcaa60") if (row+seat)%2 else Color("8daeb5"),false,false,true)
 				person.rotation.y=stands.rotation.y
 				spectators.append(person)
 	_bunting(parent,Vector3(56,0,33),Vector3(74,0,33))
 	_bunting(parent,Vector3(-48,0,-61),Vector3(-12,0,-61))
-	people.append(_person(self,Vector3(-17,0,-71),Color("ecb354")))
-	people.append(_person(self,Vector3(65,0,29),Color("6d9cb2")))
-	people.append(_person(self,Vector3(38,0,55),Color("b88ca1")))
-	for i in people.size(): people[i].name=NAMES[i]
+	people.append(_person(self,Vector3(-17,0,-71),Color("ecb354"),false,false,false,true))
+	people.append(_person(self,Vector3(65,0,29),Color("6d9cb2"),false,false,false,true))
+	people.append(_person(self,Vector3(38,0,55),Color("b88ca1"),false,false,false,true))
+	people.append(_person(self,Vector3(-37,0,-3),Color("cd7058"),false,false,false,true))
+	for i in people.size():
+		people[i].name=NAMES[i]
+		PersonalSpace.protect(people[i],game.truck)
 	var welcome:=SPAWN-people[0].position
 	people[0].rotation.y=atan2(-welcome.x,-welcome.z)
 	for i in 4:
@@ -650,57 +704,79 @@ func _prize_podium(parent: Node3D, at: Vector3) -> void:
 	var podium:=TownProps.toy_group(parent,at,"drop","PrizePodium")
 	for i in 3:
 		var height: float=[1.2,1.9,.8][i]
-		var x:=float(i-1)*2.4
-		TownProps.box(podium,Vector3(x,height*.5,0),Vector3(2.35,height,3),Color("6f9aab") if i!=1 else Color("d0a259"),true)
-		var number:=TownProps.label(podium,Vector3(x,height*.5,1.54),str([2,1,3][i]),32)
+		var x:=float(i-1)*4.0
+		TownProps.box(podium,Vector3(x,height*.5,0),Vector3(4.0 if i==1 else 3.6,height,6.4 if i==1 else 4.6),Color("6f9aab") if i!=1 else Color("d0a259"),true)
+		var number:=TownProps.label(podium,Vector3(x,height*.5,3.25 if i==1 else 2.35),str([2,1,3][i]),32)
 		number.billboard=BaseMaterial3D.BILLBOARD_DISABLED
 		number.pixel_size=.017
-	TownProps.box(podium,Vector3(0,2.05,-.3),Vector3(.8,.3,.8),Color("745c44"))
-	TownProps.cylinder(podium,Vector3(0,2.45,-.3),.16,.6,Color("dfb65f"))
-	TownProps.cylinder(podium,Vector3(0,3,-.3),.3,.6,Color("dfb65f"),.65)
+	TownProps.box(podium,Vector3(4,.95,-.3),Vector3(.8,.3,.8),Color("745c44"))
+	TownProps.cylinder(podium,Vector3(4,1.35,-.3),.16,.6,Color("dfb65f"))
+	TownProps.cylinder(podium,Vector3(4,1.9,-.3),.3,.6,Color("dfb65f"),.65)
 	for sign in [-1,1]:
-		var handle:=TownProps.ball(podium,Vector3(sign*.58,3,-.3),Vector3(.35,.6,.18),Color("dfb65f"))
+		var handle:=TownProps.ball(podium,Vector3(4+sign*.58,1.9,-.3),Vector3(.35,.6,.18),Color("dfb65f"))
 		handle.rotation.z=sign*.3
-	# A toy broadcast camera on its tripod watches the prizes and the track.
-	var camera:=TownProps.toy_group(parent,at+Vector3(7,0,1),"drop","BroadcastCamera")
+	_broadcast_camera(parent,BROADCAST_POINT)
+
+func _broadcast_camera(parent: Node3D, at: Vector3) -> void:
+	var camera:=TownProps.toy_group(parent,at,"drop","BroadcastCamera")
 	for i in 3:
 		var end:=Vector3(sin(i*TAU/3)*.85,.05,cos(i*TAU/3)*.85)
 		var start:=Vector3(0,1.9,0)
 		var leg:=TownProps.cylinder(camera,(start+end)*.5,.055,start.distance_to(end),Color("536872"))
 		leg.quaternion=Quaternion(Vector3.UP,(end-start).normalized())
-	TownProps.box(camera,Vector3(0,2.2,0),Vector3(1.2,.65,.7),Color("5b727b"))
-	var lens:=TownProps.cylinder(camera,Vector3(.8,2.2,0),.23,.5,Color("364c58"))
-	lens.rotation.z=PI/2
-	var reporter:=_person(self,at+Vector3(8,0,2.8),Color("6d9cb2"))
-	reporter.rotation.y=-PI/2
-	spectators.append(reporter)
+	# Keep the head out of the static paddock batch so the actual visible
+	# camera can pan; the tripod and road colliders remain stationary.
+	broadcast_head=Node3D.new()
+	broadcast_head.name="PanHead"
+	camera.add_child(broadcast_head)
+	broadcast_head.position=Vector3(0,2.2,0)
+	broadcast_head.rotation.y=PI
+	TownProps.box(broadcast_head,Vector3.ZERO,Vector3(.7,.65,1.2),Color("5b727b"))
+	var lens:=TownProps.cylinder(broadcast_head,Vector3(0,0,-.8),.23,.5,Color("364c58"))
+	lens.rotation.x=PI/2
+	TownProps.box(broadcast_head,Vector3(-.42,.1,.45),Vector3(.25,.25,.4),Color("364c58"))
+	TownProps.box(broadcast_head,Vector3(.42,-.35,.6),Vector3(.08,.08,.9),Color("536872"))
+	camera_operator=_person(self,at+Vector3(0,0,-1.1),Color("6d9cb2"),false,true)
+	camera_operator.name="CameraOperator"
+	camera_operator.rotation.y=PI
+	for arm in ["ArmLeft","ArmRight"]:
+		camera_operator.get_node(arm).rotation=Vector3(2.0,0,.12 if arm=="ArmRight" else -.12)
+
+func _update_broadcast_camera(dt: float) -> void:
+	if not running: return
+	var toward: Vector3=game.truck.global_position-(ORIGIN+BROADCAST_POINT)
+	# Film this bend as the racer passes, without following distant trucks
+	# across the whole mat or tracking free driving between races.
+	if Vector2(toward.x,toward.z).length()>38: return
+	var yaw:=atan2(-toward.x,-toward.z)
+	broadcast_pan=lerp_angle(broadcast_pan,yaw,1-exp(-7*dt))
+	broadcast_head.rotation.y=broadcast_pan
+	broadcast_head.rotation.x=lerpf(broadcast_head.rotation.x,clampf(atan2(toward.y-2.2,Vector2(toward.x,toward.z).length()),-.22,.22),1-exp(-5*dt))
+	# The operator turns at the waist and keeps both hands on the controls.
+	camera_operator.rotation.y=broadcast_pan
+	actor_rigs[camera_operator].eyes.scale.y=.08 if fmod(animation_clock+.6,4.3)<.1 else 1.0
 
 func _bunting(parent: Node3D, a: Vector3, b: Vector3) -> void:
-	parent=TownProps.toy_group(parent,(a+b)*.5,"drop","Bunting")
-	a-=parent.position
-	b-=parent.position
-	for p in [a,b]: TownProps.cylinder(parent,p+Vector3.UP*4,.1,8,Color("d3b184"))
-	var line:=TownProps.box(parent,(a+b)*.5+Vector3.UP*7.7,Vector3(a.distance_to(b),.06,.06),Color("ead6af"))
-	line.rotation.y=-atan2(b.z-a.z,b.x-a.x)
-	for i in 13:
-		var p:=a.lerp(b,float(i)/12)+Vector3.UP*(7.3-sin(float(i)/12*PI)*.8)
-		var flag:=TownProps.box(parent,p,Vector3(.65,.8,.08),Color("c97560") if i%3==0 else Color("72a9b0") if i%3==1 else Color("e5ba6d"))
-		flag.rotation.z=.15*sin(i*2.1)
+	ToyBunting.build(parent,a,b)
 
 func _process(dt: float) -> void:
 	if not active or game.paused or game.travel.active: return
+	if challenge.awards.active: return
 	animation_clock+=dt
 	_update_ducks(dt)
 	_update_audience(dt)
-	for i in people.size()+spectators.size():
-		var actor: Node3D=people[i] if i<people.size() else spectators[i-people.size()]
+	for i in people.size():
+		var actor:=people[i]
+		if actor.get_meta("mission_celebrating",false): continue
 		if not TownProps.near_view(game.camera,actor.global_position,3): continue
-		if i<people.size(): actor.get_node("ArmRight").rotation.z=-.4+sin(animation_clock*3+i)*.35
-		actor.get_node("Eyes").scale.y=.08 if fmod(animation_clock+i*.73,4.3)<.1 else 1.0
-		if i<people.size():
-			var toward: Vector3=game.truck.global_position-actor.global_position
-			if toward.length()<12: actor.rotation.y=lerp_angle(actor.rotation.y,atan2(-toward.x,-toward.z),1-exp(-3*dt))
+		var rig: Dictionary=actor_rigs[actor]
+		var toward: Vector3=game.truck.global_position-actor.global_position
+		var greeting:=toward.length()<12
+		rig.right.rotation=Vector3(.07*sin(animation_clock*.8+i),0,.65+sin(animation_clock*3+i)*.22 if greeting else .12)
+		_pose_idle_head(rig,i,0.0,0.0,dt)
+		if greeting: actor.rotation.y=lerp_angle(actor.rotation.y,atan2(-toward.x,-toward.z),1-exp(-3*dt))
 	_update_walkers(dt)
+	_update_broadcast_camera(dt)
 
 func _update_walkers(dt: float) -> void:
 	for walker in walkers:
@@ -714,6 +790,13 @@ func _update_walkers(dt: float) -> void:
 		actor.position=walker.start+Vector3(sin(angle)*3,bob,cos(angle)*2)
 		if moving:
 			actor.rotation.y=lerp_angle(actor.rotation.y,atan2(-cos(angle)*3,sin(angle)*2),1-exp(-6*dt))
+		if TownProps.near_view(game.camera,actor.global_position,3): _pose_idle_head(actor_rigs[actor],int(actor_rigs[actor].index),0.0,0.0,dt)
+
+func _pose_idle_head(rig: Dictionary, index: int, glance: float, snack: float, dt: float) -> void:
+	var head: Node3D=rig.head
+	var desired:=Vector3(sin(animation_clock*.57+index*1.3)*.035-snack*.10,sin(animation_clock*.38+index*1.71)*.16+glance,sin(animation_clock*.43+index)*.035)
+	head.rotation=head.rotation.lerp(desired,1-exp(-4*dt))
+	rig.eyes.scale.y=.08 if fmod(animation_clock+index*.73,4.3)<.1 else 1.0
 
 func _update_pond(dt: float) -> void:
 	var truck: FireEngine=game.truck
@@ -775,20 +858,47 @@ func _update_audience(dt: float) -> void:
 		var cheering: bool=state.age>=0 and state.age<2.0
 		actor.position.y=state.home.y+(.35*absf(sin(state.age*PI*2))*(1-smoothstep(1.3,2.0,state.age)) if cheering else 0.0)
 		if TownProps.near_view(game.camera,actor.global_position,3):
-			actor.get_node("ArmRight").rotation.z=-1.7+sin(state.age*12)*.65 if cheering else -.4+sin(animation_clock*3+i)*.35
+			var rig: Dictionary=actor_rigs[actor]
+			# Different phases and pauses keep the stands from moving in unison.
+			var cycle:=fposmod(animation_clock+i*2.37,20.0+(i%4)*1.7)
+			var glance:=smoothstep(1.0,1.8,cycle)*(1-smoothstep(3.8,4.6,cycle))*(.55 if i%3==2 else -.55)
+			var snack:=smoothstep(7.0,8.3,cycle)*(1-smoothstep(9.8,11.2,cycle)) if rig.snack!=null and not cheering else 0.0
+			var idle_arm:=Vector3(.07*sin(animation_clock*.8+i),0,.12)
+			var target:=Vector3(.25,0,1.7+sin(state.age*12)*.40) if cheering else idle_arm.lerp(Vector3(2.5,0,-.70),snack)
+			rig.right.rotation=rig.right.rotation.lerp(target,1-exp(-9*dt))
+			if rig.snack!=null:
+				# The wrist keeps the cup upright, then tips it for the sip.
+				rig.snack.basis=rig.right.basis.inverse()*Basis(Vector3.RIGHT,-.30*snack)
+			_pose_idle_head(rig,i,0.0 if cheering else glance,snack,dt)
 
 func proximity_talk() -> void:
-	if running or game.dialogue_active: return
+	if game.dialogue_control.waiting_for_phone: return
+	if running or game.dialogue_active or challenge.active or challenge.controls_locked(): return
 	for i in people.size():
+		if i==1 and jobs[0].done and jobs[1].done or i==2 and jobs[2].done: continue
 		if game.rewards.waiting_for(NAMES[i]): continue
 		var d: float=game.truck.global_position.distance_to(people[i].global_position)
 		if d>11: chatter_latches.erase(i)
 		if d<7.5 and not chatter_latches.has(i) and game.truck.linear_velocity.length()<5:
-			talk_to_person(i)
+			if not attention_text(i).is_empty(): continue
+			talk_to_person(i,false)
 			break
 
-func talk_to_person(index: int) -> bool:
+func attention_text(index: int) -> String:
+	if index<0 or index>=people.size() or game.rewards.waiting_for(NAMES[index]): return ""
+	if game.dialogue_control.has_spoken(people[index]): return ""
+	if index==3: return "Fancy a race?"
+	if index==1 and (not jobs[0].done or not jobs[1].done) or index==2 and not jobs[2].done: return "Oh, help please!"
+	return ""
+
+func talk_to_person(index: int, manual: bool=true) -> bool:
 	if index<0 or index>=people.size() or game.paused: return false
+	if challenge.active or challenge.controls_locked(): return false
+	if not manual and index in [1,2,3]: return false
+	if index==3:
+		challenge.offer()
+		chatter_latches[index]=true
+		return true
 	var words: String
 	match index:
 		0:
@@ -797,26 +907,48 @@ func talk_to_person(index: int) -> bool:
 			words="Snack Shack's open again! That was a very enthusiastic grill. Thank you for cooling it down. A victory sandwich is on me!" if jobs[1].done else "Race-day sandwiches! Except my grill has got a little carried away. Could you hose down that flare-up? There's a slippery spill in the pit lane too. We ought to tidy it before the next racer comes through."
 		2:
 			words="Look at that shine! Now our little camper's ready for the next adventure. We camp here for every race weekend. Come back any time." if jobs[2].done else "Hello! We drove down a very dusty lane to get here. Could you give our golden camper a wash? Afterwards, try the bridge! I like watching the trucks go underneath and over the top."
-	game.talk(NAMES[index]+"  /  "+["PIT CREW","SNACK SHACK","RACER'S CAMP"][index],words,game.stage)
+	game.talk(NAMES[index]+"  /  "+["PIT CREW","SNACK SHACK","RACER'S CAMP"][index],words,game.stage,(index==1 and (not jobs[0].done or not jobs[1].done) or index==2 and not jobs[2].done) and game.dialogue_control.first_briefing("race_"+NAMES[index]))
 	chatter_latches[index]=true
 	return true
 
-func _person(parent: Node3D, at: Vector3, shirt: Color, walking: bool=false) -> Node3D:
+func _person(parent: Node3D, at: Vector3, shirt: Color, walking: bool=false, working: bool=false, watching: bool=false, two_arms: bool=false) -> Node3D:
 	var skin:=CROWD_SKIN_TONES[crowd_index%CROWD_SKIN_TONES.size()]
 	var hair:=CROWD_HAIR_TONES[(crowd_index*5+2)%CROWD_HAIR_TONES.size()]
 	crowd_index+=1
 	var person:=TownProps.person(parent,at,shirt,skin,hair)
-	var moving_parts: Array[Node3D]=[person.get_node("ArmRight"),person.get_node("Eyes")]
+	var head:=TownProps.articulate_head(person)
+	var eyes: Node3D=head.get_node("Eyes")
+	var rig: Dictionary={"head":head,"eyes":eyes,"right":person.get_node("ArmRight"),"left":person.get_node("ArmLeft"),"snack":null,"index":crowd_index}
+	actor_rigs[person]=rig
+	if watching and crowd_index%3!=0:
+		var snack:=Node3D.new()
+		snack.name="Drink" if crowd_index%2==0 else "Sandwich"
+		rig.right.add_child(snack)
+		snack.position=Vector3(0,-.62,-.03)
+		rig.snack=snack
+		if snack.name=="Drink":
+			TownProps.cylinder(snack,Vector3(0,.07,0),.14,.30,Color("c46f58"),.17)
+			TownProps.cylinder(snack,Vector3(0,.225,0),.17,.035,Color("eee2c6"))
+			TownProps.cylinder(snack,Vector3(0,.248,0),.13,.012,Color("755039"))
+		else:
+			for layer in 3: TownProps.box(snack,Vector3(0,.04+layer*.07,0),Vector3(.34,.065,.25),Color("e1b576") if layer!=1 else Color("91a568"))
+	var moving_parts: Array[Node3D]=[rig.right,head]
+	if working or two_arms: moving_parts.append(rig.left)
 	if walking:
-		moving_parts.append(person.get_node("ArmLeft"))
+		moving_parts.append(rig.left)
 		moving_parts.append_array(TownProps.walking_legs(person))
 	var palette:=shirt.to_html(false)+"_"+skin.to_html(false)+"_"+hair.to_html(false)
-	TownProps.merge_fixed_geometry(person,moving_parts,"race_person_"+palette+("_walking" if walking else ""))
+	TownProps.merge_fixed_geometry(person,moving_parts,"race_person_"+palette+("_walking" if walking else "_operator" if working else "_clapper" if two_arms else ""))
 	# Each moving limb/face remains one small batch, rather than separate meshes
 	# for hands, sleeves, shoes and eye highlights.
 	for part in moving_parts:
-		var key:="race_person_eyes" if part.name=="Eyes" else "race_walking_leg" if part.name in ["LegLeft","LegRight"] else "race_person_arm_"+palette
-		TownProps.merge_fixed_geometry(part,[],key)
+		var key:="race_person_head_"+palette if part==head else "race_walking_leg" if part.name in ["LegLeft","LegRight"] else "race_person_arm_"+palette
+		var excluded: Array[Node3D]=[]
+		if part==head: excluded.append(eyes)
+		elif part==rig.right and rig.snack!=null: excluded.append(rig.snack)
+		TownProps.merge_fixed_geometry(part,excluded,key)
+	TownProps.merge_fixed_geometry(eyes,[],"race_person_eyes")
+	if rig.snack!=null: TownProps.merge_fixed_geometry(rig.snack,[],"race_snack_"+str(rig.snack.name).to_snake_case())
 	return person
 
 func _make_breakable_scenery(parent: Node3D) -> void:
@@ -825,35 +957,23 @@ func _make_breakable_scenery(parent: Node3D) -> void:
 		var kind: String=toy.get_meta("toy_kind",str(toy.name))
 		var size:=Vector3.ZERO
 		var center:=Vector3.ZERO
-		var threshold:=4.0
-		var weight:=.6
 		match kind:
 			"GardenTree":
 				var tree_size: float=toy.get_child(0).scale.x
-				size=Vector3(.5,4.5,.5)*tree_size
-				center=Vector3.UP*2.25*tree_size
-				threshold=15
-				weight=1.5
-			"Camper": size=Vector3(7,3.4,6); center=Vector3.UP*1.9; threshold=9; weight=1.8
+				props.append(BreakableProp.tree_from_parts(self,game,toy.global_position,[toy],tree_size))
+				continue
+			"Camper": size=Vector3(7,3.4,6); center=Vector3.UP*1.9
 			"PicnicTable": size=Vector3(4,1.6,3.9); center=Vector3.UP*.8
-			"Tent": size=Vector3(6,2.7,5); center=Vector3.UP*1.35; threshold=3; weight=.35
-			"ParkedRacer": size=Vector3(4,2.2,2.8); center=Vector3.UP*1.1; threshold=3; weight=.8
-			"RaceGrill": size=Vector3(2,1.6,2); center=Vector3.UP*.8; threshold=3
-			"FlowerPot": size=Vector3(1.3,1.5,1.3); center=Vector3.UP*.75; threshold=2; weight=.3
-			"TrafficCone": size=Vector3(1,1,1); center=Vector3.UP*.5; threshold=1.5; weight=.16
-			"TireStack": size=Vector3(1.6,1.4,1.6); center=Vector3.UP*.7; threshold=2; weight=.4
+			"Tent": size=Vector3(6,2.7,5); center=Vector3.UP*1.35
+			"ParkedRacer": size=Vector3(4,2.2,2.8); center=Vector3.UP*1.1
+			"RaceGrill": size=Vector3(2,1.6,2); center=Vector3.UP*.8
+			"FlowerPot": size=Vector3(1.3,1.5,1.3); center=Vector3.UP*.75
+			"TrafficCone": size=Vector3(1,1,1); center=Vector3.UP*.5
+			"TireStack": size=Vector3(1.6,1.4,1.6); center=Vector3.UP*.7
 			_: continue # Houses and tall flag strings stay anchored.
-		if kind!="GardenTree": TownProps.merge_fixed_geometry(toy,[],"race_toy_"+kind.to_snake_case()+str(toy.get_meta("bake_variant","")))
-		var prop:=BreakableProp.from_parts(self,game,kind.to_snake_case(),toy.global_position,[toy],size,center,threshold,weight,maxf(size.x,size.z)*.5)
+		TownProps.merge_fixed_geometry(toy,[],"race_toy_"+kind.to_snake_case()+str(toy.get_meta("bake_variant","")))
+		var prop:=BreakableProp.from_parts(self,game,kind.to_snake_case(),toy.global_position,[toy],size,center,maxf(size.x,size.z)*.5)
 		props.append(prop)
-		if kind=="GardenTree":
-			prop.kind="tree"
-			var crown:=CollisionShape3D.new()
-			var sphere:=SphereShape3D.new()
-			sphere.radius=size.y*.3
-			crown.shape=sphere
-			crown.position.y=size.y*.9
-			prop.add_child(crown)
 
 func suspend_bodies() -> void:
 	if not suspended_bodies.is_empty(): return

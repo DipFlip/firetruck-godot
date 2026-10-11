@@ -2,16 +2,20 @@ class_name NorthlineRailway
 extends Node3D
 
 const TRACK_Z:=-63.0
+const START_X:=0.0
+const ENGINE_HALF_LENGTH:=4.4
 const LEFT_END:=-130.0
 const RIGHT_END:=130.0
 const RESISTANCE:=67.0
 const PUSH_SECONDS:=2.8
 const CAB_STANDING_POSE:=Vector3(-2.8,1.0,.50)
+const BOARDING_TAKEOFF:=.2
+const BOARDING_FLIGHT:=2.45
 var game: Node3D
 var engine: RigidBody3D
 var roof_hinge: Node3D
 var driver: Node3D
-var driver_guard: StaticBody3D
+var driver_guard: PersonalSpace
 var wheels: Array[Node3D]=[]
 var wheel_rods: Array[MeshInstance3D]=[]
 var smoke: Array[Dictionary]=[]
@@ -44,18 +48,29 @@ func _ready() -> void:
 	name="NorthlineRailway"
 	_clear_corridor()
 	var tracks:=Node3D.new()
+	tracks.name="TownRailTracks"
 	add_child(tracks)
-	# Cut the bed and rails at the streets instead of covering the same asphalt
-	# with a second near-coplanar road patch. North and south share one surface.
+	# Ballast stops at the asphalt; the steel rails run through every crossing.
 	for ends in [Vector2(-80,-40.3),Vector2(-31.7,-4.3),Vector2(4.3,31.7),Vector2(40.3,80)]:
 		var length: float=ends.y-ends.x
 		var centre: float=(ends.x+ends.y)*.5
 		TownProps.box(tracks,Vector3(centre,.045,TRACK_Z),Vector3(length,.08,3.4),Color("9e9d87"))
-		for z in [-.98,.98]: TownProps.box(tracks,Vector3(centre,.13,TRACK_Z+z),Vector3(length,.12,.13),Color("667d83"))
+	for z in [-.98,.98]: TownProps.box(tracks,Vector3(0,.13,TRACK_Z+z),Vector3(160,.12,.13),Color("667d83"))
 	for x in range(-78,79,2):
 		if absf(x)<4.3 or absf(x-36)<4.3 or absf(x+36)<4.3: continue
 		TownProps.box(tracks,Vector3(x,.085,TRACK_Z),Vector3(.30,.09,2.7),Color("857461"))
+	var crossing_finishes: Array[ShaderMaterial]=[Playroom.wood_finish(Color("ad9474")),Playroom.wood_finish(Color("b69b79"))]
 	for x in [-36,0,36]:
+		# Timber infill makes a level crossing while leaving both rails visible.
+		var crossing:=Node3D.new()
+		crossing.name="RoadCrossing"+str(x)
+		tracks.add_child(crossing)
+		crossing.position=Vector3(x,0,TRACK_Z)
+		for plank in 18:
+			var deck:=TownProps.box(crossing,Vector3(-4.3+(plank+.5)*8.6/18,.105,0),Vector3(8.6/18-.025,.09,3.3),Color.WHITE)
+			deck.material_override=crossing_finishes[plank%2]
+			deck.set_meta("batch_static",true)
+		TownProps.batch_decorations(crossing)
 		for side in [-1,1]:
 			var p:=Vector3(x+side*5,.0,TRACK_Z+3.0)
 			var art:=Node3D.new()
@@ -67,7 +82,7 @@ func _ready() -> void:
 			cross=TownProps.box(art,Vector3.UP*2.2,Vector3(.12,.16,1.25),Color("eaf4ef"))
 			cross.rotation.x=-.65
 			crossings.append(TownProps.ball(art,Vector3.UP*1.75,Vector3(.20,.20,.20),Color("e78970")))
-			var sign: BreakableProp=game.interactions.add_prop("rail_sign",p,[art],Vector3(.26,2.7,.95),Vector3.UP*1.35,4.5,.35,.5)
+			var sign: BreakableProp=game.interactions.add_prop("rail_sign",p,[art],Vector3(.26,2.7,.95),Vector3.UP*1.35,.5)
 			signs.append(sign)
 	_make_portals()
 	for child in tracks.get_children():
@@ -88,21 +103,21 @@ func _ready() -> void:
 	engine.continuous_cd=true
 	engine.linear_damp=.25
 	add_child(engine)
-	engine.position=Vector3(-14,.12,TRACK_Z)
+	engine.position=Vector3(START_X,.12,TRACK_Z)
 	var shape:=CollisionShape3D.new()
 	var box:=BoxShape3D.new()
-	box.size=Vector3(8.8,3.1,2.5)
+	box.size=Vector3(ENGINE_HALF_LENGTH*2,3.1,2.5)
 	shape.shape=box
 	shape.position.y=1.6
 	engine.add_child(shape)
 	_make_engine()
 	driver=TownProps.person(self,engine.position+Vector3(-2.5,-.12,5.7),Color("7199ad"))
 	driver.name="RowanTheDriver"
-	TownProps.cylinder(driver,Vector3(0,2.55,0),.50,.20,Color("365868"))
-	TownProps.box(driver,Vector3(0,2.47,-.28),Vector3(.65,.06,.35),Color("365868"))
-	for x in [-.10,.10]: TownProps.ball(driver,Vector3(x,1.78,-.42),Vector3(.23,.075,.055),Color("694f3f"))
+	TownProps.cylinder(driver,Vector3(0,2.55,0),.50,.20,Color("365868")).set_meta("blend_accessory",true)
+	TownProps.box(driver,Vector3(0,2.47,-.28),Vector3(.65,.06,.35),Color("365868")).set_meta("blend_accessory",true)
+	for x in [-.10,.10]: TownProps.ball(driver,Vector3(x,1.78,-.42),Vector3(.23,.075,.055),Color("694f3f")).set_meta("blend_accessory",true)
 	TownProps.soften_toy_shine(driver)
-	driver_guard=game.interactions._visibility_guard("RailwayDriverSpace",driver.position)
+	driver_guard=PersonalSpace.protect(driver,game.truck)
 	sound=AudioStreamPlayer3D.new()
 	sound.stream=load("res://assets/audio/town/chuff_0.wav")
 	sound.playback_type=AudioServer.PLAYBACK_TYPE_STREAM
@@ -121,7 +136,7 @@ func _ready() -> void:
 		smoke.append({"mesh":cloud,"age":5.0,"velocity":Vector3.ZERO})
 
 func _clear_corridor() -> void:
-	var driver_spot:=Vector3(-16.5,0,TRACK_Z+5.7)
+	var driver_spot:=Vector3(START_X-2.5,0,TRACK_Z+5.7)
 	for prop in game.interactions.props:
 		if absf(prop.position.x)>70 or (absf(prop.position.z-TRACK_Z)>4.8 and prop.position.distance_to(driver_spot)>11): continue
 		# Place displaced scenery behind the line with room between canopies.
@@ -204,13 +219,13 @@ func _make_engine() -> void:
 
 func talk_to_driver(manual: bool=false) -> bool:
 	if boarded or boarding_time>0 or game.paused: return false
-	if not manual and briefed: return false
+	if not manual: return false
 	briefed=true
-	var words:="Morning! Northline's engine has stalled. Could you give the back bumper a little push? The track runs east, so push me that way."
+	var words:="Morning! Northline's engine has stalled. I'm blocking the Motorway passage. Could you give the back bumper a little push? The track runs east, so push me that way."
 	if pushed_once:
 		words="She's too heavy for driving alone. Keep pushing the rear bumper, and spray your water cannon backwards, away from the train. The recoil should give you enough extra shove!"
 		hint_sent=true
-	game.talk("ROWAN  /  NORTHLINE",words,game.stage)
+	game.talk("ROWAN  /  NORTHLINE",words,game.stage,game.dialogue_control.first_briefing("train"))
 	return true
 
 func guide_push(desired: Vector3, dt: float) -> Vector3:
@@ -247,7 +262,6 @@ func _physics_process(dt: float) -> void:
 	sound.stream_paused=game.paused
 	if game.paused or game.loading: return
 	clock+=dt
-	driver_guard.rotation.y=atan2(game.camera.global_basis.z.x,game.camera.global_basis.z.z)
 	if not started:
 		var toward: Vector3=game.truck.global_position-driver.global_position
 		var watching: bool=toward.length()<18 or game.dialogue_actor==driver
@@ -265,7 +279,7 @@ func _physics_process(dt: float) -> void:
 		if pushing and recoil_push and velocity>.18:
 			assist_time+=dt
 		else: assist_time=maxf(0,assist_time-dt*1.5)
-		if hint_pending and not game.dialogue_active and not hint_sent:
+		if hint_pending and briefed and not game.dialogue_active and not hint_sent:
 			hint_pending=false
 			talk_to_driver(true)
 		elif hint_pending and game.dialogue_actor==driver and game.hud.char_count==game.hud.full_text.length():
@@ -274,23 +288,23 @@ func _physics_process(dt: float) -> void:
 	else:
 		if not boarded:
 			boarding_time+=dt
-			# Open a real rear-hinged roof, hop over the sill, then settle inside.
-			roof_hinge.rotation.z=1.85*smoothstep(0,.45,boarding_time)*(1-smoothstep(1.65,2.25,boarding_time))
-			var t:=smoothstep(.45,1.65,boarding_time)
+			# Follow one curved hop over the side wall and into the open cab.
+			# Keep the roof open until his head is safely below its closing sweep.
+			roof_hinge.rotation.z=1.85*smoothstep(0,.45,boarding_time)*(1-smoothstep(2.55,3.1,boarding_time))
 			var seat: Vector3=engine.position+CAB_STANDING_POSE
-			driver.position=driver_from.lerp(seat,t)+Vector3.UP*sin(t*PI)*5.7
-			driver.rotation.y=lerp_angle(driver_from_yaw,-PI/2,t)
-			var lean:=smoothstep(1.55,2.25,boarding_time)
+			driver.position=boarding_position(driver_from,seat,boarding_time)
+			driver.rotation.y=lerp_angle(driver_from_yaw,-PI/2,smoothstep(.6,1.9,boarding_time))
+			var lean:=smoothstep(2.3,3.1,boarding_time)
 			driver.rotation.z=-.16*lean
 			# The left hand reaches the controls; the right arm drapes through the
 			# open side window while his face stays directed toward the boiler.
-			driver.get_node("ArmLeft").rotation=Vector3(.95*lean,0,-.18)
-			driver.get_node("ArmRight").rotation=Vector3(-.35*lean,0,lerpf(.12,1.15,lean))
-			if boarding_time>=2.3:
+			var cheer:=smoothstep(0,.25,boarding_time)*(1-smoothstep(1.5,2.2,boarding_time))
+			driver.get_node("ArmLeft").rotation=Vector3(.95*lean,0,-.18).lerp(Vector3(0,0,-2.65),cheer)
+			driver.get_node("ArmRight").rotation=Vector3(-.35*lean,0,lerpf(.12,1.15,lean)).lerp(Vector3(0,0,2.65),cheer)
+			if boarding_time>=3.15:
 				boarded=true
 				driver.reparent(engine,true)
 				roof_hinge.rotation.z=0
-				if game.dialogue_actor==driver: game.end_dialogue()
 		else:
 			_update_route(dt)
 		var desired:=direction*3.6 if boarded and not offstage else 0.0
@@ -319,6 +333,14 @@ func _physics_process(dt: float) -> void:
 		TownProps.effect_opacity(cloud.mesh,.64*(1-cloud.age/2.8))
 		cloud.mesh.show()
 
+static func boarding_position(from: Vector3, seat: Vector3, age: float) -> Vector3:
+	var t:=clampf((age-BOARDING_TAKEOFF)/BOARDING_FLIGHT,0,1)
+	# One clock eases the whole flight, with zero speed and acceleration at
+	# takeoff and landing. Lateral travel leads the descent for cab clearance.
+	var flight:=t*t*t*(t*(t*6-15)+10)
+	var across:=1-pow(1-flight,3)
+	return from.lerp(seat,across)+Vector3.UP*sin(PI*flight)*4.0
+
 func _start_engine() -> void:
 	started=true
 	game.sounds.play("whistle",engine.global_position,1.0,2.0)
@@ -326,11 +348,9 @@ func _start_engine() -> void:
 	boarding_time=.001
 	driver_from=driver.position
 	driver_from_yaw=driver.rotation.y
-	driver_guard.collision_layer=0
+	driver_guard.enabled=false
 	if game.dialogue_active and game.dialogue_actor==driver: game.end_dialogue()
-	game.rewards.sparkle_burst(engine.position+Vector3.UP*2,22,2.5)
-	if DisplayServer.get_name()!="headless": game.rewards.sound.play()
-	game.talk("ROWAN  /  NORTHLINE","There she goes! Thanks! I'll keep Northline rolling. Mind the tracks!",game.stage)
+	game.rewards.celebrate("train",engine.position+Vector3.UP*2,"ROWAN","There she goes! Thanks! I'll keep Northline rolling. Mind the tracks!",false)
 	_puff()
 
 func _puff() -> void:
@@ -382,17 +402,16 @@ func _make_portals() -> void:
 		gates.append(portal)
 	# Raised wooden track beds carry the train onto the room floor without
 	# leaving its wheels floating a metre above the floor outside the mat.
-	var continuation:=Node3D.new()
-	add_child(continuation)
 	var wood:=Playroom.wood_finish(Color("bda079"))
 	for side in [-1,1]:
-		var bed:=TownProps.box(continuation,Vector3(side*110,-.50,TRACK_Z),Vector3(60,1.05,3.4),Color.WHITE)
+		var continuation:=TownProps.toy_group(self,Vector3(side*110,0,TRACK_Z),"grow","WoodenTrackWest" if side<0 else "WoodenTrackEast")
+		var bed:=TownProps.box(continuation,Vector3(0,-.50,0),Vector3(60,1.05,3.4),Color.WHITE)
 		bed.material_override=wood
 		bed.set_meta("batch_static",true)
 		for z in [-.98,.98]:
-			var rail:=TownProps.box(continuation,Vector3(side*110,.13,TRACK_Z+z),Vector3(60,.12,.13),Color("667d83"))
+			var rail:=TownProps.box(continuation,Vector3(0,.13,z),Vector3(60,.12,.13),Color("667d83"))
 			rail.set_meta("batch_static",true)
 		for x in range(82,140,2):
-			var sleeper:=TownProps.box(continuation,Vector3(side*x,.085,TRACK_Z),Vector3(.30,.09,2.7),Color("857461"))
+			var sleeper:=TownProps.box(continuation,Vector3(side*(x-110),.085,0),Vector3(.30,.09,2.7),Color("857461"))
 			sleeper.set_meta("batch_static",true)
-	TownProps.batch_decorations(continuation)
+		TownProps.batch_decorations(continuation)

@@ -27,6 +27,7 @@ func jump_height(speed: float) -> float:
 		top=maxf(top,game.truck.position.y)
 	return top-ground
 func run() -> void:
+	root.size=Vector2i(1280,800)
 	game=load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	game.call_timer=0
@@ -46,6 +47,11 @@ func run() -> void:
 	check(game.truck.enabled and not game.truck.freeze,"Conversation zoom preserves driving control")
 	game.end_dialogue()
 	game.truck.reset_truck()
+	# The normal spawn is within Maya's approach radius. Drive beyond all
+	# neighbour/mission ranges to test the regular lens, rather than closing
+	# a balloon and expecting the nearby framing to disappear immediately.
+	game.truck.global_position=Vector3(0,1,23)
+	game.truck.reset_physics_interpolation()
 	await frames(180)
 	check(absf(game.camera.size-25.8)<.03,"Leaving restores the regular driving view")
 	var probe:=PhysicsRayQueryParameters3D.create(TownLayout.POOL+Vector3.UP*3,TownLayout.POOL+Vector3.DOWN*3,1,[game.truck.get_rid()])

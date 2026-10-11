@@ -15,6 +15,7 @@ var track_pool: Array[MeshInstance3D]=[]
 var last_contacts: Array[Vector3]=[Vector3.ZERO,Vector3.ZERO,Vector3.ZERO,Vector3.ZERO]
 var last_segments: Array[Dictionary]=[{},{},{},{}]
 var wheel_skidding: Array[bool]=[false,false,false,false]
+var wheel_on_grass: Array[bool]=[false,false,false,false]
 var wheel_strengths: Array[float]=[0.0,0.0,0.0,0.0]
 var last_heading:=0.0
 var heading_initialized:=false
@@ -72,7 +73,7 @@ func _physics_process(dt: float) -> void:
 		var braking:=clampf((speed-5)/10,0,1)*truck.brake_engagement*.75
 		wheel_strengths[slot]=maxf(slip,braking)
 		wheel_skidding[slot]=truck.grounded and not truck.freeze and speed>4 and wheel_strengths[slot]>(.15 if wheel_skidding[slot] else .24)
-		if not wheel_skidding[slot]: _reset_contact(slot)
+		if not wheel_skidding[slot] and not wheel_on_grass[slot]: _reset_contact(slot)
 		skid_strength=maxf(skid_strength,wheel_strengths[slot] if wheel_skidding[slot] else 0.0)
 	# Sound follows marks actually deposited on a surface, not steering input.
 	tire_sound_hold=maxf(0,tire_sound_hold-dt)
@@ -90,12 +91,15 @@ func _physics_process(dt: float) -> void:
 				_reset_contact(slot)
 				continue
 			p=hit.position+hit.normal*.022
-			if wheel_skidding[slot]:
+			wheel_on_grass[slot]=hit.collider.is_in_group("race_grass")
+			# The collision slabs sit at zero; the felt is rendered at .03.
+			if wheel_on_grass[slot]: p.y=maxf(p.y,.03+.025)
+			if wheel_skidding[slot] or wheel_on_grass[slot]:
 				var previous:=last_contacts[slot]
 				var distance:=p.distance_to(previous)
 				if previous!=Vector3.ZERO and distance>.08 and distance<3:
-					_lay_track(slot,previous,p,hit.normal,wheel_strengths[slot])
-					deposited_strength=maxf(deposited_strength,.3+.7*wheel_strengths[slot])
+					_lay_track(slot,previous,p,hit.normal,maxf(wheel_strengths[slot],.35 if wheel_on_grass[slot] else 0))
+					if wheel_skidding[slot]: deposited_strength=maxf(deposited_strength,.3+.7*wheel_strengths[slot])
 				elif distance>=3: last_segments[slot]={}
 				last_contacts[slot]=p
 			# Dust stays on the rear axle; front marks do not double particles.
@@ -128,6 +132,7 @@ func _reset_contacts() -> void:
 	for slot in TRACK_WHEELS.size():
 		_reset_contact(slot)
 		wheel_skidding[slot]=false
+		wheel_on_grass[slot]=false
 
 func _lay_track(slot: int, start: Vector3, end: Vector3, up: Vector3, strength: float) -> void:
 	var along: Vector3=(end-start).slide(up).normalized()

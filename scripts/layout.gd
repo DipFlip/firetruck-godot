@@ -2,6 +2,10 @@ class_name TownLayout
 extends RefCounted
 
 # One source of truth for mission props, navigation, effects and the map.
+const CAT_TREE:=Vector3(17,0,-10)
+const CAT_BRANCH:=Vector3(17,3.65,-8.6)
+const CAT_PERCH:=Vector3(17,3.78,-7.2)
+const CAT_TREE_SIZE:=1.25
 const MAYA := Vector3(12,0,-7)
 const FIRE := Vector3(49,0,-19)
 const LEO := Vector3(46,0,-12)

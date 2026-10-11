@@ -16,11 +16,19 @@ func _warm_tour(is_race: bool) -> void:
 	game.travel.begin_assembly(is_race)
 	# Draw the actual close-up, shadow and fading-print paths behind the
 	# loading screen, using the same materials retained for the live intro.
-	for elapsed in [1.8,4.2,8.5,13.0,18.0,21.0]:
+	for elapsed in [1.8,4.2,8.5,13.0,18.0,21.0,23.2]:
 		game.travel.mat.show_mat(is_race,RollingMat.rollout_amount(elapsed-(.4 if is_race else 0.0)),ToyRaceTrack.ORIGIN if is_race else Vector3.ZERO)
 		game.travel.grow_assembly(PlayMatTravel.arrival_progress(elapsed,is_race))
 		game.travel.assembly_camera(elapsed,is_race)
-		game.travel.mat.fade_print(1-smoothstep(19,22.5,elapsed))
+		game.travel.mat.fade_print(1-smoothstep(PlayMatTravel.PRINT_FADE_START,PlayMatTravel.PRINT_FADE_END,elapsed))
+		if elapsed>=PlayMatTravel.SCENERY_READY:
+			game.travel.finish_assembly()
+			var focus: Vector3=game.travel.assembly_origin+(ToyRaceTrack.SPAWN if is_race else Vector3(0,.855,12))
+			game.camera.position=focus+game.gameplay_camera_offset()
+			game.camera.look_at(focus)
+			game.camera.size=25.8
+			game.camera.far=500 if is_race else 250
+			game.travel.cinematic_shadows(focus)
 		await _draw_frames(2)
 	game.travel.finish_assembly()
 
@@ -30,6 +38,9 @@ func run() -> void:
 	var tree:=get_tree()
 	tree.paused=true
 	game.loading=true
+	# Compile the gauge's canvas path behind the loading screen too.
+	game.hud.water_entrance_scale=1
+	game.hud.queue_redraw()
 	game.music.stream_paused=true
 	game.audio.stream_paused=true
 	var camera: Camera3D=game.camera

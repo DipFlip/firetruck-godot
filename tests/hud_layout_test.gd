@@ -41,8 +41,11 @@ func run() -> void:
 	root.add_child(game)
 	check_motion(game.hud)
 	game.call_timer=0
+	game.intro.finish()
 	game.set_process(false)
 	game.set_physics_process(false)
+	game.travel.set_process(false)
+	game.life.set_physics_process(false)
 	game.truck.freeze=true
 	game.truck.set_physics_process(false)
 	var screens: Array[Vector2i]=[Vector2i(390,542),Vector2i(320,390),Vector2i(844,390),Vector2i(1024,768),Vector2i(1440,900),Vector2i(900,1400),Vector2i(2560,1080)]
@@ -67,11 +70,13 @@ func run() -> void:
 			game.truck.position=TownLayout.MAYA+Vector3(cos(angle)*6,1,sin(angle)*6)
 			game.truck.reset_physics_interpolation()
 			var focus: Vector3=game.truck.position.lerp(TownLayout.MAYA,.3)
+			for i in 120: focus=game.camera_framing.focus(game.truck.position.lerp(TownLayout.MAYA,.3),game.truck.position,1.0/60)
 			game.camera.position=focus+game.TALK_CAMERA_OFFSET
 			game.camera.look_at(focus)
 			await frames(3)
-			game.camera.size=game._talk_camera_size()
-			game.camera.v_offset=game._conversation_pan_target()
+			for i in 30:
+				game.camera.size=game.camera_framing.fit(game.camera,game.truck.global_transform,hud.size,game._talk_camera_size())
+				game.camera.v_offset=game._conversation_pan_target()
 			await frames(100)
 			game.hud._position_dialogue()
 			var panel: SpeechFrame=game.hud.dialogue_panel
@@ -85,7 +90,7 @@ func run() -> void:
 				check(truck.position.y>=45+25*gauge_scale+8,"Truck below top gauge: "+context)
 			check(game.hud.get_viewport_rect().encloses(rect),"Card within screen: "+context)
 			var head: Vector2=game.camera.unproject_position(game.dialogue_actor.position+Vector3.UP*2.85)
-			check((panel.position+panel.tail_tip).distance_to(head)<1,"Tail follows speaker: "+context)
+			check((panel.get_global_transform()*panel.tail_tip).distance_to(head)<1,"Tail follows speaker: "+context)
 			check(game.hud.dialogue_label.size.x>180,"Readable text column: "+context)
 		print("Checked HUD ",screen," logical ",game.hud.size," card ",game.hud.dialogue_panel.size)
 	game.queue_free()

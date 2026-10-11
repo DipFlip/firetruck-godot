@@ -51,6 +51,10 @@ var water_activity:=0.0
 var water_empty_time:=0.0
 var water_gauge_scale:=1.0
 var water_gauge_offset:=Vector2.ZERO
+const WATER_ENTRANCE_SECONDS:=.68
+const WATER_ENTRANCE_LEAD:=.9
+var water_entrance_clock:=0.0
+var water_entrance_scale:=0.0
 var radio_idle := 0.0
 var auto_close_delay := -1.0
 var touch_mode:=false:
@@ -69,6 +73,8 @@ var bubble_position_ready:=false
 var bubble_move_from:=Vector2.ZERO
 var bubble_follow_target:=Vector2.ZERO
 var bubble_move_elapsed:=BUBBLE_MOVE_TIME
+var bubble_leaving:=false
+var bubble_exit_offset:=Vector2.ZERO
 var dialogue_text:="" # Plain words; the label shows dialogue_source with glyphs.
 var dialogue_source:=""
 var dialogue_pages: Array[String]=[]
@@ -165,16 +171,12 @@ func _ready() -> void:
 	add_child(dialogue_panel)
 	dialogue_panel.size=Vector2(540,200)
 	dialogue_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	var frame:=style(PAPER,26)
-	frame.border_width_left=3
-	frame.border_width_right=3
-	frame.border_width_top=3
-	frame.border_width_bottom=3
-	frame.corner_radius_top_right=16
-	frame.corner_radius_bottom_left=16
-	dialogue_panel.add_theme_stylebox_override("panel",frame)
+	# SpeechFrame draws one continuous rounded outline, including its tail.
+	dialogue_panel.add_theme_stylebox_override("panel",StyleBoxEmpty.new())
 	speaker_label=words(dialogue_panel,Rect2(149,6,342,29),"",18,INK,true)
-	speaker_label.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
+	speaker_label.text_overrun_behavior=TextServer.OVERRUN_NO_TRIMMING
+	speaker_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	speaker_label.add_theme_constant_override("line_spacing",0)
 	speaker_label.clip_text=true
 	portrait=TextureRect.new()
 	dialogue_panel.add_child(portrait)
@@ -205,7 +207,7 @@ void fragment(){
 	dialogue_label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	dialogue_label.visible_characters_behavior=TextServer.VC_CHARS_AFTER_SHAPING
 	dialogue_label.add_theme_constant_override("line_separation",0)
-	continue_label=words(dialogue_panel,Rect2(148,171,363,23),"SPACE  ·  continue",12,MUTED,true)
+	continue_label=words(dialogue_panel,Rect2(148,171,363,23),"",12,MUTED,true)
 	continue_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_RIGHT
 	continue_label.hide()
 	dialogue_panel.hide()
@@ -261,7 +263,7 @@ func begin_dialogue(speaker: String, text: String) -> void:
 	auto_close_delay=6.0 if dialogue_panel.phone_mode else -1.0
 	var names: Dictionary={"DISPATCH":"Captain Robin","MAYA":"Maya","LEO":"Leo","JUNE":"June","OLIVER":"Oliver"}
 	speaker_label.text=names.get(speaker_key,speaker_key.capitalize())
-	var cells: Dictionary={"DISPATCH":Vector2i(0,0),"MAYA":Vector2i(1,0),"LEO":Vector2i(0,1),"JUNE":Vector2i(1,1),"ROWAN":Vector2i(0,1),"KIT":Vector2i(1,0),"SAMI":Vector2i(0,1),"NORA":Vector2i(1,1)}
+	var cells: Dictionary={"DISPATCH":Vector2i(0,0),"MAYA":Vector2i(1,0),"LEO":Vector2i(0,1),"JUNE":Vector2i(1,1),"ROWAN":Vector2i(0,1),"KIT":Vector2i(1,0),"SAMI":Vector2i(0,1),"NORA":Vector2i(1,1),"QUINN":Vector2i(0,1)}
 	var cell: Vector2i=cells.get(speaker_key,Vector2i.ZERO)
 	var atlas:=AtlasTexture.new()
 	atlas.atlas=portrait_atlas
@@ -282,7 +284,10 @@ func begin_dialogue(speaker: String, text: String) -> void:
 	text_clock=0
 	radio_idle=0
 	dialogue_layout_width=-1
-	if not dialogue_panel.visible: bubble_position_ready=false
+	if not dialogue_panel.visible:
+		bubble_position_ready=false
+		bubble_leaving=false
+		dialogue_panel.scale=Vector2.ONE
 	_reflow_dialogue()
 	dialogue_panel.show()
 	dialogue_panel.modulate.a=0
@@ -293,7 +298,7 @@ func begin_dialogue(speaker: String, text: String) -> void:
 
 func _reflow_dialogue() -> void:
 	var width:=minf(440,size.x-24)
-	if size.x>size.y*1.5 and size.y<650: width=minf(width,size.x*.45)
+	if size.x>size.y*1.5 and size.y<650: width=minf(width,size.x*.40)
 	var layout_key:=Vector2(width,size.y)
 	if dialogue_panel.get_meta("layout_key",Vector2.ZERO)==layout_key and dialogue_layout_width==width: return
 	dialogue_panel.set_meta("layout_key",layout_key)
@@ -306,10 +311,13 @@ func _reflow_dialogue() -> void:
 	portrait.size=Vector2.ONE*avatar_size
 	dialogue_panel.portrait_center=portrait.position+portrait.size*.5
 	dialogue_panel.portrait_radius=avatar_size*.5+3
-	speaker_label.position=Vector2(10,portrait.position.y+avatar_size+8)
-	speaker_label.size=Vector2(left-14,30)
+	speaker_label.position=Vector2(12,portrait.position.y+avatar_size+8)
+	var name_size:=14 if compact else 15
+	var name_width:=left-32
+	var name_height:=ceilf(bold.get_multiline_string_size(speaker_label.text,HORIZONTAL_ALIGNMENT_CENTER,name_width,name_size).y)+1
+	speaker_label.size=Vector2(name_width,name_height)
 	speaker_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	speaker_label.add_theme_font_size_override("font_size",14 if compact else 15)
+	speaker_label.add_theme_font_size_override("font_size",name_size)
 	dialogue_label.position=Vector2(left,18)
 	dialogue_label.size.x=width-left-20
 	var max_height:=maxf(140,size.y*.40)
@@ -370,10 +378,21 @@ func _refresh_prompt() -> void:
 	prompt_rich.text=ControlPrompts.format(prompt_source,glyph_size(15))
 
 func _resize_dialogue() -> void:
-	var text_height:=font.get_multiline_string_size(full_text,HORIZONTAL_ALIGNMENT_LEFT,dialogue_label.size.x,dialogue_font_size).y+4
-	if "{" in dialogue_source: text_height+=dialogue_font_size*.35 # Glyphs are taller than letters.
-	dialogue_label.size.y=maxf(52,text_height)
-	dialogue_panel.size.y=maxf(speaker_label.position.y+38,dialogue_label.size.y+36)
+	var text_height:=float(dialogue_label.get_content_height())
+	if text_height<=0: text_height=font.get_multiline_string_size(full_text,HORIZONTAL_ALIGNMENT_LEFT,dialogue_label.size.x,dialogue_font_size).y
+	dialogue_label.size.y=text_height
+	dialogue_label.position.y=18
+	var content_bottom:=maxf(speaker_label.position.y+speaker_label.size.y,18+text_height)
+	# Short replies share the portrait's height; balance that space above and
+	# below the words instead of leaving a large empty area beneath them.
+	if text_height<=font.get_height(dialogue_font_size)*2:
+		dialogue_label.position.y+=(content_bottom-18-text_height)*.5
+	dialogue_panel.size.y=content_bottom+16
+	if game.travel and game.travel.race.challenge and game.travel.race.challenge.offering:
+		dialogue_panel.size.y+=82 # Choice buttons and their selection hint.
+		game.travel.race.challenge.layout_offer()
+	continue_label.position=Vector2(18,dialogue_panel.size.y-24-(58 if game.travel and game.travel.race.challenge.offering else 0))
+	continue_label.size=Vector2(dialogue_panel.size.x-36,18)
 
 func truck_screen_rect() -> Rect2:
 	# Cover the cab, body and wheels in their interpolated rendered position.
@@ -391,18 +410,17 @@ func conversation_subject_rect() -> Rect2:
 	var actor: Node3D=game.dialogue_actor if is_instance_valid(game.dialogue_actor) else game.camera_subject
 	if not is_instance_valid(actor): return truck_screen_rect()
 	var rect: Rect2=game.npc_screen_rect(actor).grow(5)
-	if actor==game.town.people[0] and not game.cat_rescued:
-		var cat: Node3D=game.town.cat
-		for x in [-.7,.7]:
-			for y in [0,1.3]:
-				for z in [-.8,.8]: rect=rect.expand(game.camera.unproject_position(cat.global_position+Vector3(x,y,z)))
+	var interests: Rect2=game.camera_framing.screen_rect(game.camera,game.truck.get_global_transform_interpolated().origin)
+	if interests.has_area(): rect=rect.merge(interests.grow(5))
 	return rect
 
 func _position_dialogue(dt: float = 0.0) -> void:
 	_reflow_dialogue()
 	_resize_dialogue()
-	dialogue_panel.scale=Vector2.ONE
 	if dialogue_panel.phone_mode:
+		bubble_leaving=false
+		dialogue_panel.scale=Vector2.ONE
+		dialogue_panel.pivot_offset=Vector2.ZERO
 		var phone_position:=size-dialogue_panel.size-Vector2(26,120)
 		if touch_portrait: phone_position=Vector2((size.x-dialogue_panel.size.x)*.5,size.y-dialogue_panel.size.y-86)
 		elif touch_mode: phone_position=Vector2(size.x-dialogue_panel.size.x-18,80)
@@ -423,6 +441,15 @@ func _position_dialogue(dt: float = 0.0) -> void:
 	var preferred:=screen-Vector2(card.x*.5,card.y+22)
 	var above_scene:=Vector2(preferred.x,minf(screen.y-22,minf(truck_rect.position.y-16,character_rect.position.y-18))-card.y)
 	var candidates: Array[Vector2]=[preferred,above_scene,screen+Vector2(28,-card.y*.55),screen-Vector2(card.x+28,card.y*.55),screen+Vector2(-card.x*.5,26)]
+	# The driving focus stays on the truck near NPCs. Offer the bottom corners
+	# as well, so tall bubbles have somewhere clear to sit on narrow screens.
+	candidates.append(Vector2(low.x,high.y))
+	candidates.append(high)
+	var awards: RaceAwards=game.travel.race.challenge.awards
+	if awards.active and awards.won and awards.placed:
+		character_rect=character_rect.merge(awards.podium_screen_rect(game.camera))
+		candidates.append(Vector2(low.x,low.y))
+		candidates.append(Vector2(high.x,low.y))
 	var best:=preferred.clamp(low,high)
 	var best_score:=INF
 	var slot:=0
@@ -443,9 +470,25 @@ func _position_dialogue(dt: float = 0.0) -> void:
 		if not rect.intersects(truck_rect) and not rect.intersects(character_rect) and existing.distance_to(preferred)<best.distance_to(preferred)+60:
 			best=existing
 			slot=bubble_slot
+	var departure:=0.0 if game.dialogue_control.interrupting else SpeechFrame.departure_blend(screen,view)
+	if departure>.001:
+		if not bubble_leaving:
+			bubble_exit_offset=(dialogue_panel.position if bubble_position_ready else best)-screen
+			bubble_leaving=true
+		# Retain the bubble's relation to its speaker as both leave the view.
+		# Re-running edge placement here would pin it on-screen or swap sides.
+		best=best.lerp(screen+bubble_exit_offset,departure)
+		slot=bubble_slot if bubble_position_ready else slot
+	else: bubble_leaving=false
+	var target_scale:=lerpf(1,.45,departure)
+	dialogue_panel.pivot_offset=card*.5
+	dialogue_panel.scale=Vector2.ONE*lerpf(dialogue_panel.scale.x,target_scale,1-exp(-9*dt))
 	_move_dialogue(best,slot,dt)
-	dialogue_panel.tail_tip=screen-dialogue_panel.position
+	dialogue_panel.tail_tip=dialogue_panel.get_global_transform().affine_inverse()*screen
 	dialogue_panel.queue_redraw()
+
+func dialogue_has_left_view() -> bool:
+	return not get_viewport_rect().intersects(dialogue_panel.get_global_rect().grow(40))
 
 func dialogue_dock_position() -> Vector2:
 	return Vector2((size.x-dialogue_panel.size.x)*.5,maxf(80,size.y-dialogue_panel.size.y-44))
@@ -493,6 +536,7 @@ func _process(dt: float) -> void:
 		water_gauge_scale=1+.025*water_activity*(.5+.5*sin(time*TAU*2.1))+.065*empty_strength
 		water_gauge_offset=Vector2(sin(time*48)*3.5,sin(time*61)*1.2)*empty_strength
 	var cinematic: bool=(game.intro!=null and game.intro.active) or (game.travel!=null and game.travel.active)
+	_update_water_entrance(dt)
 	prompt_panel.visible=not cinematic and not prompt_source.is_empty() and not game.dialogue_active and not game.paused
 	toast_panel.visible=not cinematic and not toast_label.text.is_empty() and not game.paused and not game.dialogue_active
 	footer.visible=not cinematic and not touch_mode and not game.paused and not game.dialogue_active and game.elapsed<28
@@ -512,7 +556,8 @@ func _process(dt: float) -> void:
 		var talking:=char_count<full_text.length()
 		portrait.material.set_shader_parameter("bob",Vector2(sin(time*8)*.004,sin(time*10)*.008) if talking else Vector2.ZERO)
 		portrait.material.set_shader_parameter("tilt",sin(time*7)*.010 if talking else 0.0)
-		continue_label.hide()
+		continue_label.visible=game.dialogue_control.interrupting and game.travel.race.challenge.offering
+		continue_label.text="Left / right choose  ·  any other button confirms" if game.travel.race.challenge.offering else ""
 		if not talking and auto_close_delay>=0:
 			radio_idle+=dt
 			if radio_idle>auto_close_delay and advance_text(): game.end_dialogue()
@@ -521,6 +566,31 @@ func _process(dt: float) -> void:
 func on_empty_spray() -> void:
 	water_empty_time=.45
 
+func reset_water_entrance() -> void:
+	water_entrance_clock=0
+	water_entrance_scale=0
+	queue_redraw()
+
+static func water_entrance_ease(progress: float) -> float:
+	if progress<=0: return 0
+	if progress>=1: return 1
+	var back:=progress-1
+	# Ease-out back: a brief 7% overshoot, then a soft settle at full size.
+	return 1+2.4*back*back*back+1.4*back*back
+
+func _update_water_entrance(dt: float) -> void:
+	if game.loading or game.in_main_menu:
+		reset_water_entrance()
+		return
+	if game.intro and game.intro.active:
+		water_entrance_clock=maxf(0,game.intro.clock/PlayMatTravel.INTRO_PACE-(TownIntro.PLAY_SECONDS-WATER_ENTRANCE_LEAD))
+	elif game.travel and game.travel.active:
+		water_entrance_clock=maxf(0,game.travel.clock-(game.travel.duration-WATER_ENTRANCE_LEAD))
+	elif not game.paused:
+		water_entrance_clock+=dt
+	water_entrance_clock=minf(WATER_ENTRANCE_SECONDS,water_entrance_clock)
+	water_entrance_scale=water_entrance_ease(water_entrance_clock/WATER_ENTRANCE_SECONDS)
+
 func _layout_viewport() -> void:
 	if not OS.has_feature("web") and get_window().size!=last_window_size:
 		last_window_size=get_window().size
@@ -528,7 +598,7 @@ func _layout_viewport() -> void:
 		get_window().content_scale_aspect=Window.CONTENT_SCALE_ASPECT_EXPAND
 	pause_title.visible=not touch_mode
 	pause_help.visible=not touch_mode
-	pause_panel.size=Vector2(330,96) if touch_mode else Vector2(548,620)
+	pause_panel.size=Vector2(330,166 if game.toy_blending else 96) if touch_mode else Vector2(548,620)
 	menu_button.position=Vector2(18,18) if touch_mode else Vector2(38,540)
 	menu_button.size=Vector2(294,60) if touch_mode else Vector2(472,54)
 	prompt_panel.size.x=minf(540,size.x-32)
@@ -557,9 +627,9 @@ func _make_syllables() -> void:
 	for i in 3: syllables.append(load("res://assets/audio/town/voice_%d.wav" % i))
 
 func _draw() -> void:
-	if game and ((game.intro and game.intro.active) or (game.travel and game.travel.active)): return
 	if not game or not game.truck: return
 	_draw_water()
+	if (game.intro and game.intro.active) or (game.travel and game.travel.active): return
 	if not game.paused:
 		# Only the full town map (Tab / north button); no always-on minimap.
 		if map_open: _draw_map()
@@ -590,9 +660,10 @@ func _phone_center() -> Vector2:
 	return get_viewport_rect().size-Vector2(66,76)
 
 func _draw_water() -> void:
+	if water_entrance_scale<=.001: return
 	var center:=Vector2(size.x*.5,45)+water_gauge_offset
 	var gauge_scale:=minf(1,(size.x-148)/344) if touch_mode else 1.0
-	draw_set_transform(center,0,Vector2.ONE*gauge_scale*water_gauge_scale)
+	draw_set_transform(center,0,Vector2.ONE*gauge_scale*water_gauge_scale*water_entrance_scale)
 	center=Vector2.ZERO
 	var rect:=Rect2(center+Vector2(-172,-25),Vector2(344,50))
 	draw_style_box(style(PAPER,24),rect)

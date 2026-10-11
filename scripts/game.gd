@@ -5,14 +5,24 @@ var truck: FireEngine
 var camera: Camera3D
 var hud: FireHUD
 var stage := 0
+var dialogue_control: DialogueControl
 var dialogue_active := false
 var dialogue_next := 0
 var dialogue_actor: Node3D
 var dialogue_seen_in_view:=false
 var dialogue_out_of_view_time:=0.0
 var paused := false
-var fire_progress := 0.0
-var fire_feedback := 0.0
+var maple_fire: ToyFire
+var fire_progress:=0.0:
+	get: return maple_fire.progress if is_instance_valid(maple_fire) else fire_progress
+	set(value):
+		fire_progress=value
+		if is_instance_valid(maple_fire): maple_fire.progress=value
+var fire_feedback:=0.0:
+	get: return maple_fire.feedback if is_instance_valid(maple_fire) else fire_feedback
+	set(value):
+		fire_feedback=value
+		if is_instance_valid(maple_fire): maple_fire.feedback=value
 var fire_hud_percent:=-1
 var fire_hud_on_target:=false
 var dog_progress := 0.0
@@ -35,7 +45,7 @@ var barbecue_briefed := false
 var barbecue_call_delay := -1.0
 var barbecue_ring_timer := -1.0
 var barbecue_call_sent := false
-const BARBECUE_CALL_DELAY := 20.0
+const BARBECUE_CALL_DELAY := 15.0
 const HYDRANT_REFILL_RADIUS:=6.75
 var marker: MeshInstance3D
 var job_label: Label3D
@@ -44,14 +54,16 @@ var sun: DirectionalLight3D
 var gameplay_shadow_distance:=60.0
 var camera_focus:=Vector3.ZERO
 const TALK_CAMERA_SIZE := 18.8
-const TALK_FULL_RADIUS:=18.0
-const TALK_RELEASE_RADIUS:=36.0
+const TALK_FULL_RADIUS:=10.0
+const TALK_RELEASE_RADIUS:=30.0
 const TALK_CAMERA_OFFSET := Vector3(22,16.5,26)
 var camera_subject: Node3D
 var conversation_blend := 0.0
-var camera_blend_from := 0.0
-var camera_blend_to := 0.0
-var camera_transition_time := 1.0
+var camera_requested_subject: Node3D
+var camera_framing:=CameraFraming.new()
+var pool_camera_interest: CameraPointOfInterest
+var dog_camera_interest: CameraPointOfInterest
+var fire_camera_interest: CameraPointOfInterest
 var music: AudioStreamPlayer
 var music_muted:=false
 var water_audio: AudioStreamPlayer
@@ -91,8 +103,12 @@ var miniature: MiniatureLook
 var playroom: Playroom
 var travel: PlayMatTravel
 var controls: ControlPrompts
+var toy_blending: ToyBlending
 
 func _ready() -> void:
+	if OS.has_feature("web") and bool(JavaScriptBridge.eval("new URLSearchParams(location.search).get('models') === 'blend'")):
+		get_tree().call_deferred("change_scene_to_file","res://scenes/model_blend_preview.tscn")
+		return
 	# Frame-driven scenery and camera are not physics-interpolated a second time.
 	physics_interpolation_mode=Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_setup_input()
@@ -123,6 +139,7 @@ func _ready() -> void:
 	camera.projection=Camera3D.PROJECTION_ORTHOGONAL
 	camera.size=25.8
 	camera.far=250
+	camera.near=.02
 	add_child(camera)
 	camera.position=truck.position+camera_offset
 	camera.look_at(truck.position)
@@ -137,6 +154,9 @@ func _ready() -> void:
 	hud=FireHUD.new()
 	hud.game=self
 	canvas.add_child(hud)
+	dialogue_control=DialogueControl.new()
+	dialogue_control.game=self
+	add_child(dialogue_control)
 	controls.mode_changed.connect(func(_mode): hud.refresh_controls())
 	truck.empty_spray.connect(hud.on_empty_spray)
 	marker=MeshInstance3D.new()
@@ -200,6 +220,8 @@ func _ready() -> void:
 	add_child(intro)
 	batched_decorations=TownProps.batch_decorations(atmosphere)
 	var animated: Array[Node3D]=[town.cat,town.dog,town.pool_water]
+	animated.append(maple_fire)
+	animated.append(atmosphere.fountain)
 	animated.append_array(town.people)
 	animated.append_array(town.flames)
 	animated.append_array(atmosphere.fountain_drops)
@@ -208,6 +230,11 @@ func _ready() -> void:
 	travel=PlayMatTravel.new()
 	travel.game=self
 	add_child(travel)
+	_setup_camera_interests()
+	if not TownProps.bake_scenery:
+		toy_blending=ToyBlending.new()
+		toy_blending.game=self
+		add_child(toy_blending)
 	web_controls=WebControls.new()
 	web_controls.game=self
 	add_child(web_controls)
@@ -291,7 +318,10 @@ func navigation_active() -> bool:
 	if travel and (travel.in_race or travel.active): return false
 	return stage>0 and stage<4 or railway!=null and railway.briefed and not railway.started
 
-func talk(speaker: String, words: String, next: int) -> void:
+func talk(speaker: String, words: String, next: int, interrupting: bool=false) -> void:
+	if travel and travel.race.challenge and not speaker.begins_with("QUINN"):
+		travel.race.challenge.hide_offer()
+	dialogue_control.begin(interrupting)
 	dialogue_active=true
 	dialogue_next=next
 	var index: int={"MAYA":0,"LEO":1,"JUNE":2,"OLIVER":3}.get(speaker.get_slice("  /",0),-1)
@@ -300,33 +330,91 @@ func talk(speaker: String, words: String, next: int) -> void:
 	if travel and travel.in_race:
 		var race_index:=ToyRaceTrack.NAMES.find(speaker.get_slice("  /",0))
 		dialogue_actor=travel.race.people[race_index] if race_index>=0 else null
+		if speaker.begins_with("REPORTER"): dialogue_actor=travel.race.challenge.awards.reporter
 	dialogue_seen_in_view=false
 	dialogue_out_of_view_time=0
-	if dialogue_actor: camera_subject=dialogue_actor
+	if dialogue_actor:
+		camera_subject=dialogue_actor
+		dialogue_control.spoken_actors[dialogue_actor]=true
 	_set_conversation_camera(dialogue_actor!=null)
 	# These are instructions, not choices: a neighbour's job remains available
 	# if the player drives away halfway through hearing about it.
 	stage=next
 	_update_mission()
 	hud.begin_dialogue(speaker,words)
-	truck.enabled=not paused and not rescue_running
+	if interrupting:
+		hud.auto_close_delay=-1
+		hud.advance_text()
+	truck.enabled=not paused and not rescue_running and not interrupting
 
 func end_dialogue(keep_camera: bool=false) -> void:
+	if travel and travel.race.challenge: travel.race.challenge.hide_offer()
 	if dialogue_active and dog_done and hud.speaker_key=="JUNE": sounds.play("woof",town.dog.global_position,.85,1.0)
 	dialogue_active=false
 	dialogue_actor=null
+	dialogue_control.end()
 	if not keep_camera: _set_conversation_camera(false)
 	hud.dialogue_panel.hide()
 	# Each syllable is only 65 ms and already fades to silence. Let the final
 	# one finish: stopping halfway through its waveform makes an audible tick.
-	truck.enabled=not paused and not rescue_running
+	truck.enabled=not paused and not rescue_running and not truck.freeze and not dialogue_control.waiting_for_phone and not (travel and travel.race.challenge and travel.race.challenge.controls_locked())
 
 func _set_conversation_camera(active: bool) -> void:
-	var target:=1.0 if active else 0.0
-	if target==camera_blend_to: return
-	camera_blend_from=conversation_blend
-	camera_blend_to=target
-	camera_transition_time=0.0
+	camera_requested_subject=camera_subject if active else null
+
+func register_camera_point(point: CameraPointOfInterest) -> void:
+	camera_framing.register(point)
+
+func _setup_camera_interests() -> void:
+	pool_camera_interest=camera_framing.add(town,"Pool",TownLayout.POOL+Vector3.UP*.3,Vector3(5.6,2.0,3.6),_pool_needs_framing,18,32)
+	dog_camera_interest=camera_framing.add(town,"Biscuit",TownLayout.DOG+Vector3.UP*.7,Vector3(1.3,1.2,1.5),func(): return not dog_done or rewards.waiting_for("JUNE") or dialogue_actor==town.people[2],10,24)
+	fire_camera_interest=camera_framing.add(town,"Barbecue",TownLayout.FIRE+Vector3.UP*1.4,Vector3(2.3,2.0,2.3),func(): return fire_progress<1 or rewards.waiting_for("LEO") or dialogue_actor==town.people[1],12,26)
+	camera_framing.add(town.cat,"Pippin",Vector3.UP*.6,Vector3(.9,.9,1.0),func(): return not cat_rescued and dialogue_actor!=town.people[0] and dialogue_control.has_spoken(town.people[0]),10,26)
+	for i in travel.race.jobs.size():
+		var job: Dictionary=travel.race.jobs[i]
+		var actor: Node3D=travel.race.people[i]
+		var parent: Node3D=job.fire if job.has("fire") else travel.race
+		var at: Vector3=Vector3.UP*1.8 if job.has("fire") else job.point
+		var point:=camera_framing.add(parent,"PaddockJob"+str(i),at,Vector3(job.radius,2.0,job.radius),func(): return not travel.race.running and (not job.done or dialogue_actor==actor or rewards.waiting_for(ToyRaceTrack.NAMES[i])),12,26)
+		job.camera_interest=point
+
+func _pool_needs_framing() -> bool:
+	if pool_basin.contains_truck() or rewards.waiting_for("OLIVER"): return true
+	if pool_done: return dialogue_active and dialogue_actor==town.people[3]
+	# Introduce Oliver before revealing his task. Directly filling the pool
+	# can also engage its framing without requiring a conversation first.
+	return dialogue_actor!=town.people[3] and (dialogue_control.has_spoken(town.people[3]) or pool_camera_interest.engagement_left>0)
+
+func _npc_needs_camera(actor: Node3D) -> bool:
+	if travel.in_race:
+		var index:=travel.race.people.find(actor)
+		if index==0: return not dialogue_control.has_spoken(actor)
+		if index==1: return not travel.race.jobs[0].done or not travel.race.jobs[1].done
+		if index==2: return not travel.race.jobs[2].done
+		if index==3: return not travel.race.challenge.has_raced
+	else:
+		var index:=town.people.find(actor)
+		if index>=0: return [not cat_rescued,fire_progress<1,not dog_done,not pool_done][index]
+		if actor==railway.driver: return not railway.started
+	return false
+
+func _approach_camera_subject(truck_position: Vector3) -> Node3D:
+	if is_instance_valid(camera_requested_subject): return camera_requested_subject
+	if dialogue_active and dialogue_actor==null: return null
+	if travel and travel.in_race and (travel.race.running or travel.race.challenge.active or travel.race.challenge.controls_locked()): return null
+	if not travel.in_race and pool_basin.contains_truck(): return null
+	var nearest: Node3D
+	var distance:=TALK_RELEASE_RADIUS
+	for actor in _npc_actors():
+		if not actor.is_visible_in_tree() or not _npc_needs_camera(actor): continue
+		var separation:=truck_position.distance_to(actor.global_position)
+		if separation<distance:
+			nearest=actor
+			distance=separation
+	# Keep the current neighbour across nearly equal distances, so passing
+	# between two talkers cannot make the focus flicker back and forth.
+	if is_instance_valid(camera_subject) and camera_subject.is_visible_in_tree() and _npc_needs_camera(camera_subject) and truck_position.distance_to(camera_subject.global_position)<minf(TALK_RELEASE_RADIUS,distance+2): return camera_subject
+	return nearest
 
 func phone_ringing() -> bool:
 	if travel and (travel.in_race or travel.active): return false
@@ -359,30 +447,48 @@ func _check_barbecue_discovery(dt: float) -> void:
 	barbecue_notice_time+=dt
 	if barbecue_notice_time>=1.25: _discover_barbecue()
 
+func _defer_followup_call() -> void:
+	if barbecue_call_delay<0 and barbecue_ring_timer<0: return
+	barbecue_call_delay=BARBECUE_CALL_DELAY
+	barbecue_ring_timer=-1
+
+func _dispatch_mission_active() -> bool:
+	if dialogue_active or dialogue_control.waiting_for_phone or rescue_running or rewards.playing_reward(): return true
+	if travel and (travel.active or travel.in_race): return true
+	# Proximity camera attention counts even before accepting a briefing,
+	# and while lingering beside the neighbour after their conversation.
+	if conversation_blend>.01: return true
+	for point in camera_framing.active:
+		if point.weight>.01: return true
+	return truck.spray_requested or truck.spraying or truck.ladder_deployed or pool_basin.contains_truck()
+
 func _update_dispatch(dt: float) -> void:
 	if call_timer>0:
-		call_timer=maxf(0,call_timer-dt)
-		if call_timer==0:
-			if dialogue_active or rescue_running or rewards.playing_reward(): call_timer=.1
-			else: talk("DISPATCH  /  INCOMING CALL","Morning, rookie! Quiet shift today... except Maya's cat thinks he's a bird. Follow the arrow to Maple Green. You've got this.",1)
+		dialogue_control.update_phone(dt)
 	if barbecue_discovered or fire_progress>=1:
 		barbecue_call_delay=-1
 		barbecue_ring_timer=-1
 		return
+	if _dispatch_mission_active():
+		_defer_followup_call()
+		return
 	if barbecue_call_delay>=0:
 		barbecue_call_delay=maxf(0,barbecue_call_delay-dt)
-		if barbecue_call_delay==0 and not rescue_running and not rewards.playing_reward():
+		if barbecue_call_delay==0:
 			barbecue_call_delay=-1
 			barbecue_ring_timer=PHONE_RING_SECONDS
 	elif barbecue_ring_timer>=0:
 		barbecue_ring_timer=maxf(0,barbecue_ring_timer-dt)
-		# A finished rescue thank-you can hand the channel to the next call.
-		if barbecue_ring_timer==0 and dialogue_active and hud.speaker_key=="MAYA" and cat_rescued and hud.char_count==hud.full_text.length(): end_dialogue()
-		if barbecue_ring_timer==0 and not dialogue_active and not rescue_running and not rewards.playing_reward():
+		if barbecue_ring_timer==0:
 			barbecue_ring_timer=-1
 			barbecue_call_sent=true
-			talk("DISPATCH  /  INCOMING CALL","Unit 04, we've had a call from Willow Lane. Leo's barbecue has flared up! Head east and lend him a hose.",2)
+			talk("DISPATCH  /  INCOMING CALL","Unit 04, we've had a call from Willow Lane. Leo's barbecue has flared up! Head east and lend him a hose.",2,true)
 			hud.auto_close_delay=-1 # Keep the job visible until acknowledged or discovered.
+
+func _input(event: InputEvent) -> void:
+	if loading or in_main_menu or paused or (intro and intro.active) or (travel and travel.active): return
+	if dialogue_control and dialogue_control.handle_input(event):
+		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if loading or in_main_menu or (travel and travel.active): return
@@ -392,24 +498,33 @@ func _unhandled_input(event: InputEvent) -> void:
 			intro.finish()
 			get_viewport().set_input_as_handled()
 		return
+	if not paused and dialogue_control.handle_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("pause"):
 		paused=not paused
 		if OS.has_feature("web"): JavaScriptBridge.eval("window.firetruckPause(%s)" % ("true" if paused else "false"))
 		hud.pause_panel.visible=paused
-		truck.enabled=not paused and not rescue_running
-		truck.freeze=paused or rescue_running
+		var challenge_locked: bool=dialogue_control.interrupting or dialogue_control.waiting_for_phone or travel.in_race and travel.race.challenge.controls_locked()
+		truck.enabled=not paused and not rescue_running and not challenge_locked
+		truck.freeze=paused or rescue_running or challenge_locked
 		truck.set_physics_process(not paused)
+		travel.race.challenge.opponent.set_paused(paused)
 		town.set_process(not paused)
 		if rescue_tween and rescue_tween.is_valid() and rescue_tween.is_running() and paused: rescue_tween.pause()
 		elif rescue_tween and rescue_tween.is_valid() and not paused: rescue_tween.play()
 		if cat_cuddle_tween and cat_cuddle_tween.is_valid() and paused: cat_cuddle_tween.pause()
 		elif cat_cuddle_tween and cat_cuddle_tween.is_valid() and not paused: cat_cuddle_tween.play()
 	if paused: return
+	if travel.in_race and travel.race.challenge.handle_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("map"): hud.map_open=not hud.map_open
 	if event.is_action_pressed("music"):
 		music_muted=not music_muted
 		if music: music.volume_db=-80 if music_muted else -25
 	if event.is_action_pressed("recover"):
+		if travel.in_race: travel.race.challenge.cancel()
 		end_dialogue()
 		if rescue_running: _cancel_cat_rescue()
 		truck.reset_truck()
@@ -439,7 +554,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func interact() -> void:
-	if paused: return
+	if paused or rewards.controls_locked() and not dialogue_active: return
+	if travel.in_race and travel.race.challenge.offering:
+		hud.advance_text()
+		return
 	if dialogue_active:
 		if not hud.advance_text(): return
 		end_dialogue()
@@ -451,6 +569,7 @@ func _nearest_npc() -> int:
 	var index:=-1
 	var nearest:=9.0
 	if pool_basin and pool_basin.contains_truck(): return -1
+	if dialogue_control.attention.visible: return dialogue_control.attention.actor_index
 	var actors:=_npc_actors()
 	for i in actors.size():
 		if not actors[i].visible: continue
@@ -478,7 +597,7 @@ func npc_in_view(actor: Node3D) -> bool:
 	return actor.is_visible_in_tree() and not camera.is_position_behind(actor.global_position+Vector3.UP) and hud.get_viewport_rect().intersects(npc_screen_rect(actor))
 
 func _pointer_talk(point: Vector2) -> bool:
-	if dialogue_active and Rect2(hud.dialogue_panel.position,hud.dialogue_panel.size).has_point(point):
+	if dialogue_active and hud.dialogue_panel.get_global_rect().has_point(point):
 		interact()
 		return true
 	var actors:=_npc_actors()
@@ -489,18 +608,28 @@ func _pointer_talk(point: Vector2) -> bool:
 	return false
 
 func _proximity_talk() -> void:
+	if dialogue_control.waiting_for_phone or dialogue_control.interrupting: return
 	if pool_basin and pool_basin.contains_truck(): return
 	var positions := [TownLayout.MAYA,TownLayout.LEO,TownLayout.JUNE,TownLayout.OLIVER]
 	for i in positions.size():
 		var distance: float=truck.global_position.distance_to(positions[i])
 		if distance>10.5: proximity_latches.erase(i)
 		if distance>8.0 or proximity_latches.has(i) or dialogue_active or rescue_running: continue
+		if not npc_attention_text(i).is_empty(): continue
 		_talk_to_npc(i)
-	if railway and not railway.boarded and not dialogue_active and not rescue_running and truck.position.distance_to(railway.driver.position)<8:
-		railway.talk_to_driver()
+
+func npc_attention_text(i: int) -> String:
+	if travel and travel.in_race: return travel.race.attention_text(i)
+	if i==4:
+		return "Help me, please!" if not railway.started and not railway.briefed and not dialogue_control.has_spoken(railway.driver) else ""
+	if i<0 or i>=4 or rewards.waiting_for(["MAYA","LEO","JUNE","OLIVER"][i]): return ""
+	if dialogue_control.has_spoken(town.people[i]): return ""
+	var needs_help: bool=[not cat_rescued and stage==1,fire_progress<1,not dog_done,not pool_done][i]
+	return "Oh, help please!" if needs_help else ""
 
 func _talk_to_npc(i: int, manual: bool=false) -> bool:
-	if travel and travel.in_race: return travel.race.talk_to_person(i)
+	if not manual and not (travel and travel.in_race) and i<4: return false
+	if travel and travel.in_race: return travel.race.talk_to_person(i,manual)
 	if i==4: return railway.talk_to_driver(manual)
 	if paused or rescue_running or rewards.waiting_for(["MAYA","LEO","JUNE","OLIVER"][i]): return false
 	match i:
@@ -509,7 +638,7 @@ func _talk_to_npc(i: int, manual: bool=false) -> bool:
 				if not manual: return false
 				talk("MAYA  /  MAPLE GREEN","Thank you again! Pippin's staying on the ground today.",stage)
 			elif stage==1 and (not rescued or manual):
-				talk("MAYA  /  MAPLE GREEN","Oh, thank goodness! Pippin climbed up there and forgot how to be a cat. "+_ladder_instruction()+". Drive its tip close to Pippin. He'll hop on and climb down. Gently, please!",1)
+				talk("MAYA  /  MAPLE GREEN","Oh, thank goodness! Pippin climbed up there and forgot how to be a cat. "+_ladder_instruction()+". Drive its tip close to Pippin. He'll hop on and climb down. Gently, please!",1,dialogue_control.first_briefing("cat"))
 				rescued=true
 				sounds.play("meow",town.cat.global_position,.85,3)
 			else: return false
@@ -520,60 +649,62 @@ func _talk_to_npc(i: int, manual: bool=false) -> bool:
 			elif not barbecue_briefed or manual:
 				_discover_barbecue()
 				barbecue_briefed=true
-				talk("LEO  /  A LITTLE TOO WELL DONE","I was going for smoky flavour, not actual smoke! Aim at the barbecue and hold the hose. {brake} will keep you steady.",3 if cat_rescued or stage in [2,3,5] else stage)
+				talk("LEO  /  A LITTLE TOO WELL DONE","I was going for smoky flavour, not actual smoke! Aim at the barbecue and hold the hose. {brake} will keep you steady.",3 if cat_rescued or stage in [2,3,5] else stage,dialogue_control.first_briefing("barbecue"))
 			else: return false
 		2:
-			talk("JUNE  /  BISCUIT'S BIG DAY", "He's spotless. Thank you!" if dog_done else "Biscuit found every puddle in town. Could you give him a gentle rinse? Aim the hose at him until he's clean.",stage)
+			if dog_done and not manual: return false
+			talk("JUNE  /  BISCUIT'S BIG DAY", "He's spotless. Thank you!" if dog_done else "Biscuit found every puddle in town. Could you give him a gentle rinse? Aim the hose at him until he's clean.",stage,not dog_done and dialogue_control.first_briefing("dog"))
 		3:
-			talk("OLIVER  /  POOL PARTY", "Pool party saved. You're always welcome here!" if pool_done else "The kids are coming over, and the pool is empty! Could you fill it? Spray into the tiled pool and watch the water rise.",stage)
+			if pool_done and not manual: return false
+			talk("OLIVER  /  POOL PARTY", "Pool party saved. You're always welcome here!" if pool_done else "The kids are coming over, and the pool is empty! Could you fill it? Spray into the tiled pool and watch the water rise.",stage,not pool_done and dialogue_control.first_briefing("pool"))
 	proximity_latches[i]=true
 	return true
 
 func _process(dt: float) -> void:
 	if not is_instance_valid(truck): return
 	_audio_update(dt)
+	if not paused and travel and (travel.active or travel.in_race): _defer_followup_call()
 	if paused or loading or (travel and travel.active): return
 	if intro and intro.active:
 		intro.update(dt)
 		return
 	elapsed+=dt
-	fire_feedback=maxf(0,fire_feedback-dt*2.2)
-	town.water_response=fire_feedback
+	if travel.in_race and travel.race.challenge.awards.active:
+		travel.race.challenge.awards.frame(dt)
+		return
 	var ahead:=Vector3(truck.linear_velocity.x,0,truck.linear_velocity.z)*0.27
 	# Follow the same interpolated chassis pose that the renderer displays.
 	var rendered_truck_position:=truck.get_global_transform_interpolated().origin
 	var focus:=rendered_truck_position+ahead
-	camera_transition_time=minf(1.0,camera_transition_time+dt)
-	conversation_blend=lerpf(camera_blend_from,camera_blend_to,smoothstep(0.0,1.0,camera_transition_time))
-	if is_instance_valid(camera_subject):
-		# Release the camera's attention gradually as the truck leaves, so the
-		# neighbour can naturally leave the screen instead of being held in view.
-		var separation:=rendered_truck_position.distance_to(camera_subject.global_position)
-		var attention:=.52*(1-smoothstep(TALK_FULL_RADIUS,TALK_RELEASE_RADIUS,separation))
-		var subject:=camera_subject.global_position
-		if camera_subject==town.people[0] and not cat_rescued:
-			subject=subject.lerp(town.cat.global_position,.38)
-		var conversation_focus:=rendered_truck_position.lerp(subject,attention)+Vector3.UP*.25+ahead*.1
-		focus=focus.lerp(conversation_focus,conversation_blend)
+	var approached:=_approach_camera_subject(rendered_truck_position)
+	if approached: camera_subject=approached
+	var proximity:=1-smoothstep(TALK_FULL_RADIUS,TALK_RELEASE_RADIUS,rendered_truck_position.distance_to(approached.global_position)) if approached else 0.0
+	conversation_blend=lerpf(conversation_blend,proximity,1-exp(-5*dt))
+	if conversation_blend<.0001: conversation_blend=0.0
+	# Talkers tighten the lens without pulling the driving focus sideways.
+	# Only explicit mission scenery participates in positional framing.
+	focus=camera_framing.focus(focus,rendered_truck_position,dt)
 	camera_focus=camera_focus.lerp(focus,1-exp(-4.5*dt))
 	camera_trauma=maxf(0,camera_trauma-dt*1.5)
 	var shake:=camera_trauma*camera_trauma
-	var offset:=gameplay_camera_offset().lerp(gameplay_camera_offset(true),conversation_blend)
+	var offset:=gameplay_camera_offset()
 	camera.global_position=camera_focus+offset+Vector3(sin(elapsed*63)*.16,sin(elapsed*79)*.12,cos(elapsed*53)*.08)*shake
 	camera.far=500 if travel and travel.in_race else 250
 	sun.directional_shadow_max_distance=gameplay_shadow_distance+maxf(0,offset.length()-camera_offset.length())
 	camera.look_at(camera_focus)
 	camera.rotation.z+=sin(elapsed*47)*0.004*shake
-	camera.size=lerpf(25.8,_talk_camera_size(),conversation_blend)
+	var desired_size:=lerpf(25.8,_talk_camera_size(),conversation_blend)
+	desired_size=camera_framing.fit(camera,truck.get_global_transform_interpolated(),hud.size,desired_size)
+	camera.size=lerpf(camera.size,desired_size,1-exp(-5*dt))
 	conversation_pan=lerpf(conversation_pan,_conversation_pan_target(),1-exp(-4*dt))
 	camera.v_offset=conversation_pan
-	if dialogue_active and is_instance_valid(dialogue_actor):
+	if dialogue_active and not dialogue_control.interrupting and is_instance_valid(dialogue_actor):
 		if npc_in_view(dialogue_actor):
 			dialogue_seen_in_view=true
 			dialogue_out_of_view_time=0
 		elif dialogue_seen_in_view:
 			dialogue_out_of_view_time+=dt
-			if dialogue_out_of_view_time>.7: end_dialogue()
+			if dialogue_out_of_view_time>.7 and (not dialogue_actor.is_visible_in_tree() or hud.dialogue_has_left_view()): end_dialogue()
 	if travel and travel.in_race:
 		marker.hide()
 		job_label.hide()
@@ -628,31 +759,31 @@ func gameplay_camera_offset(talking: bool=false) -> Vector3:
 	var offset:=TALK_CAMERA_OFFSET if talking else camera_offset
 	# Keep the orthographic framing, but place the lens beyond the foreground
 	# furniture when following the truck along the southern mat edge.
-	return offset.normalized()*160 if travel and travel.in_race else offset
+	return offset.normalized()*(160 if travel and travel.in_race else 96)
 
 func _talk_camera_size() -> float:
 	if not is_instance_valid(camera_subject): return TALK_CAMERA_SIZE
-	var distance:=truck.global_position.distance_to(camera_subject.global_position)
 	var frame:=hud.truck_screen_rect().merge(hud.conversation_subject_rect())
 	var extent:=frame.size.y*camera.size/maxf(1,hud.size.y)
-	var available:=maxf(100,hud.size.y-hud.dialogue_panel.size.y-118)
+	var balloon_height: float=hud.dialogue_panel.size.y if dialogue_active and dialogue_actor!=null else 0.0
+	var available:=maxf(100,hud.size.y-balloon_height-118)
 	var close_size:=maxf(TALK_CAMERA_SIZE,extent*hud.size.y/available)
-	return lerpf(close_size,25.8,smoothstep(TALK_FULL_RADIUS,TALK_RELEASE_RADIUS,distance))
+	# Distance is blended once by the camera controller. Reserve balloon space
+	# only during speech, so a distant neighbour cannot first zoom the view out.
+	return close_size if balloon_height>0 else minf(close_size,25.8)
 
 func _conversation_pan_target() -> float:
-	if not is_instance_valid(camera_subject) or conversation_blend<=0: return 0.0
-	# Keep the truck below centre, leaving the upper half for the neighbour,
-	# the tree pet, and their above-head speech balloon.
+	# NPCs only magnify the driving view. An actual scenery interest may
+	# reserve space for its speech balloon on narrow screens.
+	if not dialogue_active or not is_instance_valid(dialogue_actor) or not camera_framing.active.any(func(point): return point.weight>.15): return 0.0
 	var p:=truck.get_global_transform_interpolated().origin
 	var screen:=camera.unproject_position(p)
 	var pixels_per_unit:=absf(camera.unproject_position(p+camera.global_basis.y).y-screen.y)
-	var unshifted:=screen.y-camera.v_offset*pixels_per_unit
 	var truck_rect:=hud.truck_screen_rect()
 	var scene_top:=minf(truck_rect.position.y,hud.conversation_subject_rect().position.y)-camera.v_offset*pixels_per_unit
-	var below_centre:=hud.size.y*.64-unshifted
 	var balloon_space:=76+hud.dialogue_panel.size.y+26-scene_top
 	var max_shift:=hud.size.y-22-(truck_rect.end.y-camera.v_offset*pixels_per_unit)
-	return minf(max_shift,maxf(below_centre,balloon_space))/maxf(.01,pixels_per_unit)*conversation_blend
+	return maxf(0,minf(max_shift,balloon_space))/maxf(.01,pixels_per_unit)*conversation_blend
 
 func return_to_main_menu() -> void:
 	if OS.has_feature("web"):
@@ -718,15 +849,14 @@ func _water_hit(point: Vector3, amount: float) -> bool:
 	if fire_progress<1 and point.distance_to(TownLayout.FIRE+Vector3.UP*1.8)<1.8:
 		_discover_barbecue()
 		consumed = true
-		fire_feedback=1.0
-		sounds.fire_hit(amount)
-		fire_progress=minf(1,fire_progress+amount*(0.22/0.60))
-		town.fire_amount=1-fire_progress
+		if fire_camera_interest: fire_camera_interest.engage()
+		maple_fire.apply_water(amount)
 		if fire_progress>=1:
 			stage=4 if cat_rescued or stage in [2,3,4] else 1
 			_update_mission()
 			rewards.celebrate("fire",TownLayout.FIRE+Vector3.UP*1.2,"LEO","You saved the afternoon! Thank you! I think I'll stick to sandwiches for the rest of the party.")
 	if not dog_done and point.distance_to(TownLayout.DOG+Vector3.UP*0.7)<1.4:
+		if dog_camera_interest: dog_camera_interest.engage()
 		consumed = true
 		sounds.play("dog_wash",town.dog.global_position,.7,1.2)
 		dog_progress=minf(1,dog_progress+amount*0.60)
@@ -737,6 +867,7 @@ func _water_hit(point: Vector3, amount: float) -> bool:
 				if child is MeshInstance3D: child.material_override=TownProps.material(Color("e9c58b"))
 			rewards.celebrate("dog",TownLayout.DOG+Vector3.UP*.5,"JUNE","Look at that shiny coat! Thank you — Biscuit's ready for cuddles again.")
 	if not pool_done and absf(point.x-TownLayout.POOL.x)<4.4 and absf(point.z-TownLayout.POOL.z)<2.4 and point.y<=town.pool_water.position.y+.12:
+		if pool_camera_interest: pool_camera_interest.engage()
 		consumed = true
 		pool_progress=minf(1,pool_progress+amount*0.32)
 		pool_basin.set_fill(pool_progress)
@@ -784,7 +915,7 @@ func _setup_audio() -> void:
 	engine_loop.loop_mode=AudioStreamWAV.LOOP_FORWARD
 	engine_loop.loop_end=engine_loop.data.size()/2
 	audio.stream=engine_loop
-	audio.volume_db=-38
+	audio.volume_db=-36.5
 	add_child(audio)
 	audio.play()
 	music=AudioStreamPlayer.new()
@@ -862,7 +993,9 @@ func _on_cat_ladder_reached(engine: FireEngine) -> void:
 
 func _after_cat_rescue() -> void:
 	var next_stage:=4 if fire_progress>=1 else (3 if barbecue_discovered else 5)
-	talk("MAYA  /  THANK YOU","Thank you! Come here, Pippin. That's enough adventuring for one morning.",next_stage)
+	stage=next_stage
+	_update_mission()
+	rewards.celebrate("cat",town.people[0].global_position+Vector3.UP*1.2,"MAYA","Thank you! Come here, Pippin. That's enough adventuring for one morning.")
 	if not barbecue_discovered and not barbecue_call_sent and fire_progress<1:
 		barbecue_call_delay=BARBECUE_CALL_DELAY
 		barbecue_ring_timer=-1

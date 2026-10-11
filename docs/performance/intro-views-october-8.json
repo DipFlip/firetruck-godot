@@ -1,0 +1,138 @@
+{
+  "visual": {
+    "checks": [
+      "The camera-timed assembly still waits for Start",
+      "The revised tour hands back responsive truck control",
+      "The assembled start gate still starts a lap",
+      "Driving past the new audience and camera keeps the lap running",
+      "Both browser intros complete without engine or console errors"
+    ],
+    "captures": [
+      {
+        "phase": "maple",
+        "time": 5.58308799999996,
+        "path": "output/playwright/view-assembly-web-maple-5-4.png",
+        "fps": 60,
+        "drawCalls": 466
+      },
+      {
+        "phase": "maple",
+        "time": 6.23306199999996,
+        "path": "output/playwright/view-assembly-web-maple-6-1.png",
+        "fps": 60,
+        "drawCalls": 479
+      },
+      {
+        "phase": "maple",
+        "time": 11.2161960000001,
+        "path": "output/playwright/view-assembly-web-maple-11-2.png",
+        "fps": 60,
+        "drawCalls": 215
+      },
+      {
+        "phase": "maple",
+        "time": 12.0828280000001,
+        "path": "output/playwright/view-assembly-web-maple-12.png",
+        "fps": 60,
+        "drawCalls": 293
+      },
+      {
+        "phase": "motorway",
+        "time": 6.86639199999996,
+        "path": "output/playwright/view-assembly-web-motorway-6-7.png",
+        "fps": 60,
+        "drawCalls": 106
+      },
+      {
+        "phase": "motorway",
+        "time": 10.9828940000001,
+        "path": "output/playwright/view-assembly-web-motorway-10-8.png",
+        "fps": 60,
+        "drawCalls": 411
+      },
+      {
+        "phase": "motorway",
+        "time": 13.5827900000002,
+        "path": "output/playwright/view-assembly-web-motorway-13-4.png",
+        "fps": 60,
+        "drawCalls": 494
+      },
+      {
+        "phase": "motorway",
+        "time": 20.5158460000005,
+        "path": "output/playwright/view-assembly-web-motorway-20-4.png",
+        "fps": 60,
+        "drawCalls": 526
+      }
+    ],
+    "errors": []
+  },
+  "without_screenshots": {
+    "checks": [
+      "The camera-timed assembly still waits for Start",
+      "The revised tour hands back responsive truck control",
+      "The assembled start gate still starts a lap",
+      "Driving past the new audience and camera keeps the lap running",
+      "Both browser intros complete without engine or console errors"
+    ],
+    "samples": [
+      {
+        "phase": "maple",
+        "time": 5.58280000000001,
+        "fps": 60,
+        "drawCalls": 466
+      },
+      {
+        "phase": "maple",
+        "time": 6.23130000000002,
+        "fps": 60,
+        "drawCalls": 479
+      },
+      {
+        "phase": "maple",
+        "time": 11.2160700000002,
+        "fps": 60,
+        "drawCalls": 215
+      },
+      {
+        "phase": "maple",
+        "time": 12.0827020000002,
+        "fps": 60,
+        "drawCalls": 293
+      },
+      {
+        "phase": "motorway",
+        "time": 6.86639199999996,
+        "fps": 60,
+        "drawCalls": 106
+      },
+      {
+        "phase": "motorway",
+        "time": 10.9828940000001,
+        "fps": 60,
+        "drawCalls": 411
+      },
+      {
+        "phase": "motorway",
+        "time": 13.5827900000002,
+        "fps": 60,
+        "drawCalls": 494
+      },
+      {
+        "phase": "motorway",
+        "time": 20.5158460000005,
+        "fps": 60,
+        "drawCalls": 526
+      }
+    ],
+    "frameIntervals": [
+      2385,
+      146,
+      4,
+      0,
+      0
+    ],
+    "fps": 60,
+    "errors": []
+  }
+}

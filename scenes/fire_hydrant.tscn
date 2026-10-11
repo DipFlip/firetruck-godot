@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/fire_hydrant.gd" id="1"]
+[sub_resource type="BoxShape3D" id="HydrantFootprint"]
+size = Vector3(0.55, 1.1, 0.5)
+
+[node name="FireHydrant" type="RigidBody3D"]
+script = ExtResource("1")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.55, 0)
+shape = SubResource("HydrantFootprint")
