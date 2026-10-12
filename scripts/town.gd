@@ -24,6 +24,14 @@ func _ready() -> void:
 			animal.set_meta("toy_arrival","drop")
 			animal.set_meta("toy_kind","Animal")
 	if get_child_count()>0:
+		# Keep the editable town's pool prototype and its water together when
+		# the shared mission layout moves; the basin replaces this block later.
+		var old_pool:=Vector3(pool_water.position.x,0,pool_water.position.z)
+		for child in get_children():
+			if child is MeshInstance3D and child.position.distance_to(old_pool+Vector3.UP*.35)<.01 and child.scale.is_equal_approx(Vector3(10,.7,6)):
+				child.position=TownLayout.POOL+Vector3.UP*.35
+		pool_water.position.x=TownLayout.POOL.x
+		pool_water.position.z=TownLayout.POOL.z
 		_gather_foliage()
 		# Adapt the editable baked tree before gameplay captures the cat pose.
 		cat.position=TownLayout.CAT_PERCH

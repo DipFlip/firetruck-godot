@@ -142,6 +142,8 @@ func run() -> void:
 	game.truck.reset_physics_interpolation()
 	await frames(205)
 	check(rail.boarded and rail.driver.visible and rail.driver.get_parent()==rail.engine and absf(rail.roof_hinge.rotation.z)<.001 and not rail.driver_guard.enabled,"The visible conductor jumps through the hinged roof, rides in the cab, and releases the outside personal-space zone")
+	check(game.dialogue_active and game.dialogue_actor==rail.driver and absf(rail.engine.linear_velocity.x)<.1,"Northline waits for Rowan's thank-you to be acknowledged before departing")
+	game.interact()
 	var moving: float=rail.engine.position.x
 	await frames(150)
 	check(rail.engine.position.x>moving+4 and rail.smoke.any(func(cloud): return cloud.age<2.8),"The running train moves under engine power and puffs smoke")

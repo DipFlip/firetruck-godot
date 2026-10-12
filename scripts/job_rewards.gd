@@ -9,8 +9,11 @@ var completed: Dictionary = {}
 var sound: AudioStreamPlayer
 var star_pool: Array[MeshInstance3D]=[]
 var free_stars: Array[MeshInstance3D]=[]
+var thanking_actor: Node3D
+var camera_interest: CameraPointOfInterest
 
 func _ready() -> void:
+	camera_interest=game.camera_framing.add(self,"ThankingNeighbour",Vector3.ZERO,Vector3(1.1,1.8,1.1),func(): return is_instance_valid(framing_actor()))
 	sound=AudioStreamPlayer.new()
 	sound.playback_type=AudioServer.PLAYBACK_TYPE_STREAM
 	sound.stream=_chime()
@@ -58,6 +61,18 @@ func celebrate(job: String, at: Vector3, speaker: String, words: String, animate
 
 func controls_locked() -> bool:
 	return not pending.is_empty() and pending[0].race==game.travel.in_race
+
+func framing_actor() -> Node3D:
+	if game.dialogue_active and game.dialogue_control.interrupting and game.dialogue_actor==thanking_actor: return thanking_actor
+	if controls_locked(): return pending[0].actor
+	return null
+
+func frame_camera() -> void:
+	var actor:=framing_actor()
+	if not is_instance_valid(actor): return
+	camera_interest.global_position=actor.global_position+Vector3.UP*1.4
+	# Completion can occur at hose range, beyond ordinary proximity framing.
+	camera_interest.engage(.1)
 
 func _begin_reward(reward: Dictionary) -> void:
 	reward.started=true
@@ -137,6 +152,7 @@ func _process(dt: float) -> void:
 	_pose_celebration(reward)
 	if reward.remaining>0 or game.dialogue_active: return
 	pending.pop_front()
+	thanking_actor=reward.actor
 	game.talk(reward.speaker+"  /  THANK YOU",reward.words,game.stage,true)
 	if reward.race:
 		game.travel.race.chatter_latches[ToyRaceTrack.NAMES.find(reward.speaker)]=true

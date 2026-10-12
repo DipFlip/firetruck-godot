@@ -42,15 +42,19 @@ func _ready() -> void:
 	var floor:=TownProps.box(self,Vector3(0,FLOOR_Y-.06,0),Vector3(8.8,.12,4.8),Color.WHITE,true)
 	floor.material_override=tiles
 	for side in [-1,1]:
-		var wall:=TownProps.box(self,Vector3(side*4.7,-.65,0),Vector3(.6,1.3,6),Color.WHITE,true)
+		# The west edge meets the sloping floor at lawn height, with no wall or
+		# raised coping across the truck's way out.
+		if side>0:
+			var end_wall:=TownProps.box(self,Vector3(side*4.7,-.65,0),Vector3(.6,1.3,6),Color.WHITE,true)
+			end_wall.material_override=tiles
+			TownProps.box(self,Vector3(side*4.7,.025,0),Vector3(.64,.10,6.1),Color("e6f1f3"),true)
+			TownProps.box(self,Vector3(side*4.395,-.17,0),Vector3(.02,.09,4.8),Color("427d9c"))
+		var wall:=TownProps.box(self,Vector3(0,-.65,side*2.7),Vector3(8.8,1.3,.6),Color.WHITE,true)
 		wall.material_override=tiles
-		wall=TownProps.box(self,Vector3(0,-.65,side*2.7),Vector3(8.8,1.3,.6),Color.WHITE,true)
-		wall.material_override=tiles
-		TownProps.box(self,Vector3(side*4.7,.025,0),Vector3(.64,.10,6.1),Color("e6f1f3"),true)
 		TownProps.box(self,Vector3(0,.025,side*2.7),Vector3(8.8,.10,.64),Color("e6f1f3"),true)
 		# Dark waterline tiles make the rising depth easy to judge.
-		TownProps.box(self,Vector3(side*4.395,-.17,0),Vector3(.02,.09,4.8),Color("427d9c"))
 		TownProps.box(self,Vector3(0,-.17,side*2.395),Vector3(8.8,.09,.02),Color("427d9c"))
+	_exit_slope(tiles)
 	TownProps.box(self,Vector3(0,FLOOR_Y+.007,0),Vector3(.42,.02,.42),Color("657f90"))
 	for i in 4: TownProps.box(self,Vector3(-.14+i*.095,FLOOR_Y+.020,0),Vector3(.025,.01,.3),Color("b5ced7"))
 	# Simple stainless pool ladder, with submerged steps visible as it fills.
@@ -64,6 +68,30 @@ func _ready() -> void:
 	material.shader=preload("res://shaders/basin_water.gdshader")
 	water.material_override=material
 	set_fill(0)
+
+func _exit_slope(tiles: Material) -> void:
+	var points:=PackedVector3Array()
+	for y in [FLOOR_Y-.12,0.0]:
+		for z in [-2.4,2.4]:
+			for x in [-4.4,-.25]:
+				points.append(Vector3(x,y if y<0 else (.025 if x< -4 else FLOOR_Y+.008),z))
+	var tool:=SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for face in [[4,5,7,6],[0,2,3,1],[0,1,5,4],[2,6,7,3],[0,4,6,2],[1,3,7,5]]:
+		for index in [face[0],face[1],face[2],face[0],face[2],face[3]]: tool.add_vertex(points[index])
+	tool.generate_normals()
+	var ramp:=MeshInstance3D.new()
+	ramp.name="WestExitSlope"
+	ramp.mesh=tool.commit()
+	ramp.material_override=tiles
+	add_child(ramp)
+	var body:=StaticBody3D.new()
+	ramp.add_child(body)
+	var collider:=CollisionShape3D.new()
+	var shape:=ConvexPolygonShape3D.new()
+	shape.points=points
+	collider.shape=shape
+	body.add_child(collider)
 
 func _ground_rect(x0: float,z0: float,x1: float,z1: float) -> void:
 	TownProps.collider(self,Vector3((x0+x1)*.5,-.5,(z0+z1)*.5)-position,Vector3(x1-x0,1,z1-z0))

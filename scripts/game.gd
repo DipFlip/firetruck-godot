@@ -352,6 +352,7 @@ func end_dialogue(keep_camera: bool=false) -> void:
 	if dialogue_active and dog_done and hud.speaker_key=="JUNE": sounds.play("woof",town.dog.global_position,.85,1.0)
 	dialogue_active=false
 	dialogue_actor=null
+	rewards.thanking_actor=null
 	dialogue_control.end()
 	if not keep_camera: _set_conversation_camera(false)
 	hud.dialogue_panel.hide()
@@ -683,6 +684,7 @@ func _process(dt: float) -> void:
 	if conversation_blend<.0001: conversation_blend=0.0
 	# Talkers tighten the lens without pulling the driving focus sideways.
 	# Only explicit mission scenery participates in positional framing.
+	rewards.frame_camera()
 	focus=camera_framing.focus(focus,rendered_truck_position,dt)
 	camera_focus=camera_focus.lerp(focus,1-exp(-4.5*dt))
 	camera_trauma=maxf(0,camera_trauma-dt*1.5)
@@ -783,7 +785,8 @@ func _conversation_pan_target() -> float:
 	var scene_top:=scene_rect.position.y-camera.v_offset*pixels_per_unit
 	var balloon_space:=76+hud.dialogue_panel.size.y+26-scene_top
 	var max_shift:=hud.size.y-22-(scene_rect.end.y-camera.v_offset*pixels_per_unit)
-	return maxf(0,minf(max_shift,balloon_space))/maxf(.01,pixels_per_unit)*conversation_blend
+	var speech_weight:=1.0 if dialogue_control.interrupting else conversation_blend
+	return maxf(0,minf(max_shift,balloon_space))/maxf(.01,pixels_per_unit)*speech_weight
 
 func return_to_main_menu() -> void:
 	if OS.has_feature("web"):

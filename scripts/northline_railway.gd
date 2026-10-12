@@ -307,7 +307,10 @@ func _physics_process(dt: float) -> void:
 				roof_hinge.rotation.z=0
 		else:
 			_update_route(dt)
-		var desired:=direction*3.6 if boarded and not offstage else 0.0
+		# Let Rowan finish thanking the player before departing. Otherwise a
+		# camera that keeps the speaker visible follows the train out of town.
+		var thanking: bool=game.rewards.framing_actor()==driver
+		var desired:=direction*3.6 if boarded and not offstage and not thanking else 0.0
 		engine.apply_central_force(Vector3((desired-engine.linear_velocity.x)*engine.mass*2.6,0,0))
 		puff_clock-=dt
 		if puff_clock<=0:

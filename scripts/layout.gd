@@ -11,8 +11,8 @@ const FIRE := Vector3(49,0,-19)
 const LEO := Vector3(46,0,-12)
 const DOG := Vector3(-47,0,-9)
 const JUNE := Vector3(-49,0,-7)
-const POOL := Vector3(22,0,58)
-const OLIVER := Vector3(10,0,57)
+const POOL := Vector3(22,0,63)
+const OLIVER := Vector3(10,0,62)
 
 # Deterministic planting for the editable baked town and future scene rebuilds.
 # Mixed grove proposals and open-lawn proposals avoid a circular boundary.
