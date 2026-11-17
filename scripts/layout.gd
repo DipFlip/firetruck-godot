@@ -13,6 +13,12 @@ const DOG := Vector3(-47,0,-9)
 const JUNE := Vector3(-49,0,-7)
 const POOL := Vector3(22,0,63)
 const OLIVER := Vector3(10,0,62)
+const OLD_BENCHES: Array[Vector3]=[Vector3(-10,0,21),Vector3(10,0,-27),Vector3(-23,0,-8)]
+const BENCHES: Array[Dictionary]=[
+	{"position":Vector3(-15.2,0,-9.8),"yaw":PI*.5},
+	{"position":Vector3(24.5,0,-6.9),"yaw":PI},
+	{"position":Vector3(23.5,0,29.0),"yaw":PI},
+]
 
 # Deterministic planting for the editable baked town and future scene rebuilds.
 # Mixed grove proposals and open-lawn proposals avoid a circular boundary.

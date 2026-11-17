@@ -200,6 +200,15 @@ static func house(parent: Node3D, pos: Vector3, color: Color, title: String, hei
 	model("res://assets/models/"+file+".glb",root)
 	collider(root,Vector3(0,2.5,0),Vector3(8,5,6))
 
+static func bench(parent: Node3D, pos: Vector3, yaw: float=0.0) -> Array[Node3D]:
+	var basis:=Basis(Vector3.UP,yaw)
+	var parts: Array[Node3D]=[]
+	parts.append(box(parent,pos+basis*Vector3(0,0.65,0),Vector3(2.8,0.2,0.7),Color("b88058")))
+	parts.append(box(parent,pos+basis*Vector3(0,1.1,0.3),Vector3(2.8,0.8,0.12),Color("b88058")))
+	for x in [-1,1]: parts.append(box(parent,pos+basis*Vector3(x,0.3,0),Vector3(0.15,0.6,0.5),Color("47616a")))
+	for part in parts: part.rotation.y=yaw
+	return parts
+
 static func person(parent: Node3D, pos: Vector3, shirt: Color, skin_tone: Color=Color.TRANSPARENT, hair_tone: Color=Color.TRANSPARENT) -> Node3D:
 	var p:=Node3D.new()
 	p.name="Neighbour"

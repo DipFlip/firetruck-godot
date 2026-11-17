@@ -41,8 +41,34 @@ func _ready() -> void:
 			head.shape=head_box
 			head.position=Vector3.UP*4.1
 			lamp.add_child(head)
-	for p in [Vector3(-10,0,21),Vector3(10,0,-27),Vector3(-23,0,-8)]:
-		add_prop("bench",p,_parts(game.town,p+Vector3.UP*.7,Vector3(1.45,.65,.5)),Vector3(2.8,1.3,.8),Vector3.UP*.65,1.1)
+	for p in TownLayout.OLD_BENCHES:
+		for part in _parts(game.town,p+Vector3.UP*.7,Vector3(1.45,.65,.5)): part.free()
+	for spec in TownLayout.BENCHES:
+		var p: Vector3=spec.position
+		var yaw:=float(spec.yaw)
+		var existing:=_parts(game.town,p+Vector3.UP*.7,Vector3(1.6,.65,1.6))
+		var art: Array=existing if not existing.is_empty() else TownProps.bench(self,p,yaw)
+		var bench:=BreakableProp.new()
+		bench.game=game
+		bench.kind="bench"
+		bench.name="Bench"
+		bench.radius=1.1
+		add_child(bench)
+		bench.global_position=p
+		bench.rotation.y=yaw
+		for part in art: part.reparent(bench)
+		var collision:=CollisionShape3D.new()
+		var box:=BoxShape3D.new()
+		box.size=Vector3(2.8,1.3,.8)
+		collision.shape=box
+		collision.position=Vector3.UP*.65
+		bench.add_child(collision)
+		bench.spawn_shape=box
+		bench.spawn_offset=Vector3.UP*.65
+		bench.center_of_mass_mode=RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
+		bench.center_of_mass=Vector3.UP*.65
+		bench.finish_setup()
+		_register(bench)
 	for p in game.town.hydrants:
 		# Replace the legacy baked pieces with the same reusable fixture scene
 		# used by every other map. Its script owns art, collider and water jet.

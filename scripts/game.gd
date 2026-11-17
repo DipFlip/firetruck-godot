@@ -788,6 +788,71 @@ func _conversation_pan_target() -> float:
 	var speech_weight:=1.0 if dialogue_control.interrupting else conversation_blend
 	return maxf(0,minf(max_shift,balloon_space))/maxf(.01,pixels_per_unit)*speech_weight
 
+func _with_settled_conversation_camera() -> Dictionary:
+	var saved_weights:=PackedFloat32Array()
+	var saved_engagements:=PackedFloat32Array()
+	for point in camera_framing.points:
+		saved_weights.append(point.weight if is_instance_valid(point) else 0.0)
+		saved_engagements.append(point.engagement_left if is_instance_valid(point) else 0.0)
+	var saved:={
+		"transform":camera.global_transform,
+		"size":camera.size,
+		"v_offset":camera.v_offset,
+		"blend":conversation_blend,
+		"subject":camera_subject,
+		"active":camera_framing.active.duplicate(),
+		"weights":saved_weights,
+		"engagements":saved_engagements,
+		"reward_pos":rewards.camera_interest.global_position if rewards and is_instance_valid(rewards.camera_interest) else Vector3.ZERO,
+	}
+	var truck_transform:=truck.get_global_transform_interpolated()
+	var truck_pos:=truck_transform.origin
+	var approached:=_approach_camera_subject(truck_pos)
+	if approached: camera_subject=approached
+	conversation_blend=1-smoothstep(TALK_FULL_RADIUS,TALK_RELEASE_RADIUS,truck_pos.distance_to(approached.global_position)) if approached else 0.0
+	if rewards: rewards.frame_camera()
+	camera_framing.active.clear()
+	var focus:=truck_pos
+	var total:=1.0
+	for point in camera_framing.points:
+		if not is_instance_valid(point): continue
+		var target:=0.0
+		if point.enabled and point.is_visible_in_tree() and (not point.active_when.is_valid() or point.active_when.call()):
+			target=1-smoothstep(point.full_radius,point.release_radius,truck_pos.distance_to(point.global_position))
+			if point.engagement_left>0: target=1.0
+		point.weight=target
+		if target<=0: continue
+		camera_framing.active.append(point)
+		var influence:=target*.65
+		focus+=point.global_position*influence
+		total+=influence
+	focus/=total
+	camera.global_position=focus+gameplay_camera_offset()
+	camera.look_at(focus)
+	camera.v_offset=0
+	for _step in 3:
+		var desired:=lerpf(25.8,_talk_camera_size(),conversation_blend)
+		camera.size=camera_framing.fit(camera,truck_transform,hud.size,desired)
+		camera.v_offset=_conversation_pan_target()
+	return saved
+
+func _restore_conversation_camera(saved: Dictionary) -> void:
+	camera.global_transform=saved.transform
+	camera.size=saved.size
+	camera.v_offset=saved.v_offset
+	conversation_blend=saved.blend
+	camera_subject=saved.subject
+	camera_framing.active.assign(saved.active)
+	var weights: PackedFloat32Array=saved.weights
+	var engagements: PackedFloat32Array=saved.engagements
+	for i in camera_framing.points.size():
+		var point:=camera_framing.points[i]
+		if not is_instance_valid(point): continue
+		point.weight=weights[i]
+		point.engagement_left=engagements[i]
+	if rewards and is_instance_valid(rewards.camera_interest):
+		rewards.camera_interest.global_position=saved.reward_pos
+
 func return_to_main_menu() -> void:
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.firetruckMainMenu()")

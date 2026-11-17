@@ -781,9 +781,12 @@ func _process(dt: float) -> void:
 func _update_walkers(dt: float) -> void:
 	for walker in walkers:
 		var actor: Node3D=walker.actor
-		var moving:=actor.global_position.distance_to(game.truck.global_position)>=4.5
+		var next_angle: float=walker.route_angle+dt*.35
+		var next_pos: Vector3=to_global(walker.start+Vector3(sin(next_angle)*3,0,cos(next_angle)*2))
+		var near_talker:=people.any(func(p: Node3D): return p.visible and next_pos.distance_to(p.global_position)<2.2)
+		var moving:=actor.global_position.distance_to(game.truck.global_position)>=4.5 and not near_talker
 		if moving:
-			walker.route_angle+=dt*.35
+			walker.route_angle=next_angle
 			walker.phase+=dt*6
 		var angle: float=walker.route_angle
 		var bob:=TownProps.pose_walk(actor,walker.legs,walker.phase,moving)

@@ -59,18 +59,20 @@ func _ready() -> void:
 	for x in range(-78,79,2):
 		if absf(x)<4.3 or absf(x-36)<4.3 or absf(x+36)<4.3: continue
 		TownProps.box(tracks,Vector3(x,.085,TRACK_Z),Vector3(.30,.09,2.7),Color("857461"))
-	var crossing_finishes: Array[ShaderMaterial]=[Playroom.wood_finish(Color("ad9474")),Playroom.wood_finish(Color("b69b79"))]
+	var crossing_slab:=BoxMesh.new()
+	crossing_slab.size=Vector3(8.6,.055,3.26)
+	var crossing_material:=TownProps.material(Color("9e9d87"))
 	for x in [-36,0,36]:
-		# Timber infill makes a level crossing while leaving both rails visible.
+		# Concrete level crossing matches the railway bed while leaving both rails clear.
 		var crossing:=Node3D.new()
 		crossing.name="RoadCrossing"+str(x)
 		tracks.add_child(crossing)
 		crossing.position=Vector3(x,0,TRACK_Z)
-		for plank in 18:
-			var deck:=TownProps.box(crossing,Vector3(-4.3+(plank+.5)*8.6/18,.105,0),Vector3(8.6/18-.025,.09,3.3),Color.WHITE)
-			deck.material_override=crossing_finishes[plank%2]
-			deck.set_meta("batch_static",true)
-		TownProps.batch_decorations(crossing)
+		var deck:=MeshInstance3D.new()
+		deck.mesh=crossing_slab
+		deck.material_override=crossing_material
+		deck.position=Vector3(0,.0575,0)
+		crossing.add_child(deck)
 		for side in [-1,1]:
 			var p:=Vector3(x+side*5,.0,TRACK_Z+3.0)
 			var art:=Node3D.new()

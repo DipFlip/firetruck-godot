@@ -284,10 +284,10 @@ func begin_dialogue(speaker: String, text: String) -> void:
 	text_clock=0
 	radio_idle=0
 	dialogue_layout_width=-1
-	if not dialogue_panel.visible:
-		bubble_position_ready=false
-		bubble_leaving=false
-		dialogue_panel.scale=Vector2.ONE
+	bubble_position_ready=false
+	bubble_slot=-1
+	bubble_leaving=false
+	dialogue_panel.scale=Vector2.ONE
 	_reflow_dialogue()
 	dialogue_panel.show()
 	dialogue_panel.modulate.a=0
@@ -414,22 +414,7 @@ func conversation_subject_rect() -> Rect2:
 	if interests.has_area(): rect=rect.merge(interests.grow(5))
 	return rect
 
-func _position_dialogue(dt: float = 0.0) -> void:
-	_reflow_dialogue()
-	_resize_dialogue()
-	if dialogue_panel.phone_mode:
-		bubble_leaving=false
-		dialogue_panel.scale=Vector2.ONE
-		dialogue_panel.pivot_offset=Vector2.ZERO
-		var phone_position:=size-dialogue_panel.size-Vector2(26,120)
-		if touch_portrait: phone_position=Vector2((size.x-dialogue_panel.size.x)*.5,size.y-dialogue_panel.size.y-86)
-		elif touch_mode: phone_position=Vector2(size.x-dialogue_panel.size.x-18,80)
-		_move_dialogue(phone_position,-1,dt)
-		dialogue_panel.tail_tip=_phone_center()-Vector2(0,27)-dialogue_panel.position
-		dialogue_panel.queue_redraw()
-		return
-	var actor: Node3D=game.dialogue_actor if is_instance_valid(game.dialogue_actor) else game.truck
-	var head: Vector3=actor.global_position+Vector3.UP*(2.85 if game.dialogue_actor else 3.4)
+func _solve_dialogue_slot(head: Vector3) -> Dictionary:
 	var screen: Vector2=game.camera.unproject_position(head)
 	var card:=dialogue_panel.size
 	var view:=get_viewport_rect().size
@@ -464,27 +449,74 @@ func _position_dialogue(dt: float = 0.0) -> void:
 			best=candidate
 			slot=i
 	# Hysteresis stops tiny changes in the camera from swapping the balloon's edge.
-	if bubble_slot>=0 and bubble_slot<candidates.size():
+	if bubble_position_ready and bubble_slot>=0 and bubble_slot<candidates.size():
 		var existing:=candidates[bubble_slot].clamp(low,high)
 		var rect:=Rect2(existing,card)
 		if not rect.intersects(truck_rect) and not rect.intersects(character_rect) and existing.distance_to(preferred)<best.distance_to(preferred)+60:
 			best=existing
 			slot=bubble_slot
-	var departure:=0.0 if game.dialogue_control.interrupting else SpeechFrame.departure_blend(screen,view)
+	return {"position":best,"slot":slot,"screen":screen}
+
+func _position_dialogue(dt: float = 0.0) -> void:
+	_reflow_dialogue()
+	_resize_dialogue()
+	if dialogue_panel.phone_mode:
+		bubble_leaving=false
+		dialogue_panel.scale=Vector2.ONE
+		dialogue_panel.pivot_offset=Vector2.ZERO
+		var phone_position:=size-dialogue_panel.size-Vector2(26,120)
+		if touch_portrait: phone_position=Vector2((size.x-dialogue_panel.size.x)*.5,size.y-dialogue_panel.size.y-86)
+		elif touch_mode: phone_position=Vector2(size.x-dialogue_panel.size.x-18,80)
+		_move_dialogue(phone_position,-1,dt)
+		dialogue_panel.tail_tip=_phone_center()-Vector2(0,27)-dialogue_panel.position
+		dialogue_panel.queue_redraw()
+		return
+	var actor: Node3D=game.dialogue_actor if is_instance_valid(game.dialogue_actor) else game.truck
+	var head: Vector3=actor.global_position+Vector3.UP*(2.85 if game.dialogue_actor else 3.4)
+	var live_screen: Vector2=game.camera.unproject_position(head)
+	var card:=dialogue_panel.size
+	var view:=get_viewport_rect().size
+	var awards: RaceAwards=game.travel.race.challenge.awards
+	var use_settled: bool=game.is_processing() and is_instance_valid(game.dialogue_actor) and not awards.active
+	var live_mix:=1.0
+	if use_settled:
+		var separation: float=game.truck.get_global_transform_interpolated().origin.distance_to(actor.global_position)
+		live_mix=0.0 if game.dialogue_control.interrupting else smoothstep(game.TALK_FULL_RADIUS,16.0,separation)
+	var placement: Dictionary
+	if live_mix<=0.0:
+		var saved: Dictionary=game._with_settled_conversation_camera()
+		placement=_solve_dialogue_slot(head)
+		game._restore_conversation_camera(saved)
+	elif live_mix>=1.0:
+		placement=_solve_dialogue_slot(head)
+	else:
+		var live_placement:=_solve_dialogue_slot(head)
+		var saved: Dictionary=game._with_settled_conversation_camera()
+		var settled_placement:=_solve_dialogue_slot(head)
+		game._restore_conversation_camera(saved)
+		placement={
+			"position":(settled_placement.position as Vector2).lerp(live_placement.position,live_mix),
+			"slot":live_placement.slot if live_mix>.5 else settled_placement.slot,
+			"screen":(settled_placement.screen as Vector2).lerp(live_placement.screen,live_mix),
+		}
+	var best: Vector2=placement.position
+	var slot: int=placement.slot
+	var anchor_screen: Vector2=placement.screen
+	var departure:=0.0 if game.dialogue_control.interrupting else SpeechFrame.departure_blend(anchor_screen,view)
 	if departure>.001:
 		if not bubble_leaving:
-			bubble_exit_offset=(dialogue_panel.position if bubble_position_ready else best)-screen
+			bubble_exit_offset=(dialogue_panel.position if bubble_position_ready else best)-live_screen
 			bubble_leaving=true
 		# Retain the bubble's relation to its speaker as both leave the view.
 		# Re-running edge placement here would pin it on-screen or swap sides.
-		best=best.lerp(screen+bubble_exit_offset,departure)
+		best=best.lerp(live_screen+bubble_exit_offset,departure)
 		slot=bubble_slot if bubble_position_ready else slot
 	else: bubble_leaving=false
 	var target_scale:=lerpf(1,.45,departure)
 	dialogue_panel.pivot_offset=card*.5
-	dialogue_panel.scale=Vector2.ONE*lerpf(dialogue_panel.scale.x,target_scale,1-exp(-9*dt))
+	dialogue_panel.scale=Vector2.ONE*(target_scale if dt<=0 else lerpf(dialogue_panel.scale.x,target_scale,1-exp(-9*dt)))
 	_move_dialogue(best,slot,dt)
-	dialogue_panel.tail_tip=dialogue_panel.get_global_transform().affine_inverse()*screen
+	dialogue_panel.tail_tip=dialogue_panel.get_global_transform().affine_inverse()*live_screen
 	dialogue_panel.queue_redraw()
 
 func dialogue_has_left_view() -> bool:

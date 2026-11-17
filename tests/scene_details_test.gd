@@ -30,6 +30,21 @@ func run() -> void:
 			var hit:=game.get_world_3d().direct_space_state.intersect_ray(query)
 			hydrants_on_pavement=hydrants_on_pavement and not hit.is_empty() and hit.position.y>=.099
 	check(hydrants_on_pavement,"Each hydrant's full footprint is supported by the sidewalk")
+	var benches: Array=game.interactions.props.filter(func(p): return p.kind=="bench")
+	var planters: Array=game.interactions.props.filter(func(p): return p.kind=="planter")
+	var benches_clear:=benches.size()==3
+	for bench in benches:
+		benches_clear=benches_clear and bench.global_position.distance_to(game.atmosphere.fountain.global_position)>6.0
+		for planter in planters:
+			benches_clear=benches_clear and bench.global_position.distance_to(planter.global_position)>3.5
+	check(benches_clear,"All three benches stand clear of the fountain rim and street planters")
+	var crossings_concrete:=true
+	for road in [-36,0,36]:
+		var crossing: Node3D=game.railway.get_node("TownRailTracks/RoadCrossing"+str(road))
+		var deck: MeshInstance3D=crossing.get_child(0)
+		var mat: StandardMaterial3D=deck.material_override
+		crossings_concrete=crossings_concrete and mat!=null and mat.albedo_color.is_equal_approx(Color("9e9d87"))
+	check(crossings_concrete,"Street railway crossings use the shared concrete trackbed finish")
 	check(game.ramps.ramps.is_empty(),"Maple Bay has no experimental jump wedges")
 	game.intro.start()
 	check(game.town.fire_amount==0 and game.town.flames.all(func(flame): return not flame.is_visible_in_tree()),"Barbecue flames are absent while the mat and toys are introduced")

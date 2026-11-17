@@ -113,10 +113,8 @@ func _ready() -> void:
 		for z in [-28,10,29]:
 			TownProps.cylinder(self,Vector3(x,2.1,z),0.07,4.2,Color("47616a"))
 			TownProps.box(self,Vector3(x,4.1,z),Vector3(0.7,0.18,0.6),Color("fff0bf"))
-	for pos in [Vector3(-10,0,21),Vector3(10,0,-27),Vector3(-23,0,-8)]:
-		TownProps.box(self,pos+Vector3(0,0.65,0),Vector3(2.8,0.2,0.7),Color("b88058"))
-		TownProps.box(self,pos+Vector3(0,1.1,0.3),Vector3(2.8,0.8,0.12),Color("b88058"))
-		for x in [-1,1]: TownProps.box(self,pos+Vector3(x,0.3,0),Vector3(0.15,0.6,0.5),Color("47616a"))
+	for spec in TownLayout.BENCHES:
+		TownProps.bench(self,spec.position,float(spec.yaw))
 
 	# Garden islands, fences, and flower beds add scale without blocking routes.
 	for garden in [Vector3(-20,0,24),Vector3(24,0,13),Vector3(-22,0,-28),Vector3(45,0,28)]:

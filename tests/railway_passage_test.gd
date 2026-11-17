@@ -66,8 +66,8 @@ func run() -> void:
 		var crossing: Node3D=tracks.get_node("RoadCrossing"+str(road))
 		var bounds:=rendered_bounds(crossing)
 		if DisplayServer.get_name()!="headless":
-			check(bounds.size.x>8.5 and bounds.size.z>3.2 and bounds.end.y<.16,"Timber crossing spans the street below the rail tops: "+str(road))
-		else: check(crossing.get_child_count()>0,"Timber crossing exists at street "+str(road))
+			check(bounds.size.x>8.5 and bounds.size.z>3.2 and bounds.end.y<.16,"Concrete crossing spans the street below the rail tops: "+str(road))
+		else: check(crossing.get_child_count()>0,"Concrete crossing exists at street "+str(road))
 	check(rail.engine.position.x==0 and not game.travel.north_exit_clear(),"The stalled train starts across the Motorway road")
 	var passage: Node3D=game.playroom.get_node("MotorwayPassage")
 	check(passage.get_meta("boundary_blocks",false) and rendered_bounds(passage).size.z>15,"Turned timber borders line the exit passage up to the track")

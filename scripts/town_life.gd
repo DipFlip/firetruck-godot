@@ -22,7 +22,7 @@ func _ready() -> void:
 		[Vector3(-5,.16,-9),Vector3(-5,.16,-31),Vector3(-31,.16,-31),Vector3(-31,.16,-5),Vector3(-5,.16,-5)],
 		[Vector3(41,.16,-8),Vector3(41,.16,-31),Vector3(58,.16,-31),Vector3(58,.16,-5),Vector3(41,.16,-5)],
 		[Vector3(-5,.16,24),Vector3(-5,.16,5),Vector3(-31,.16,5),Vector3(-31,.16,31),Vector3(-5,.16,31)],
-		[Vector3(5,.16,43),Vector3(5,.16,65),Vector3(30,.16,65),Vector3(30,.16,41),Vector3(5,.16,41)],
+		[Vector3(5,.16,43),Vector3(5,.16,53.5),Vector3(30,.16,53.5),Vector3(30,.16,41),Vector3(5,.16,41)],
 		[Vector3(-43,.16,-9),Vector3(-43,.16,-31),Vector3(-59,.16,-31),Vector3(-59,.16,-5),Vector3(-43,.16,-5)]]
 	for i in paths.size():
 		var person:=TownProps.person(self,paths[i][0],[Color("819a83"),Color("d4a17a"),Color("8d9db6"),Color("c59099"),Color("dcbe77"),Color("9b9b7a")][i])
@@ -258,10 +258,13 @@ func _physics_process(dt: float) -> void:
 			person.get_node("ArmRight").rotation.z=.85*sin(walker.hop*PI)
 			_keep_clear(person)
 			continue
-		var stop: bool=person.global_position.distance_to(game.truck.global_position)<4.5 or walker.cooldown>.3
+		var step_dir:=_steer_around_people(person.global_position,delta.normalized())
+		var speed: float=walker.speed
+		var next_spot: Vector3=person.global_position+step_dir*speed*dt
+		var stop: bool=person.global_position.distance_to(game.truck.global_position)<4.5 or next_spot.distance_to(game.truck.global_position)<4.5 or walker.cooldown>.3 or step_dir.length_squared()<.01
 		if not stop:
-			person.position+=delta.normalized()*walker.speed*dt
-			person.rotation.y=lerp_angle(person.rotation.y,atan2(-delta.x,-delta.z),1-exp(-6*dt))
+			person.position+=step_dir*speed*dt
+			person.rotation.y=lerp_angle(person.rotation.y,atan2(-step_dir.x,-step_dir.z),1-exp(-6*dt))
 			walker.phase+=dt*6
 		person.position.y=.16+TownProps.pose_walk(person,walker.legs,walker.phase,not stop)
 		_keep_clear(person)
@@ -529,7 +532,66 @@ func _keep_clear(person: Node3D) -> void:
 		if distance>=1.7: continue
 		if distance<.01: away=Vector3(-axis.z,0,axis.x)
 		person.global_position+=away.normalized()*(1.7-distance)
+	_keep_people_clear(person)
 	_keep_pool_clear(person)
+
+func _protected_characters() -> Array[Dictionary]:
+	var result: Array[Dictionary]=[]
+	for actor in game.town.people:
+		if is_instance_valid(actor) and actor.is_visible_in_tree():
+			result.append({"point":actor.global_position,"radius":2.3 if game.dialogue_active and game.dialogue_actor==actor else 1.65})
+	if game.railway and not game.railway.boarded and game.railway.boarding_time<=0 and is_instance_valid(game.railway.driver) and game.railway.driver.is_visible_in_tree():
+		result.append({"point":game.railway.driver.global_position,"radius":2.3 if game.dialogue_active and game.railway.driver==game.dialogue_actor else 1.65})
+	if is_instance_valid(game.town.dog) and game.town.dog.is_visible_in_tree():
+		result.append({"point":game.town.dog.global_position,"radius":1.5})
+	return result
+
+func _steer_around_people(point: Vector3, desired: Vector3) -> Vector3:
+	var steered:=desired
+	for entry in _protected_characters():
+		var obs: Vector3=entry.point
+		var radius: float=entry.radius
+		var to_obs:=Vector3(obs.x-point.x,0,obs.z-point.z)
+		var dist:=to_obs.length()
+		var lookahead:=radius+1.0
+		if dist>=lookahead: continue
+		var away:=-to_obs/maxf(.001,dist)
+		if steered.dot(-away)<=-.15 and dist>=radius: continue
+		var tangent_a:=Vector3(-away.z,0,away.x)
+		var tangent_b:=-tangent_a
+		var a_clear:=_pool_safe(point+tangent_a*1.8) and (point+tangent_a*1.8).distance_to(game.truck.global_position)>=4.5
+		var b_clear:=_pool_safe(point+tangent_b*1.8) and (point+tangent_b*1.8).distance_to(game.truck.global_position)>=4.5
+		var tangent:=tangent_a if tangent_a.dot(desired)>=tangent_b.dot(desired) else tangent_b
+		if a_clear!=b_clear: tangent=tangent_a if a_clear else tangent_b
+		elif not a_clear and not b_clear and dist<radius+.35: return Vector3.ZERO
+		var detour:=(tangent+away*maxf(0,(radius+.3-dist)/radius)).normalized()
+		steered=steered.lerp(detour,1-smoothstep(radius,lookahead,dist)).normalized()
+	return steered
+
+func _keep_people_clear(person: Node3D) -> void:
+	for entry in _protected_characters():
+		var obs: Vector3=entry.point
+		var radius: float=entry.radius
+		var away:=Vector3(person.global_position.x-obs.x,0,person.global_position.z-obs.z)
+		var dist:=away.length()
+		if dist>=radius: continue
+		if dist<.01:
+			away=person.global_position-game.truck.global_position
+			away.y=0
+			away=away.normalized() if away.length()>.01 else Vector3.RIGHT
+		else: away/=dist
+		person.global_position+=away*(radius-dist)
+
+func _dodge_clear_of_people(from: Vector3, to: Vector3) -> bool:
+	var segment:=Vector3(to.x-from.x,0,to.z-from.z)
+	var length_sq:=maxf(.001,segment.length_squared())
+	for entry in _protected_characters():
+		var obs: Vector3=entry.point
+		var radius: float=entry.radius+.2
+		var offset:=Vector3(obs.x-from.x,0,obs.z-from.z)
+		var t:=clampf(offset.dot(segment)/length_sq,0,1)
+		if (offset-segment*t).length()<radius: return false
+	return true
 
 func _pool_safe(point: Vector3) -> bool:
 	var delta:=point-TownLayout.POOL
@@ -559,7 +621,7 @@ func _begin_dodge(walker: Dictionary, danger: Dictionary) -> void:
 	for direction in [side,-side,(side-travel*.6).normalized(),(-side-travel*.6).normalized()]:
 		var destination: Vector3=person.position+direction*3.4
 		destination.y=.16
-		if not _pool_safe(destination): continue
+		if not _pool_safe(destination) or not _dodge_clear_of_people(person.global_position,to_global(destination)): continue
 		var query:=PhysicsRayQueryParameters3D.create(person.position+Vector3.UP*.9,destination+Vector3.UP*.9,17,[game.truck.get_rid()])
 		if get_world_3d().direct_space_state.intersect_ray(query): continue
 		var floor_query:=PhysicsRayQueryParameters3D.create(destination+Vector3.UP,destination+Vector3.DOWN*.3,1)

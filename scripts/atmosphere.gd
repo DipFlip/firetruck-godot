@@ -72,13 +72,20 @@ func _ready() -> void:
 	var water:=ShaderMaterial.new()
 	water.shader=preload("res://shaders/pool.gdshader")
 	town.pool_water.material_override=water
-	# Footpaths and hedges lead the eye through each front garden.
-	for garden in [Vector3(18,0,19),Vector3(-19,0,-20),Vector3(19,0,-20),Vector3(-48,0,18),Vector3(49,0,18),Vector3(49,0,-25),Vector3(-49,0,-22),Vector3(18,0,49),Vector3(-19,0,49)]:
-		for row in range(5):
-			for col in range(2):
-				# Bend Rose Cottage's path beside Oliver instead of over the pool.
-				var bend: float=-maxf(0,row-1)*.75 if garden==Vector3(18,0,49) else 0.0
-				TownProps.box(self,garden+Vector3(-0.56+col*1.12+bend,0.105,4.3+row*.88),Vector3(1.06,.1,.81),Color("c9c8bb")).set_meta("batch_static",true)
+	# Footpaths and hedges lead from every front door all the way to a sidewalk.
+	var walks: Dictionary={
+		Vector3(18,0,19):[Vector3(18,0,23.0),Vector3(18,0,26.5),Vector3(18,0,30.0)],
+		Vector3(-19,0,-20):[Vector3(-19,0,-16.1),Vector3(-18.8,0,-11.0),Vector3(-17.4,0,-6.0)],
+		Vector3(19,0,-20):[Vector3(19,0,-16.1),Vector3(19.1,0,-11.0),Vector3(19.5,0,-6.0)],
+		Vector3(-48,0,18):[Vector3(-48,0,21.9),Vector3(-47.6,0,26.0),Vector3(-45.2,0,30.0)],
+		Vector3(49,0,18):[Vector3(49,0,21.9),Vector3(49.4,0,26.0),Vector3(51.6,0,30.0)],
+		Vector3(49,0,-25):[Vector3(49,0,-21.1),Vector3(49,0,-13.5),Vector3(49.5,0,-6.0)],
+		Vector3(-49,0,-22):[Vector3(-49,0,-18.1),Vector3(-49.3,0,-12.0),Vector3(-51.0,0,-6.0)],
+		Vector3(18,0,49):[Vector3(18,0,52.9),Vector3(18,0,57.2),Vector3(15.2,0,57.6),Vector3(6.0,0,57.6)],
+		Vector3(-19,0,49):[Vector3(-19,0,52.9),Vector3(-19,0,57.5),Vector3(-16.2,0,58.0),Vector3(-6.0,0,58.0)],
+	}
+	for garden in walks:
+		_garden_walk(walks[garden])
 		for side in [-1,1]:
 			for n in range(5):
 				var p: Vector3=garden+Vector3(side*(2.7+n*.65),0,5.8)
@@ -114,9 +121,10 @@ func _ready() -> void:
 	var moving: Array[Node3D]=[]
 	moving.append_array(fountain_drops)
 	TownProps.merge_fixed_geometry(fountain,moving,"park_fountain")
-	# A station forecourt, hose practice markings, and little street props.
-	for n in range(5):
-		TownProps.box(self,Vector3(-14+n*1.7,.11,19.0),Vector3(1.55,.1,2.4),Color("bcb6a0"))
+	# A station forecourt apron and path out to the south sidewalk.
+	for n in [-1,0,1]:
+		TownProps.box(self,Vector3(-15.0+n*1.75,.075,17.7),Vector3(1.65,.1,2.3),Color("bcb6a0")).set_meta("batch_static",true)
+	_garden_walk([Vector3(-14.2,0,18.95),Vector3(-13.9,0,24.5),Vector3(-13.6,0,30.0)])
 	for p in [Vector3(8,0,10),Vector3(-8,0,-15),Vector3(29,0,23),Vector3(9,0,-26)]:
 		TownProps.cylinder(self,p+Vector3.UP*.42,.46,.84,Color("b48868"))
 		TownProps.ball(self,p+Vector3.UP*.99,Vector3(1.1,1.1,1.1),Color("779569"))
@@ -127,7 +135,8 @@ func _ready() -> void:
 			for side in [-1,1]:
 				var p: float=side*n*4.0
 				if absf(p)+.75>ROAD_REACH-.5: continue
-				TownProps.box(self,Vector3(line,0.075,p),Vector3(0.13,0.02,1.5),Color("f4d898")).set_meta("batch_static",true)
+				if absf(p-NorthlineRailway.TRACK_Z)>2.8:
+					TownProps.box(self,Vector3(line,0.075,p),Vector3(0.13,0.02,1.5),Color("f4d898")).set_meta("batch_static",true)
 				TownProps.box(self,Vector3(p,0.08,line),Vector3(1.5,0.02,0.13),Color("f4d898")).set_meta("batch_static",true)
 	fire=ToyFire.new()
 	fire.name="BarbecueFire"
@@ -144,6 +153,44 @@ func _ready() -> void:
 	smoke=fire.smoke
 	embers=fire.embers
 	fire_light=fire.fire_light
+
+func _garden_walk(control_points: Array) -> void:
+	var samples:=PackedVector3Array()
+	if control_points.size()==3:
+		var a: Vector3=control_points[0]
+		var b: Vector3=control_points[1]
+		var c: Vector3=control_points[2]
+		for i in 49:
+			var t:=float(i)/48.0
+			samples.append(a.lerp(b,t).lerp(b.lerp(c,t),t))
+	else:
+		var p0: Vector3=control_points[0]
+		var p1: Vector3=control_points[1]
+		var p2: Vector3=control_points[2]
+		var p3: Vector3=control_points[3]
+		for i in 65:
+			var t:=float(i)/64.0
+			samples.append(p0.bezier_interpolate(p1,p2,p3,t))
+	var lengths:=PackedFloat32Array([0.0])
+	for i in range(1,samples.size()):
+		lengths.append(lengths[i-1]+samples[i].distance_to(samples[i-1]))
+	var total:=lengths[lengths.size()-1]
+	var start_s:=0.38
+	var end_s:=total-0.36
+	var steps:=maxi(2,roundi((end_s-start_s)/.88))
+	for row in steps+1:
+		var target_s:=lerpf(start_s,end_s,float(row)/steps)
+		var seg:=0
+		while seg<lengths.size()-2 and lengths[seg+1]<target_s: seg+=1
+		var u:=(target_s-lengths[seg])/maxf(.0001,lengths[seg+1]-lengths[seg])
+		var center:=samples[seg].lerp(samples[seg+1],u)
+		var tangent:=(samples[mini(samples.size()-1,seg+1)]-samples[maxi(0,seg)]).normalized()
+		var right:=Vector3(tangent.z,0,-tangent.x)
+		var yaw:=atan2(tangent.x,tangent.z)
+		for side in [-1,1]:
+			var stone:=TownProps.box(self,center+right*(side*.56)+Vector3.UP*.075,Vector3(1.06,.1,.81),Color("c9c8bb"))
+			stone.rotation.y=yaw
+			stone.set_meta("batch_static",true)
 
 func _flower(p: Vector3, color: Color) -> void:
 	var parts: Array[MeshInstance3D]=[]

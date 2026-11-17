@@ -140,6 +140,36 @@ func run() -> void:
 		for car in game.life.cars: car.node.freeze=true
 	check(washed.honk_count==1 and game.truck.water<99,"Actual hose droplets collide with a car and trigger its wash reaction")
 	game.truck.automated_spray=false
+	# Town pedestrians steer around talkers and never dodge onto an active speaker.
+	var june: Node3D=game.town.people[2]
+	game.truck.position=june.position+Vector3(0,1,-6)
+	game.truck.reset_physics_interpolation()
+	game.talk("JUNE","Thanks for stopping by!",4,true)
+	var june_walker: Dictionary=game.life.walkers[5]
+	june_walker.node.position=Vector3(-53,.16,-7)
+	june_walker.next=4
+	june_walker.hop=1.0
+	june_walker.cooldown=0.0
+	var closest_to_talker:=INF
+	for i in 450:
+		game.life._physics_process(1.0/60)
+		closest_to_talker=minf(closest_to_talker,june_walker.node.global_position.distance_to(june.global_position))
+	check(closest_to_talker>=2.25 and june_walker.node.position.x>-46,"A displaced town walker detours around the active talker instead of walking through them")
+	june_walker.node.position=june.position+Vector3(0,.16,2.4)
+	june_walker.hop=1.0
+	june_walker.cooldown=0.0
+	game.life._begin_dodge(june_walker,{"vehicle":game.truck,"velocity":Vector3(0,0,-8),"offset":Vector3(0,0,-2)})
+	for i in 35:
+		game.life._physics_process(1.0/60)
+		closest_to_talker=minf(closest_to_talker,june_walker.node.global_position.distance_to(june.global_position))
+	check(closest_to_talker>=2.25,"Vehicle dodges never hop a bystander into the NPC being spoken to")
+	game.end_dialogue()
+	var south_walker: Dictionary=game.life.walkers[4]
+	south_walker.node.position=south_walker.path[0]
+	south_walker.next=1
+	south_walker.hop=1.0
+	for i in 2400: game.life._physics_process(1.0/60)
+	check(south_walker.next!=2 or south_walker.node.position.x>20,"South-block walker circulates cleanly past the relocated pool and Oliver")
 	game._water_hit(TownLayout.FIRE+Vector3.UP*1.8,20)
 	game._water_hit(TownLayout.DOG+Vector3.UP*.7,20)
 	game._water_hit(TownLayout.POOL+Vector3.UP*game.town.pool_water.position.y,20)

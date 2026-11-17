@@ -23,10 +23,12 @@ func run() -> void:
 	game.truck.position=actor.position+Vector3(0,1,6)
 	game.truck.reset_physics_interpolation()
 	await frames(20)
-	game.talk("MAYA","Oh, thank goodness you're here! Pippin has decided he's a bird. Could you help him down from that tree?",1)
-	await frames(180)
 	var hud: FireHUD=game.hud
 	var panel: SpeechFrame=hud.dialogue_panel
+	game.talk("MAYA","Oh, thank goodness you're here! Pippin has decided he's a bird. Could you help him down from that tree?",1)
+	var popup_at:=panel.position
+	await frames(180)
+	check(panel.position.distance_to(popup_at)<2 and hud.get_viewport_rect().encloses(Rect2(popup_at,panel.size)),"The balloon pops up immediately at its settled spot instead of animating across the screen")
 	var head: Vector2=game.camera.unproject_position(actor.global_position+Vector3.UP*2.85)
 	check(panel.position.y+panel.size.y<head.y and not Rect2(panel.position,panel.size).intersects(hud.conversation_subject_rect()),"The balloon appears above Maya and leaves the tree pet visible")
 	check(not Rect2(panel.position,panel.size).intersects(hud.truck_screen_rect()),"The above-head balloon leaves the complete truck visible")
@@ -62,6 +64,17 @@ func run() -> void:
 		max_exit_size=maxf(max_exit_size,game.camera.size)
 		max_zoom_step=maxf(max_zoom_step,absf(game.camera.size-previous_size))
 	check(max_exit_size<=maxf(25.8,exit_size)+.25 and max_zoom_step<.8,"Ending Maya’s conversation eases back to driving without a runaway zoom")
+	game.talk("MAYA","Come visit again soon!",1,false)
+	await frames(5)
+	game.truck.position=game.town.people[1].position+Vector3(0,1,6)
+	game.truck.reset_physics_interpolation()
+	await frames(25)
+	game._talk_to_npc(1,true)
+	var leo_popup:=panel.position
+	check(hud.get_viewport_rect().encloses(panel.get_global_rect()) and panel.scale.is_equal_approx(Vector2.ONE),"Talking to a new NPC while an earlier bubble is off-screen pops up full-size in place")
+	await frames(90)
+	check(panel.position.distance_to(leo_popup)<2,"New NPC dialogue stays where it popped up while the camera finishes framing")
+	game.end_dialogue()
 	root.size=Vector2i(390,564)
 	hud.touch_mode=true
 	hud.touch_portrait=true
