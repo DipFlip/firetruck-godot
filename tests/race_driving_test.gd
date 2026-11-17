@@ -49,12 +49,15 @@ func run() -> void:
 	game.truck.linear_velocity=Vector3.ZERO
 	game.truck.reset_physics_interpolation()
 	game.travel.race.previous=Vector2(-4,-54)
+	# Laps are only timed after Piper's time-trial countdown from the grid.
+	game.travel.race.challenge.offer_trial()
+	game.travel.race.challenge.accept()
 	for i in 5200:
 		await physics_frame
 		await process_frame
 		var local: Vector3=game.truck.global_position-ToyRaceTrack.ORIGIN
 		highest=maxf(highest,local.y)
-		if i>30:
+		if i>30 and game.travel.race.challenge.elapsed>.5:
 			var surface:=RaceCourse.surface_at(local)
 			surface_error=maxf(surface_error,absf(local.y-surface.height-.8))
 			var gradient: Vector2=surface.gradient

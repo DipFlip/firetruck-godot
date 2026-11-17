@@ -6,7 +6,8 @@ const SPAWN:=Vector3(0,.855,-73)
 const WEST_STAND:=Vector3(-52,0,15)
 const BROADCAST_POINT:=Vector3(-39,0,14)
 const LAP_LIMIT:=RaceCourse.HALF_WIDTH*3.0 # One full road width of grass beyond either edge.
-const SAVE_PATH:="user://race_record_v2.cfg"
+# Times run from the grid's GO, so flying-start laps from v2 are kept apart.
+const SAVE_PATH:="user://race_record_v3.cfg"
 static var GATES: Array[Vector2]:
 	get:
 		var result: Array[Vector2]=[]
@@ -57,7 +58,8 @@ const BRIDGE_RAIL_OFFSET:=8.15
 const BRIDGE_RAIL_HALF_THICKNESS:=.12
 const BRIDGE_RAIL_BOTTOM:=.62
 const BRIDGE_RAIL_TOP:=.82
-const NAMES: Array[String]=["KIT","SAMI","NORA","QUINN"]
+const NAMES: Array[String]=["KIT","SAMI","NORA","QUINN","PIPER"]
+const TIMEKEEPER_POINT:=Vector3(10,0,-64)
 const HYDRANT_POINT:=Vector3(-12,0,-68)
 
 func _ready() -> void:
@@ -244,7 +246,7 @@ func _physics_process(dt: float) -> void:
 		return
 	var p:=Vector2(game.truck.global_position.x-ORIGIN.x,game.truck.global_position.z)
 	if running and track_distance(p)>LAP_LIMIT:
-		if challenge.active: challenge.show_result("You left the course. Let's try again!\nCome back anytime and challenge me again!")
+		if challenge.active: challenge.left_course()
 		running=false
 		checkpoint=0
 		checkpoint_flag.hide()
@@ -254,7 +256,8 @@ func _physics_process(dt: float) -> void:
 		if challenge.result_open: return
 	if running: lap_time+=dt
 	var next:=checkpoint if running else 0
-	if crosses_pose(Vector3(previous.x,previous_height,previous.y),game.truck.global_position-ORIGIN,next):
+	# Only a race or time trial started from the grid is timed.
+	if challenge.active and crosses_pose(Vector3(previous.x,previous_height,previous.y),game.truck.global_position-ORIGIN,next):
 		if not running:
 			running=true
 			lap_time=0
@@ -272,8 +275,8 @@ func _physics_process(dt: float) -> void:
 	if game.refill_hose.active: game.truck.water=minf(game.truck.tank_capacity,game.truck.water+25*dt)
 	_update_pond(dt)
 	# The clock follows every 60 Hz race tick; layout does not need that rate.
-	timer_label.text=("RACE  "+format_time(challenge.elapsed)+"  ·  "+("QUINN FINISHED" if challenge.rival_finish>=0 else "CHASE QUINN!") if challenge.active else "LAP  "+format_time(lap_time)) if running or challenge.active else ""
-	timer_label.visible=(running or challenge.active) and not game.dialogue_active
+	timer_label.text=("TIME TRIAL  "+format_time(challenge.elapsed) if challenge.solo else "RACE  "+format_time(challenge.elapsed)+"  ·  "+("QUINN FINISHED" if challenge.rival_finish>=0 else "CHASE QUINN!")) if challenge.active else ""
+	timer_label.visible=challenge.active and not game.dialogue_active
 	status_clock+=dt
 	if status_clock>.1:
 		status_clock=0
@@ -284,22 +287,16 @@ func _physics_process(dt: float) -> void:
 		timer_label.size=Vector2(game.hud.size.x-24,36)
 
 func _complete_lap() -> void:
-	last_time=lap_time
-	if best_time<=0 or lap_time<best_time:
-		best_time=lap_time
+	# Both race and trial times run from GO, matching the on-screen clock.
+	last_time=challenge.elapsed
+	var record:=best_time<=0 or last_time<best_time
+	if record:
+		best_time=last_time
 		var saved:=ConfigFile.new()
 		saved.set_value("race","best_seconds",best_time)
-		var error:=saved.save(SAVE_PATH)
-		if error!=OK: game.toast("Lap complete: "+format_time(last_time)+" · record could not be saved")
-		elif not challenge.active: game.toast("Lap complete: "+format_time(last_time))
-	elif not challenge.active: game.toast("Lap complete: "+format_time(last_time))
+		if saved.save(SAVE_PATH)!=OK: game.toast("Lap complete: "+format_time(last_time)+" · record could not be saved")
 	_update_billboard()
-	if challenge.active:
-		challenge.finish_player()
-		return
-	# The finish line starts the next lap immediately; racing is unlimited.
-	lap_time=0
-	checkpoint=1
+	challenge.finish_player(record)
 
 static func format_time(seconds: float) -> String:
 	var centiseconds:=int(round(seconds*100))
@@ -652,6 +649,29 @@ func _build_paddock(parent: Node3D) -> void:
 		var actor:=_person(self,start+Vector3(sin(angle)*3,0,cos(angle)*2),Color("81a99c") if i%2 else Color("ca8c80"),true)
 		var legs: Array[Node3D]=[actor.get_node("LegLeft"),actor.get_node("LegRight")]
 		walkers.append({"actor":actor,"start":start,"phase":i*1.7,"route_angle":i*1.7,"legs":legs})
+	# Built last so the earlier crowd keeps its palettes and baked batches.
+	var timekeeper:=_person(self,TIMEKEEPER_POINT,Color("e9d9b4"),false,false,false,true)
+	timekeeper.name=NAMES[4]
+	var toward_start:=RaceCourse.gate_position(0)-TIMEKEEPER_POINT
+	timekeeper.rotation.y=atan2(-toward_start.x,-toward_start.z)
+	_chequered_flag(actor_rigs[timekeeper].left)
+	PersonalSpace.protect(timekeeper,game.truck)
+	people.append(timekeeper)
+
+func _chequered_flag(hand: Node3D) -> void:
+	var flag:=Node3D.new()
+	flag.name="ChequeredFlag"
+	# Held props stay separate from the blended body, like spectators' snacks.
+	flag.set_meta("blend_accessory",true)
+	hand.add_child(flag)
+	# The arm is raised to the side, so the pole continues past the hand.
+	hand.rotation=Vector3(0,0,-2.3)
+	flag.position=Vector3(0,-.62,0)
+	TownProps.cylinder(flag,Vector3(0,-.45,0),.035,1.2,Color("6f5a46"))
+	for row in 3:
+		for column in 4:
+			TownProps.box(flag,Vector3(-.07-column*.14,-.72-row*.14,0),Vector3(.14,.14,.03),Color("f4e5be") if (row+column)%2==0 else Color("405b67"))
+	TownProps.merge_fixed_geometry(flag,[],"race_timekeeper_flag")
 
 func _picnic_table(parent: Node3D, at: Vector3) -> void:
 	parent=TownProps.toy_group(parent,at,"drop","PicnicTable")
@@ -889,23 +909,29 @@ func proximity_talk() -> void:
 
 func attention_text(index: int) -> String:
 	if index<0 or index>=people.size() or game.rewards.waiting_for(NAMES[index]): return ""
+	if index==4 and challenge.trial_invite: return "Another go?"
 	if game.dialogue_control.has_spoken(people[index]): return ""
 	if index==3: return "Fancy a race?"
+	if index==4: return "Time trial?"
 	if index==1 and (not jobs[0].done or not jobs[1].done) or index==2 and not jobs[2].done: return "Oh, help please!"
 	return ""
 
 func talk_to_person(index: int, manual: bool=true) -> bool:
 	if index<0 or index>=people.size() or game.paused: return false
 	if challenge.active or challenge.controls_locked(): return false
-	if not manual and index in [1,2,3]: return false
+	if not manual and index in [1,2,3,4]: return false
 	if index==3:
 		challenge.offer()
+		chatter_latches[index]=true
+		return true
+	if index==4:
+		challenge.offer_trial()
 		chatter_latches[index]=true
 		return true
 	var words: String
 	match index:
 		0:
-			words="Welcome to "+TownTitle.RACE_NAME+"! Cross the chequered arch heading right, then follow the track through Snake Bend, Camp Corner, and over Sky Bridge! Each finish starts another lap. Your best time stays on that blue board. Need a top-up? Try the pond or the red hydrant beside the entrance."
+			words="Welcome to "+TownTitle.RACE_NAME+"! Want a timed lap? Piper waves the chequered flag by the start arch and runs time trials through Snake Bend, Camp Corner, and over Sky Bridge! Your best time stays on that blue board. Need a top-up? Try the pond or the red hydrant beside the entrance."
 		1:
 			words="Snack Shack's open again! That was a very enthusiastic grill. Thank you for cooling it down. A victory sandwich is on me!" if jobs[1].done else "Race-day sandwiches! Except my grill has got a little carried away. Could you hose down that flare-up? There's a slippery spill in the pit lane too. We ought to tidy it before the next racer comes through."
 		2:

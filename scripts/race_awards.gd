@@ -149,7 +149,7 @@ func _place_scene() -> void:
 		for i in race.people.size():
 			var actor:=race.people[i]
 			actor.show()
-			actor.position=PODIUM+([Vector3(-4,1.2,.8),Vector3(6,0,.8),Vector3(-6,0,2.4),Vector3(-4,1.2,-.8)][i] as Vector3)
+			actor.position=PODIUM+([Vector3(-4,1.2,.8),Vector3(6,0,.8),Vector3(-6,0,2.4),Vector3(-4,1.2,-.8),Vector3(4,0,2.6)][i] as Vector3)
 			actor.rotation.y=PI
 		var head: Node3D=tv_camera.get_node("FilmCameraHead")
 		head.look_at(reporter.global_position+Vector3.UP*1.7)

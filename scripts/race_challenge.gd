@@ -2,6 +2,10 @@ class_name RaceChallenge
 extends Node3D
 
 const NPC_INDEX:=3
+const TRIAL_INDEX:=4
+const RACE_SPEAKER:="QUINN  /  PODIUM RACER"
+const TRIAL_SPEAKER:="PIPER  /  TIMEKEEPER"
+const BANNER_TIME:=2.6
 const GRID_BACK:=6.0
 const MAX_SPEED:=17.25
 var race: ToyRaceTrack
@@ -23,6 +27,11 @@ var active:=false
 var staging:=false
 var result_open:=false
 var has_raced:=false
+# Solo time trials share the countdown, grid and lap rules without Quinn.
+var solo:=false
+var has_trialed:=false
+var trial_invite:=false
+var banner_clock:=0.0
 var countdown:=0.0
 var elapsed:=0.0
 var rival_distance:=0.0
@@ -37,7 +46,7 @@ func controls_locked() -> bool:
 	return staging or result_open or offering
 
 func telemetry() -> Dictionary:
-	return {"ceremony":awards.active,"ceremony_won":awards.won,"rival_collision":opponent.collision_layer,"rival_avoiding":opponent.avoiding,"rival_progress":opponent.progress,"offering":offering,"staging":staging,"active":active,"result":result_open,"countdown":countdown_label.text,"elapsed":elapsed,"rival_finish":rival_finish,"player_finish":player_finish,"rival_position":[opponent.position.x,opponent.position.y,opponent.position.z],"choice_rect":[choices.global_position.x,choices.global_position.y,choices.size.x,choices.size.y],"result_text":result_label.text}
+	return {"ceremony":awards.active,"ceremony_won":awards.won,"rival_collision":opponent.collision_layer,"rival_avoiding":opponent.avoiding,"rival_progress":opponent.progress,"offering":offering,"staging":staging,"active":active,"result":result_open,"countdown":countdown_label.text,"elapsed":elapsed,"rival_finish":rival_finish,"player_finish":player_finish,"rival_position":[opponent.position.x,opponent.position.y,opponent.position.z],"choice_rect":[choices.global_position.x,choices.global_position.y,choices.size.x,choices.size.y],"result_text":result_label.text,"solo":solo,"trial_invite":trial_invite}
 
 func _ready() -> void:
 	name="PodiumChallenge"
@@ -100,11 +109,29 @@ func _button(parent: Control, caption: String, action: Callable) -> Button:
 	parent.add_child(button)
 	return button
 
+func speaker() -> String:
+	return TRIAL_SPEAKER if solo else RACE_SPEAKER
+
 func offer() -> void:
 	if active or staging or result_open: return
+	solo=false
+	yes_button.text="Yes, let's race!"
+	no_button.text="Maybe later"
+	_open_offer("Fancy a friendly race? One lap through all three gates and over Sky Bridge. First back to START wins! Would you like to challenge me?")
+
+func offer_trial() -> void:
+	if active or staging or result_open: return
+	solo=true
+	trial_invite=false
+	yes_button.text="Start the clock!" if not has_trialed else "Another go!"
+	no_button.text="Maybe later"
+	var record: String=" Your best is "+ToyRaceTrack.format_time(race.best_time)+"." if race.best_time>0 else ""
+	_open_offer(("Back for another run?"+record+" Shall I start the clock?") if has_trialed else "I keep time at the start line! One lap through gates 1, 2 and 3, over Sky Bridge and back to START. I'll count you down from the grid."+record+" Fancy a time trial?")
+
+func _open_offer(words: String) -> void:
 	offering=true
 	selected_yes=true
-	game.talk("QUINN  /  PODIUM RACER","Fancy a friendly race? One lap through all three gates and over Sky Bridge. First back to START wins! Would you like to challenge me?",game.stage,true)
+	game.talk(speaker(),words,game.stage,true)
 	choices.show()
 	_select(true)
 	game.hud._resize_dialogue()
@@ -143,7 +170,7 @@ func handle_input(event: InputEvent) -> bool:
 func decline() -> void:
 	if game.paused: return
 	hide_offer()
-	game.talk("QUINN  /  PODIUM RACER","No rush! Come back anytime and challenge me when you're ready.",game.stage)
+	game.talk(speaker(),"Righto! The clock's here whenever you want it." if solo else "No rush! Come back anytime and challenge me when you're ready.",game.stage)
 
 func accept() -> void:
 	if game.paused or not race.active or active or staging: return
@@ -152,6 +179,8 @@ func accept() -> void:
 	result_open=false
 	result_panel.hide()
 	staging=true
+	trial_invite=false
+	banner_clock=0
 	countdown=0
 	elapsed=0
 	rival_distance=0
@@ -174,7 +203,7 @@ func accept() -> void:
 	fade.color.a=0
 
 func _place_grid() -> void:
-	var pose:=course_pose(start_distance-GRID_BACK,2.4)
+	var pose:=course_pose(start_distance-GRID_BACK,0.0 if solo else 2.4)
 	game.truck.reset_truck()
 	game.truck.global_position=ToyRaceTrack.ORIGIN+pose.origin+Vector3.UP*.8
 	game.truck.heading=pose.basis.get_euler().y
@@ -193,6 +222,7 @@ func _place_grid() -> void:
 	game.camera.size=25.8
 	game.camera.v_offset=0
 	game.truck.retract_ladder()
+	if solo: return
 	opponent.grid(start_distance-GRID_BACK)
 	race.people[NPC_INDEX].hide()
 
@@ -211,7 +241,7 @@ func update(dt: float) -> void:
 		if countdown>=3.85:
 			staging=false
 			active=true
-			opponent.start_driving()
+			if not solo: opponent.start_driving()
 			game.truck.freeze=false
 			game.truck.enabled=true
 			game.truck.jump_blocked_until_release=true
@@ -221,6 +251,7 @@ func update(dt: float) -> void:
 	if not active: return
 	elapsed+=dt
 	countdown_label.text="GO!" if elapsed<.65 else ""
+	if solo: return
 	rival_distance=opponent.progress
 	rival_speed=opponent.speed
 	if rival_finish<0 and rival_distance>=course_length+GRID_BACK:
@@ -245,11 +276,35 @@ static func course_pose(distance: float, lane: float) -> Transform3D:
 	var up:=right.cross(forward).normalized()
 	return Transform3D(Basis(right,up,-forward),path[low].lerp(path[high],t)+right*lane+Vector3.UP*.055)
 
-func finish_player() -> void:
+func finish_player(record: bool=false) -> void:
 	if not active: return
 	player_finish=elapsed
+	if solo:
+		_finish_trial(record)
+		return
 	var won:=rival_finish<0 or player_finish<=rival_finish
 	show_result(("You won!" if won else "Quinn wins this time!")+"\nYour time: "+ToyRaceTrack.format_time(player_finish)+"\nCome back anytime and challenge me again!")
+
+func _finish_trial(record: bool) -> void:
+	# Driving continues through the line; the timekeeper offers another go.
+	has_trialed=true
+	trial_invite=true
+	active=false
+	race.running=false
+	race.checkpoint=0
+	race.checkpoint_flag.hide()
+	banner_clock=BANNER_TIME
+	countdown_label.text="FINISH!  "+ToyRaceTrack.format_time(player_finish)+("\nNEW BEST!" if record else "")
+	if record: game.sounds.play("cheer",game.truck.global_position,.8,1.0)
+
+func left_course() -> void:
+	if not solo:
+		show_result("You left the course. Let's try again!\nCome back anytime and challenge me again!")
+		return
+	active=false
+	trial_invite=true
+	countdown_label.text=""
+	game.toast("Off the course! Piper at the start line can reset the clock.")
 
 func show_result(words: String) -> void:
 	has_raced=true
@@ -284,13 +339,18 @@ func cancel() -> void:
 	hide_offer()
 	active=false
 	staging=false
+	banner_clock=0
 	awards.cancel()
 	result_open=false
 	dismiss_result()
 
 func _layout_overlay() -> void:
-	countdown_label.position=Vector2(0,game.hud.size.y*.3)
-	countdown_label.size=Vector2(game.hud.size.x,100)
+	# The finish banner sits high and smaller: the truck is still driving below.
+	var banner:=banner_clock>0 and not (staging or active)
+	var font_size:=(36 if game.hud.size.x<600 else 46) if banner else 72
+	if countdown_label.get_theme_font_size("font_size")!=font_size: countdown_label.add_theme_font_size_override("font_size",font_size)
+	countdown_label.position=Vector2(0,game.hud.size.y*(.12 if banner else .3))
+	countdown_label.size=Vector2(game.hud.size.x,font_size*2.6 if banner else 100)
 	var width:=minf(460,game.hud.size.x-24)
 	var text_height:=maxf(128,game.hud.bold.get_multiline_string_size(result_label.text,HORIZONTAL_ALIGNMENT_CENTER,width-40,22).y+8)
 	result_panel.size=Vector2(width,text_height+96)
@@ -300,10 +360,13 @@ func _layout_overlay() -> void:
 	var buttons:=result_panel.get_node("ResultButtons") as HBoxContainer
 	buttons.position=Vector2(18,text_height+32)
 	buttons.size=Vector2(width-36,44)
-	overlay.visible=(staging or active or result_open) and not game.paused
+	overlay.visible=(staging or active or result_open or banner_clock>0) and not game.paused
 
 func _process(_dt: float) -> void:
-	if staging or active or result_open: _layout_overlay()
+	if banner_clock>0 and not game.paused:
+		banner_clock=maxf(0,banner_clock-_dt)
+		if banner_clock<=0 and not (staging or active): countdown_label.text=""
+	if staging or active or result_open or banner_clock>0: _layout_overlay()
 	else: overlay.hide()
 	awards.animate(_dt)
 

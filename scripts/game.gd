@@ -319,7 +319,7 @@ func navigation_active() -> bool:
 	return stage>0 and stage<4 or railway!=null and railway.briefed and not railway.started
 
 func talk(speaker: String, words: String, next: int, interrupting: bool=false) -> void:
-	if travel and travel.race.challenge and not speaker.begins_with("QUINN"):
+	if travel and travel.race.challenge and speaker!=travel.race.challenge.speaker():
 		travel.race.challenge.hide_offer()
 	dialogue_control.begin(interrupting)
 	dialogue_active=true
@@ -393,6 +393,7 @@ func _npc_needs_camera(actor: Node3D) -> bool:
 		if index==1: return not travel.race.jobs[0].done or not travel.race.jobs[1].done
 		if index==2: return not travel.race.jobs[2].done
 		if index==3: return not travel.race.challenge.has_raced
+		if index==4: return not travel.race.challenge.has_trialed
 	else:
 		var index:=town.people.find(actor)
 		if index>=0: return [not cat_rescued,fire_progress<1,not dog_done,not pool_done][index]

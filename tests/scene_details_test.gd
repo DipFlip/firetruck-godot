@@ -100,10 +100,13 @@ func run() -> void:
 	check(not race.timer_label.visible,"Idle racing has no start instruction or best-time HUD")
 	game.truck.global_position=ToyRaceTrack.ORIGIN+RaceCourse.gate_position(0)+Vector3(3,.85,0)
 	race.previous=Vector2(3,-54)
+	# Only Piper's time trial (or Quinn's race) runs the clock.
+	race.challenge.solo=true
+	race.challenge.active=true
+	race.challenge.elapsed=2.5
 	race.running=true
-	race.lap_time=2.5
 	race._physics_process(.2)
-	check(race.timer_label.text.begins_with("LAP") and not race.timer_label.text.contains("gates") and not race.timer_label.text.contains("BEST"),"The race HUD shows only lap time")
+	check(race.timer_label.text.begins_with("TIME TRIAL") and not race.timer_label.text.contains("gates") and not race.timer_label.text.contains("BEST"),"The race HUD shows only the trial time")
 	var distinct_times: Dictionary={}
 	for i in 6:
 		race._physics_process(1.0/60)
