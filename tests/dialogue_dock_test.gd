@@ -82,12 +82,35 @@ func run() -> void:
 	game.talk("DISPATCH","There's a barbecue fire near Leo's cottage. Head east and lend him a hose.",1)
 	await frames(100)
 	check(panel.phone_mode and panel.position.y+panel.size.y>hud.size.y*.75 and (panel.position+panel.tail_tip).distance_to(hud._phone_center()-Vector2(0,27))<1,"Portrait dispatch sits at the bottom and points to its phone icon")
-	game.paused=true
-	hud.pause_panel.show()
+	game.end_dialogue()
+	game.set_paused(true)
 	await frames(3)
-	check(hud.menu_button.visible and not hud.pause_title.visible and not hud.pause_help.visible,"Mobile pause offers only the main-menu button")
-	hud.menu_button.pressed.emit()
-	check(game.in_main_menu and game.truck.freeze and not game.truck.enabled and hud.main_menu.visible and not hud.pause_panel.visible,"The pause button actually returns to the native main menu")
+	check(hud.pause_panel.visible and hud.resume_button.visible and hud.menu_button.visible and not hud.pause_title.visible and not hud.pause_help.visible,"Mobile pause offers only Resume and Main menu")
+	check(hud.resume_button.position.x+hud.resume_button.size.x<=hud.menu_button.position.x and hud.menu_button.position.x+hud.menu_button.size.x<=hud.pause_panel.size.x,"Both pause buttons fit side by side inside the panel")
+	hud.resume_button.pressed.emit()
+	check(not game.paused and not hud.pause_panel.visible and game.truck.enabled and not game.truck.freeze,"Resume closes the pause menu and restores driving")
+	# Controller: Start pauses, the stick or d-pad chooses, A confirms.
+	var start_press:=InputEventJoypadButton.new()
+	start_press.button_index=JOY_BUTTON_START
+	start_press.pressed=true
+	game._unhandled_input(start_press)
+	check(game.paused and hud.pause_panel.visible and hud.pause_resume_selected,"Controller Start opens the pause menu with Resume selected")
+	var confirm:=InputEventJoypadButton.new()
+	confirm.button_index=JOY_BUTTON_A
+	confirm.pressed=true
+	game._unhandled_input(confirm)
+	check(not game.paused and game.truck.jump_blocked_until_release,"A on Resume returns to play without hopping")
+	game._unhandled_input(start_press)
+	var right:=InputEventJoypadButton.new()
+	right.button_index=JOY_BUTTON_DPAD_RIGHT
+	right.pressed=true
+	game._unhandled_input(right)
+	check(not hud.pause_resume_selected,"Right selects Main menu")
+	game._unhandled_input(confirm)
+	await frames(2)
+	check(game.in_main_menu and game.truck.freeze and not game.truck.enabled and hud.main_menu.visible and not hud.pause_panel.visible,"Main menu returns to the native title screen")
+	check(hud.menu_titles.size()==3 and hud.menu_titles[2].text=="FIRE AWAY!" and hud.menu_start.visible,"The title screen shows the Fire Away! signage and a Start button")
+	check(InputMap.action_has_event("continue",confirm) and InputMap.action_has_event("pause",start_press),"A or Start can begin the game from the title screen")
 	game.queue_free()
 	await process_frame
 	await process_frame

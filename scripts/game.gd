@@ -488,6 +488,12 @@ func _update_dispatch(dt: float) -> void:
 			hud.auto_close_delay=-1 # Keep the job visible until acknowledged or discovered.
 
 func _input(event: InputEvent) -> void:
+	if in_main_menu and not OS.has_feature("web"):
+		# Enter, Space, A or Start begin a fresh game from the title screen.
+		if event.is_action_pressed("continue") or event.is_action_pressed("jump") or event.is_action_pressed("pause"):
+			get_viewport().set_input_as_handled()
+			start_from_main_menu()
+		return
 	if loading or in_main_menu or paused or (intro and intro.active) or (travel and travel.active): return
 	if dialogue_control and dialogue_control.handle_input(event):
 		get_viewport().set_input_as_handled()
@@ -504,20 +510,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("pause"):
-		paused=not paused
-		if OS.has_feature("web"): JavaScriptBridge.eval("window.firetruckPause(%s)" % ("true" if paused else "false"))
-		hud.pause_panel.visible=paused
-		var challenge_locked: bool=dialogue_control.interrupting or dialogue_control.waiting_for_phone or travel.in_race and travel.race.challenge.controls_locked()
-		truck.enabled=not paused and not rescue_running and not challenge_locked
-		truck.freeze=paused or rescue_running or challenge_locked
-		truck.set_physics_process(not paused)
-		travel.race.challenge.opponent.set_paused(paused)
-		town.set_process(not paused)
-		if rescue_tween and rescue_tween.is_valid() and rescue_tween.is_running() and paused: rescue_tween.pause()
-		elif rescue_tween and rescue_tween.is_valid() and not paused: rescue_tween.play()
-		if cat_cuddle_tween and cat_cuddle_tween.is_valid() and paused: cat_cuddle_tween.pause()
-		elif cat_cuddle_tween and cat_cuddle_tween.is_valid() and not paused: cat_cuddle_tween.play()
-	if paused: return
+		set_paused(not paused)
+		get_viewport().set_input_as_handled()
+		return
+	if paused:
+		_pause_menu_input(event)
+		return
 	if travel.in_race and travel.race.challenge.handle_input(event):
 		get_viewport().set_input_as_handled()
 		return
@@ -853,6 +851,44 @@ func _restore_conversation_camera(saved: Dictionary) -> void:
 		point.engagement_left=engagements[i]
 	if rewards and is_instance_valid(rewards.camera_interest):
 		rewards.camera_interest.global_position=saved.reward_pos
+
+func set_paused(value: bool) -> void:
+	if paused==value or in_main_menu: return
+	paused=value
+	if OS.has_feature("web"): JavaScriptBridge.eval("window.firetruckPause(%s)" % ("true" if paused else "false"))
+	hud.select_pause_choice(true)
+	hud.pause_panel.visible=paused
+	var challenge_locked: bool=dialogue_control.interrupting or dialogue_control.waiting_for_phone or travel.in_race and travel.race.challenge.controls_locked()
+	truck.enabled=not paused and not rescue_running and not challenge_locked
+	truck.freeze=paused or rescue_running or challenge_locked
+	truck.set_physics_process(not paused)
+	# The button that closed the menu must not also hop or spray.
+	if not paused:
+		truck.jump_blocked_until_release=true
+		truck.pointer_spray_blocked=true
+		truck.charge=0
+	travel.race.challenge.opponent.set_paused(paused)
+	town.set_process(not paused)
+	if rescue_tween and rescue_tween.is_valid() and rescue_tween.is_running() and paused: rescue_tween.pause()
+	elif rescue_tween and rescue_tween.is_valid() and not paused: rescue_tween.play()
+	if cat_cuddle_tween and cat_cuddle_tween.is_valid() and paused: cat_cuddle_tween.pause()
+	elif cat_cuddle_tween and cat_cuddle_tween.is_valid() and not paused: cat_cuddle_tween.play()
+
+# Keyboard and controller navigation for Resume / Main menu.
+func _pause_menu_input(event: InputEvent) -> void:
+	var handled:=true
+	if event is InputEventJoypadMotion:
+		if event.axis in [JOY_AXIS_LEFT_X,JOY_AXIS_RIGHT_X] and absf(event.axis_value)>.55: hud.select_pause_choice(event.axis_value<0)
+	elif event.is_action_pressed("left") or event.is_action_pressed("ui_left") or event.is_action_pressed("aim_left"): hud.select_pause_choice(true)
+	elif event.is_action_pressed("right") or event.is_action_pressed("ui_right") or event.is_action_pressed("aim_right"): hud.select_pause_choice(false)
+	elif event.is_action_pressed("continue") or event.is_action_pressed("jump"):
+		if hud.pause_resume_selected: set_paused(false)
+		else: return_to_main_menu()
+	else: handled=false
+	if handled: get_viewport().set_input_as_handled()
+
+func start_from_main_menu() -> void:
+	if in_main_menu: get_tree().reload_current_scene()
 
 func return_to_main_menu() -> void:
 	if OS.has_feature("web"):

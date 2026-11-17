@@ -13,5 +13,7 @@ trap 'rm -rf "$WEB_STAGE"' EXIT
 "$GODOT_BIN" --headless --export-release Web "$WEB_STAGE/index.html"
 cp assets/fonts/Nunito.ttf "$WEB_STAGE/Nunito.ttf"
 cp assets/fonts/OFL-Nunito.txt "$WEB_STAGE/OFL-Nunito.txt"
+cp assets/fonts/Bungee.ttf "$WEB_STAGE/Bungee.ttf"
+cp assets/fonts/OFL-Bungee.txt "$WEB_STAGE/OFL-Bungee.txt"
 cp web/render_budget.js "$WEB_STAGE/render_budget.js"
 python3 tools/package_web.py "$WEB_STAGE" builds/web builds/firetruck-web.zip

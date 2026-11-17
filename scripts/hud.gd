@@ -28,6 +28,12 @@ var pause_help: RichTextLabel
 var pause_title: Label
 var menu_button: Button
 var main_menu: Control
+var menu_titles: Array[Label]=[]
+var menu_start: Button
+var menu_hint: Label
+var resume_button: Button
+var pause_resume_selected:=true
+const GAME_TITLE:="FIRE AWAY!"
 var portrait: TextureRect
 var continue_label: Label
 var font: Font
@@ -215,16 +221,9 @@ void fragment(){
 	pause_title=words(pause_panel,Rect2(37,24,470,46),"Paused",30,INK,true)
 	pause_help=rich(pause_panel,Rect2(38,91,475,435),18,INK)
 	refresh_controls()
-	menu_button=Button.new()
-	pause_panel.add_child(menu_button)
-	menu_button.text="Return to main menu"
-	menu_button.add_theme_font_override("font",bold)
-	menu_button.add_theme_font_size_override("font_size",19)
-	menu_button.add_theme_color_override("font_color",INK)
-	menu_button.add_theme_stylebox_override("normal",style(PAPER,16,false))
-	menu_button.add_theme_stylebox_override("hover",style(Color("d9edf2"),16,false))
-	menu_button.add_theme_stylebox_override("pressed",style(Color("bddfe8"),16,false))
-	menu_button.pressed.connect(func(): game.return_to_main_menu())
+	resume_button=_pause_button("Resume",func(): game.set_paused(false))
+	menu_button=_pause_button("Main menu",func(): game.return_to_main_menu())
+	select_pause_choice(true)
 	pause_panel.hide()
 	main_menu=Control.new()
 	add_child(main_menu)
@@ -233,20 +232,34 @@ void fragment(){
 	main_menu.add_child(backdrop)
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	backdrop.color=INK
-	var title:=words(main_menu,Rect2(),"Firetruck Frenzy",54,PAPER,true)
-	title.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	title.position=Vector2(-280,-130)
-	title.size=Vector2(560,80)
-	title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
-	var start:=Button.new()
-	main_menu.add_child(start)
-	start.text="Start"
-	start.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	start.position=Vector2(-100,-20)
-	start.size=Vector2(200,58)
-	start.add_theme_font_override("font",bold)
-	start.add_theme_font_size_override("font_size",22)
-	start.pressed.connect(func(): game.get_tree().reload_current_scene())
+	# Slanted gold signage lettering over stacked coral and navy offsets.
+	var signage:=FontVariation.new()
+	signage.base_font=preload("res://assets/fonts/Bungee.ttf")
+	signage.variation_transform=Transform2D(Vector2(1,.14),Vector2(0,1),Vector2.ZERO)
+	for layer in [Color("17272f"),Color("cd7058"),Color("ffcf4a")]:
+		var title:=Label.new()
+		title.text=GAME_TITLE
+		title.add_theme_font_override("font",signage)
+		title.add_theme_color_override("font_color",layer)
+		title.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		title.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		main_menu.add_child(title)
+		menu_titles.append(title)
+	menu_start=Button.new()
+	main_menu.add_child(menu_start)
+	menu_start.text="Start"
+	menu_start.focus_mode=Control.FOCUS_NONE
+	menu_start.add_theme_font_override("font",bold)
+	menu_start.add_theme_font_size_override("font_size",22)
+	menu_start.add_theme_color_override("font_color",INK)
+	menu_start.add_theme_color_override("font_hover_color",INK)
+	menu_start.add_theme_color_override("font_pressed_color",INK)
+	menu_start.add_theme_stylebox_override("normal",style(ORANGE,18,false))
+	menu_start.add_theme_stylebox_override("hover",style(Color("f5c79c"),18,false))
+	menu_start.add_theme_stylebox_override("pressed",style(Color("d9705d"),18,false))
+	menu_start.pressed.connect(func(): game.start_from_main_menu())
+	menu_hint=words(main_menu,Rect2(),"",15,Color("c9e2e6"),true)
+	menu_hint.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	main_menu.hide()
 	voice=AudioStreamPlayer.new()
 	voice.volume_db=-24
@@ -341,14 +354,33 @@ func _visible_markup_count(plain_count: int) -> int:
 	if plain_count>=full_text.length(): return -1
 	return dialogue_label.get_parsed_text().length()*plain_count/maxi(1,full_text.length())
 
+func _pause_button(caption: String, action: Callable) -> Button:
+	var button:=Button.new()
+	pause_panel.add_child(button)
+	button.text=caption
+	# Selection is drawn by select_pause_choice so keyboard, pad and pointer agree.
+	button.focus_mode=Control.FOCUS_NONE
+	button.add_theme_font_override("font",bold)
+	button.add_theme_font_size_override("font_size",19)
+	for colour in ["font_color","font_hover_color","font_pressed_color"]: button.add_theme_color_override(colour,INK)
+	button.add_theme_stylebox_override("hover",style(Color("f5c79c"),16,false))
+	button.add_theme_stylebox_override("pressed",style(Color("d9705d"),16,false))
+	button.pressed.connect(action)
+	return button
+
+func select_pause_choice(resume: bool) -> void:
+	pause_resume_selected=resume
+	resume_button.add_theme_stylebox_override("normal",style(ORANGE if resume else Color("d0e8ef"),16,false))
+	menu_button.add_theme_stylebox_override("normal",style(Color("d0e8ef") if resume else ORANGE,16,false))
+
 # Re-render every control reminder after the input device changes.
 func refresh_controls() -> void:
 	var g:=func(action: String) -> String: return ControlPrompts.glyph(action,glyph_size(18))
 	var lines: Array[String]=[]
 	if ControlPrompts.mode==ControlPrompts.Mode.GAMEPAD:
-		lines=["Left stick     Drive toward that side of the screen","Right stick     Aim and spray",g.call("jump")+"  hold, release     A springy little hop",g.call("brake")+"     Brake / brace against the hose",g.call("interact")+"     Extend / retract ladder",g.call("jump")+"     Say hello / continue a conversation",g.call("map")+"     Open the town map","Park by a hydrant to refill","Select     Recover at the station","","Start     Back to the neighbourhood"]
+		lines=["Left stick     Drive toward that side of the screen","Right stick     Aim and spray",g.call("jump")+"  hold, release     A springy little hop",g.call("brake")+"     Brake / brace against the hose",g.call("interact")+"     Extend / retract ladder",g.call("jump")+"     Say hello / continue a conversation",g.call("map")+"     Open the town map","Park by a hydrant to refill","Select     Recover at the station","","Start     Resume  ·  Left / right choose, "+g.call("jump")+" confirms"]
 	else:
-		lines=["WASD     Drive toward that side of the screen","Mouse + click     Aim and spray","Arrow keys     Directional spray","Hold Space, release     A springy little hop","Shift     Brake / brace against the hose","E     Extend / retract ladder","Space / Enter     Continue a conversation","Space / click a neighbour     Say hello","Tab     Open the town map","Park by a hydrant to refill","M     Music on / off","","Esc     Back to the neighbourhood"]
+		lines=["WASD     Drive toward that side of the screen","Mouse + click     Aim and spray","Arrow keys     Directional spray","Hold Space, release     A springy little hop","Shift     Brake / brace against the hose","E     Extend / retract ladder","Space / Enter     Continue a conversation","Space / click a neighbour     Say hello","Tab     Open the town map","Park by a hydrant to refill","M     Music on / off","","Esc     Resume  ·  Arrows choose, Enter confirms"]
 	pause_help.text="\n".join(lines)
 	var f:=func(action: String) -> String: return ControlPrompts.glyph(action,glyph_size(12))
 	if ControlPrompts.mode==ControlPrompts.Mode.GAMEPAD:
@@ -631,8 +663,22 @@ func _layout_viewport() -> void:
 	pause_title.visible=not touch_mode
 	pause_help.visible=not touch_mode
 	pause_panel.size=Vector2(330,166 if game.toy_blending else 96) if touch_mode else Vector2(548,620)
-	menu_button.position=Vector2(18,18) if touch_mode else Vector2(38,540)
-	menu_button.size=Vector2(294,60) if touch_mode else Vector2(472,54)
+	resume_button.position=Vector2(18,18) if touch_mode else Vector2(38,540)
+	resume_button.size=Vector2(141,60) if touch_mode else Vector2(228,54)
+	menu_button.position=Vector2(171,18) if touch_mode else Vector2(282,540)
+	menu_button.size=resume_button.size
+	if main_menu.visible:
+		var title_size:=int(clampf(size.x*.125,38,112))
+		for i in menu_titles.size():
+			var title:=menu_titles[i]
+			title.add_theme_font_size_override("font_size",title_size)
+			title.size=Vector2(size.x,title_size*1.3)
+			title.position=Vector2(0,size.y*.5-title_size*1.55)+Vector2.ONE*title_size*.045*(2-i)
+		menu_start.size=Vector2(220,60)
+		menu_start.position=Vector2((size.x-220)*.5,size.y*.5+24)
+		menu_hint.text="" if touch_mode else "Press A or Start" if ControlPrompts.mode==ControlPrompts.Mode.GAMEPAD else "Press Enter or Space"
+		menu_hint.size=Vector2(size.x,24)
+		menu_hint.position=Vector2(0,menu_start.position.y+78)
 	prompt_panel.size.x=minf(540,size.x-32)
 	prompt_label.size.x=prompt_panel.size.x-32
 	prompt_rich.size.x=prompt_panel.size.x-32
