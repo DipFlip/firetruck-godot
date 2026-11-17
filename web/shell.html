@@ -95,6 +95,9 @@ function startAudio(){for(const context of audioContexts){if(context.state==='su
 // after one of its buttons is pressed, so any face button or Start begins.
 addEventListener('keydown',event=>{if(started)startAudio();else if((event.key==='Enter'||event.key===' ')&&!event.repeat){event.preventDefault();play.click();}});
 addEventListener('pointerdown',startAudio);
+// F toggles true fullscreen. Browsers only allow this from a key press or click,
+// so it is handled here and not inside the game.
+addEventListener('keydown',event=>{if(event.code!=='KeyF'||event.repeat||event.ctrlKey||event.metaKey||event.altKey)return;const root=document.documentElement;if(document.fullscreenElement||document.webkitFullscreenElement)(document.exitFullscreen||document.webkitExitFullscreen).call(document);else{const request=root.requestFullscreen||root.webkitRequestFullscreen;if(request)Promise.resolve(request.call(root)).catch(()=>{});}},true);
 (function pollPad(){if(started)return;const pads=navigator.getGamepads?navigator.getGamepads():[];for(const pad of pads){if(pad&&[0,1,2,3,9].some(i=>pad.buttons[i]&&pad.buttons[i].pressed)){play.click();return;}}requestAnimationFrame(pollPad);})();
 play.addEventListener('click',()=>{if(started)return;started=true;startAudio();play.disabled=true;play.classList.add('starting');play.querySelector('.label').textContent='Starting…';status.textContent='Starting…';showGame();});
 engine.startGame({canvas,canvasResizePolicy:0,focusCanvas:false,onProgress:(n,total)=>{if(total)progress(n/total*.75);},onPrintError:(...args)=>console.error(...args)}).then(()=>{engineStarted=true;showGame();}).catch(error=>{status.classList.remove('sr-only');status.textContent='Could not start. Please use a browser with WebGL 2 and reload to try again.';play.classList.remove('starting');play.querySelector('.label').textContent='Start';console.error(error);});

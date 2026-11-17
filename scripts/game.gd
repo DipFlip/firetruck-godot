@@ -248,7 +248,7 @@ func _ready() -> void:
 		intro.call_deferred("start")
 
 func _setup_input() -> void:
-	var bindings := {"left":KEY_A,"right":KEY_D,"forward":KEY_W,"back":KEY_S,"jump":KEY_SPACE,"brake":KEY_SHIFT,"interact":KEY_E,"continue":KEY_ENTER,"pause":KEY_ESCAPE,"aim_left":KEY_LEFT,"aim_right":KEY_RIGHT,"aim_up":KEY_UP,"aim_down":KEY_DOWN,"map":KEY_TAB,"music":KEY_M}
+	var bindings := {"left":KEY_A,"right":KEY_D,"forward":KEY_W,"back":KEY_S,"jump":KEY_SPACE,"brake":KEY_SHIFT,"interact":KEY_E,"continue":KEY_ENTER,"pause":KEY_ESCAPE,"aim_left":KEY_LEFT,"aim_right":KEY_RIGHT,"aim_up":KEY_UP,"aim_down":KEY_DOWN,"map":KEY_TAB,"music":KEY_M,"fullscreen":KEY_F}
 	for action in bindings:
 		if not InputMap.has_action(action): InputMap.add_action(action)
 		var event:=InputEventKey.new()
@@ -507,6 +507,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 	if not paused and dialogue_control.handle_input(event):
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("fullscreen") and not OS.has_feature("web"):
+		toggle_fullscreen()
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("pause"):
@@ -851,6 +855,11 @@ func _restore_conversation_camera(saved: Dictionary) -> void:
 		point.engagement_left=engagements[i]
 	if rewards and is_instance_valid(rewards.camera_interest):
 		rewards.camera_interest.global_position=saved.reward_pos
+
+# The browser shell handles F itself: fullscreen there needs a page key press.
+func toggle_fullscreen() -> void:
+	var window:=get_window()
+	window.mode=Window.MODE_WINDOWED if window.mode in [Window.MODE_FULLSCREEN,Window.MODE_EXCLUSIVE_FULLSCREEN] else Window.MODE_FULLSCREEN
 
 func set_paused(value: bool) -> void:
 	if paused==value or in_main_menu: return

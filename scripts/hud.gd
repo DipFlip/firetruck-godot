@@ -380,7 +380,7 @@ func refresh_controls() -> void:
 	if ControlPrompts.mode==ControlPrompts.Mode.GAMEPAD:
 		lines=["Left stick     Drive toward that side of the screen","Right stick     Aim and spray",g.call("jump")+"  hold, release     A springy little hop",g.call("brake")+"     Brake / brace against the hose",g.call("interact")+"     Extend / retract ladder",g.call("jump")+"     Say hello / continue a conversation",g.call("map")+"     Open the town map","Park by a hydrant to refill","Select     Recover at the station","","Start     Resume  ·  Left / right choose, "+g.call("jump")+" confirms"]
 	else:
-		lines=["WASD     Drive toward that side of the screen","Mouse + click     Aim and spray","Arrow keys     Directional spray","Hold Space, release     A springy little hop","Shift     Brake / brace against the hose","E     Extend / retract ladder","Space / Enter     Continue a conversation","Space / click a neighbour     Say hello","Tab     Open the town map","Park by a hydrant to refill","M     Music on / off","","Esc     Resume  ·  Arrows choose, Enter confirms"]
+		lines=["WASD     Drive toward that side of the screen","Mouse + click     Aim and spray","Arrow keys     Directional spray","Hold Space, release     A springy little hop","Shift     Brake / brace against the hose","E     Extend / retract ladder","Space / Enter     Continue a conversation","Space / click a neighbour     Say hello","Tab     Open the town map","Park by a hydrant to refill","M     Music on / off","F     Full screen on / off","","Esc     Resume  ·  Arrows choose, Enter confirms"]
 	pause_help.text="\n".join(lines)
 	var f:=func(action: String) -> String: return ControlPrompts.glyph(action,glyph_size(12))
 	if ControlPrompts.mode==ControlPrompts.Mode.GAMEPAD:
