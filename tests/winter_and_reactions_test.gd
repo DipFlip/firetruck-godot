@@ -53,7 +53,7 @@ func run() -> void:
 	await frames(10)
 	check(hit_leo and leo.get_meta("spray_reacting", false) and int(game.sounds.counts.get("whoa", 0)) > whoa_before,
 		"Spraying a Maple Bay resident triggers a startled arm-raise reaction and 'whoa' sound")
-	check(absf(leo.get_node("ArmLeft").rotation.z) > 0.8 and leo.find_child("MouthOpen", true, false).visible,
+	check(absf(leo.get_node("ArmLeft").rotation.x) > 0.8 and leo.find_child("MouthOpen", true, false).visible,
 		"Startled residents visibly raise their arms and open a surprised mouth")
 	await frames(65)
 	check(not leo.get_meta("spray_reacting", false),
@@ -75,7 +75,7 @@ func run() -> void:
 	game._water_hit(spectator.global_position + Vector3.UP * 1.2, 0.02)
 	await frames(10)
 	var cheer_after: int = int(game.sounds.counts.get("giggle", 0)) + int(game.sounds.counts.get("cheer", 0))
-	check(spectator.get_meta("spray_reacting", false) and cheer_after > cheer_before and spectator.get_node("ArmRight").rotation.z > 1.0,
+	check(spectator.get_meta("spray_reacting", false) and cheer_after > cheer_before and spectator.get_node("ArmRight").rotation.x > 1.0,
 		"Spraying a race grandstand spectator makes them cheer, raise both arms and hop happily")
 	var duck: Node3D = travel.race.ducks[0]
 	var quack_before: int = int(game.sounds.counts.get("quack", 0))

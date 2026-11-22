@@ -156,7 +156,7 @@ func _place_scene() -> void:
 		race.broadcast_head.look_at(reporter.global_position+Vector3.UP*1.7)
 		race.camera_operator.look_at(reporter.global_position)
 		operator.look_at(reporter.global_position)
-		for arm in ["ArmLeft","ArmRight"]: operator.get_node(arm).rotation=Vector3(2,0,.12 if arm=="ArmRight" else -.12)
+		for arm in ["ArmLeft","ArmRight"]: operator.get_node(arm).rotation=Vector3(2,0,.065 if arm=="ArmRight" else -.065)
 		reporter.rotation.y=atan2(-(tv_camera.position.x-reporter.position.x),-(tv_camera.position.z-reporter.position.z))
 
 func _restore_scene() -> void:
@@ -206,14 +206,14 @@ func animate(dt: float) -> void:
 	for i in race.people.size():
 		var actor:=race.people[i]
 		var clap:=.5+.5*sin(clock*12+i*.7)
-		actor.get_node("ArmLeft").rotation=Vector3(1.35,0,lerpf(.28,.65,clap))
-		actor.get_node("ArmRight").rotation=Vector3(1.35,0,-lerpf(.28,.65,clap))
+		actor.get_node("ArmLeft").rotation=Vector3(1.35,0,lerpf(.24,.62,clap))
+		actor.get_node("ArmRight").rotation=Vector3(1.35,0,-lerpf(.24,.62,clap))
 		var cheering:=1-smoothstep(1.05,1.35,clock)
 		actor.position.y=(1.2 if i in [0,3] else 0.0)+maxf(0,sin(clampf((clock-.4)/.65,0,1)*PI))*.55
-		actor.get_node("ArmLeft").rotation=actor.get_node("ArmLeft").rotation.lerp(Vector3(0,0,-2.65),cheering)
-		actor.get_node("ArmRight").rotation=actor.get_node("ArmRight").rotation.lerp(Vector3(0,0,2.65),cheering)
+		actor.get_node("ArmLeft").rotation=actor.get_node("ArmLeft").rotation.lerp(Vector3(2.65,0,-.065),cheering)
+		actor.get_node("ArmRight").rotation=actor.get_node("ArmRight").rotation.lerp(Vector3(2.65,0,.065),cheering)
 		race.actor_rigs[actor].head.rotation.x=.04*sin(clock*3+i)
-	reporter.get_node("ArmRight").rotation=Vector3(.8,0,.35)
+	reporter.get_node("ArmRight").rotation=Vector3(1.15,0,.065)
 	for i in confetti_states.size():
 		var piece:=confetti_states[i]
 		piece.age+=dt

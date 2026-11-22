@@ -224,8 +224,8 @@ func _physics_process(dt: float) -> void:
 			person.position=walker.from.lerp(walker.to,smoothstep(0,1,walker.hop))+Vector3.UP*sin(walker.hop*PI)*.75
 			walker.legs[0].rotation.x=-.55*sin(walker.hop*PI)
 			walker.legs[1].rotation.x=.35*sin(walker.hop*PI)
-			person.get_node("ArmLeft").rotation.z=-.85*sin(walker.hop*PI)
-			person.get_node("ArmRight").rotation.z=.85*sin(walker.hop*PI)
+			person.get_node("ArmLeft").rotation=Vector3(1.65*sin(walker.hop*PI),0,-.065)
+			person.get_node("ArmRight").rotation=Vector3(1.65*sin(walker.hop*PI),0,.065)
 			_keep_clear(person)
 			continue
 		var step_dir:=_steer_around_people(person.global_position,delta.normalized())

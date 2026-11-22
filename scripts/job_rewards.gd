@@ -101,8 +101,8 @@ func _pose_celebration(reward: Dictionary) -> void:
 	var hop:=maxf(0,sin(clampf((age-.15)/.55,0,1)*PI))
 	hop+=maxf(0,sin(clampf((age-.8)/.55,0,1)*PI))*.72
 	reward.actor.position.y=reward.home_y+hop*.65
-	reward.actor.get_node("ArmLeft").rotation=(reward.left as Vector3).lerp(Vector3(0,0,-2.65),lift)
-	reward.actor.get_node("ArmRight").rotation=(reward.right as Vector3).lerp(Vector3(0,0,2.65),lift)
+	reward.actor.get_node("ArmLeft").rotation=(reward.left as Vector3).lerp(Vector3(2.65,0,-.065),lift)
+	reward.actor.get_node("ArmRight").rotation=(reward.right as Vector3).lerp(Vector3(2.65,0,.065),lift)
 	if reward.remaining==0:
 		reward.actor.position.y=reward.home_y
 		reward.actor.remove_meta("mission_celebrating")

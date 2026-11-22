@@ -60,7 +60,7 @@ func run() -> void:
 		state.age=.2
 		state.next_cheer=race.animation_clock+10
 	for i in 30: race._update_audience(.016667)
-	check(audience.all(func(person): return hand(person,race.actor_rigs[person]).x>.8),"Cheering raises right arms outward, clear of faces and bodies")
+	check(audience.all(func(person): return hand(person,race.actor_rigs[person]).y>1.55),"Cheering raises right arms overhead on the single-axis toy shoulder joint")
 	game.queue_free()
 	await process_frame
 	await process_frame

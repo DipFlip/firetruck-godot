@@ -115,8 +115,9 @@ func _ready() -> void:
 	_make_engine()
 	driver=TownProps.person(self,engine.position+Vector3(-2.5,-.12,5.7),Color("7199ad"))
 	driver.name="RowanTheDriver"
-	TownProps.cylinder(driver,Vector3(0,2.55,0),.50,.20,Color("365868")).set_meta("blend_accessory",true)
-	TownProps.box(driver,Vector3(0,2.47,-.28),Vector3(.65,.06,.35),Color("365868")).set_meta("blend_accessory",true)
+	TownProps.molded_hat(driver,Vector3(0,1.94,0),Color("365868"),"cap").set_meta("blend_accessory",true)
+	TownProps.molded_hat(driver,Vector3(0,1.94,0),Color("283c4b"),"cap_visor").set_meta("blend_accessory",true)
+	TownProps.ball(driver,Vector3(0,2.63,0.01),Vector3.ONE*0.11,Color("d9b579")).set_meta("blend_accessory",true)
 	for x in [-.10,.10]: TownProps.ball(driver,Vector3(x,1.78,-.42),Vector3(.23,.075,.055),Color("694f3f")).set_meta("blend_accessory",true)
 	ToyModels.dress_person(driver,"rowan")
 	TownProps.soften_toy_shine(driver)
@@ -302,8 +303,8 @@ func _physics_process(dt: float) -> void:
 			# The left hand reaches the controls; the right arm drapes through the
 			# open side window while his face stays directed toward the boiler.
 			var cheer:=smoothstep(0,.25,boarding_time)*(1-smoothstep(1.5,2.2,boarding_time))
-			driver.get_node("ArmLeft").rotation=Vector3(.95*lean,0,-.18).lerp(Vector3(0,0,-2.65),cheer)
-			driver.get_node("ArmRight").rotation=Vector3(-.35*lean,0,lerpf(.12,1.15,lean)).lerp(Vector3(0,0,2.65),cheer)
+			driver.get_node("ArmLeft").rotation=Vector3(.95*lean,0,-.065).lerp(Vector3(2.65,0,-.065),cheer)
+			driver.get_node("ArmRight").rotation=Vector3(lerpf(0.0,1.25,lean),0,.065).lerp(Vector3(2.65,0,.065),cheer)
 			if boarding_time>=3.15:
 				boarded=true
 				driver.reparent(engine,true)

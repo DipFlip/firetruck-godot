@@ -211,8 +211,8 @@ func _pose_cheer(actor: Node3D, state: Dictionary, t: float) -> void:
 	var wave := sin(state.age * 15.0 + state.phase) * 0.28
 	var left: Node3D = actor.get_node_or_null("ArmLeft")
 	var right: Node3D = actor.get_node_or_null("ArmRight")
-	if left: left.rotation = (state.left as Vector3).lerp(Vector3(0.20, 0.0, -2.55 + wave), blend)
-	if right: right.rotation = (state.right as Vector3).lerp(Vector3(0.20, 0.0, 2.55 - wave), blend)
+	if left: left.rotation = (state.left as Vector3).lerp(Vector3(2.55 + wave, 0.0, -0.065), blend)
+	if right: right.rotation = (state.right as Vector3).lerp(Vector3(2.55 - wave, 0.0, 0.065), blend)
 	var head: Node3D = actor.get_node_or_null("HeadPivot")
 	if head: head.rotation = (state.head as Vector3).lerp(Vector3(-0.14, sin(state.age * 8.0) * 0.18, 0.0), blend)
 
@@ -226,8 +226,8 @@ func _pose_startle(actor: Node3D, state: Dictionary, t: float) -> void:
 		var left: Node3D = actor.get_node_or_null("ArmLeft")
 		var right: Node3D = actor.get_node_or_null("ArmRight")
 		var shake := sin(state.age * 20.0 + state.phase) * 0.22
-		if left: left.rotation = (state.left as Vector3).lerp(Vector3(0.65, 0.0, -2.15 + shake), blend)
-		if right: right.rotation = (state.right as Vector3).lerp(Vector3(0.65, 0.0, 2.15 - shake), blend)
+		if left: left.rotation = (state.left as Vector3).lerp(Vector3(1.95 + shake, 0.0, -0.065), blend)
+		if right: right.rotation = (state.right as Vector3).lerp(Vector3(1.95 - shake, 0.0, 0.065), blend)
 	var head: Node3D = actor.get_node_or_null("HeadPivot")
 	if head: head.rotation = (state.head as Vector3).lerp(Vector3(0.10, sin(state.age * 16.0) * 0.28, 0.0), blend)
 

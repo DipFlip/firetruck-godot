@@ -5,7 +5,11 @@ func run() -> void:
 	root.add_child(stage)
 	var person:=TownProps.person(stage,Vector3.ZERO,Color("ecb354"))
 	var bun_person:=TownProps.person(stage,Vector3.ZERO,Color("ecb354"))
-	TownProps.ball(bun_person,Vector3(0,2.57,.1),Vector3(.48,.46,.5),Color("99523b"))
+	var old_hair := bun_person.get_node_or_null("Hair")
+	if old_hair:
+		bun_person.remove_child(old_hair)
+		old_hair.free()
+	TownProps.molded_hair(bun_person,Vector3(0,1.94,0),Color("99523b"),"bun").name="Hair"
 	var models: Dictionary={}
 	var toys: Array=[["person",person],["person_bun",bun_person]]
 	var hydrant:=Node3D.new()
@@ -51,7 +55,7 @@ func run() -> void:
 					elif colour.is_equal_approx(Color("99523b")): category=2
 					elif colour.is_equal_approx(Color("dfac81").lightened(.08)): category=4
 					elif colour.is_equal_approx(Color("ecb354").darkened(.16)): category=5
-				var eligible:=is_person and category<3 and bounds.size.length()*mesh.scale.length()/sqrt(3)>=.30
+				var eligible: bool = is_person and category < 3 and not bool(mesh.get_meta("no_sdf_blend", false)) and bounds.size.length() * mesh.scale.length() / sqrt(3) >= .30
 				if pair[0]=="hydrant": eligible=colour.is_equal_approx(Color("dd6950"))
 				var kind: String = str(mesh.get_meta("sdf_kind", "ellipsoid" if mesh.mesh is SphereMesh else "cylinder" if mesh.mesh is CylinderMesh else "box"))
 				parts.append({"raw":points,"normals":normals,"indices":Array(arrays[Mesh.ARRAY_INDEX]),"path":path,"kind":kind,"centre":[centre.x,centre.y,centre.z],"radii":[bounds.size.x*.5,bounds.size.y*.5,bounds.size.z*.5],"inverse":[[inverse.x.x,inverse.y.x,inverse.z.x],[inverse.x.y,inverse.y.y,inverse.z.y],[inverse.x.z,inverse.y.z,inverse.z.z]],"colour":[colour.r,colour.g,colour.b],"category":category,"bone":bone,"eligible":eligible})

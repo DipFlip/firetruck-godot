@@ -30,7 +30,7 @@ static func person_palette(person: Node3D) -> ShaderMaterial:
 		var at: Vector3=inverse*part.global_position
 		if at.distance_to(Vector3(0,1.03,0))<.02: shirt=material.albedo_color
 		elif part.name=="Head": skin=material.albedo_color
-		elif at.distance_to(Vector3(0,2.29,.06))<.02: hair=material.albedo_color
+		elif part.name=="Hair" or at.distance_to(Vector3(0,2.29,.06))<.02: hair=material.albedo_color
 	var key:=shirt.to_html()+skin.to_html()+hair.to_html()
 	if not palette_cache.has(key):
 		var material:=ShaderMaterial.new()
@@ -70,7 +70,7 @@ func setup(owner_toy: Node3D, kind: String) -> void:
 		skeleton=Skeleton3D.new()
 		skeleton.name="ToySkeleton"
 		add_child(skeleton)
-		rests.assign([Transform3D.IDENTITY,Transform3D(Basis.from_euler(Vector3(0,0,-.12)),Vector3(-.48,1.35,0)),Transform3D(Basis.from_euler(Vector3(0,0,.12)),Vector3(.48,1.35,0)),Transform3D(Basis.IDENTITY,Vector3(0,1.55,0)),Transform3D(Basis.IDENTITY,Vector3(-.22,.72,0)),Transform3D(Basis.IDENTITY,Vector3(.22,.72,0)),Transform3D(Basis.IDENTITY,Vector3(0,1.98,-.413))])
+		rests.assign([Transform3D.IDENTITY,Transform3D(Basis.from_euler(Vector3(0,0,-.065)),Vector3(-.445,1.32,0)),Transform3D(Basis.from_euler(Vector3(0,0,.065)),Vector3(.445,1.32,0)),Transform3D(Basis.IDENTITY,Vector3(0,1.55,0)),Transform3D(Basis.IDENTITY,Vector3(-.22,.72,0)),Transform3D(Basis.IDENTITY,Vector3(.22,.72,0)),Transform3D(Basis.IDENTITY,Vector3(0,1.98,-.413))])
 		joints.assign([toy,toy.get_node_or_null("ArmLeft"),toy.get_node_or_null("ArmRight"),toy.get_node_or_null("HeadPivot"),toy.get_node_or_null("LegLeft"),toy.get_node_or_null("LegRight"),toy.find_child("Eyes",true,false)])
 		var skin:=Skin.new()
 		for i in BONE_NAMES.size():

@@ -880,12 +880,12 @@ func _update_people(dt: float) -> void:
 		var rig: Dictionary = actor_rigs[actor]
 		var toward: Vector3 = game.truck.global_position - actor.global_position
 		var greeting := toward.length() < 12.0
-		rig.right.rotation = Vector3(0.07 * sin(animation_clock * 0.8 + i), 0, 0.65 + sin(animation_clock * 3.0 + i) * 0.22 if greeting else 0.12)
+		rig.right.rotation = Vector3(2.15 + sin(animation_clock * 4.2 + i) * 0.30 if greeting else 0.07 * sin(animation_clock * 0.8 + i), 0, 0.065)
 		if greeting:
 			actor.rotation.y = lerp_angle(actor.rotation.y, atan2(-toward.x, -toward.z), 1.0 - exp(-3.0 * dt))
 		rig.eyes.scale.y = 0.08 if fmod(animation_clock + i * 0.73, 4.3) < 0.10 else 1.0
 		if i == 2 and owl_rescued and owl.get_parent() == actor:
-			rig.left.rotation = Vector3(1.15, 0, -0.25)
+			rig.left.rotation = Vector3(1.15, 0, -0.065)
 
 func _update_walkers(dt: float) -> void:
 	for walker in walkers:
@@ -921,11 +921,11 @@ func _update_skaters(dt: float) -> void:
 			var glide := sin(animation_clock * 3.6 + i * 1.4)
 			rig.legs[0].rotation.x = glide * 0.42
 			rig.legs[1].rotation.x = -glide * 0.42
-			rig.left.rotation = Vector3(0.15, 0, -0.58 - glide * 0.18)
-			rig.right.rotation = Vector3(0.15, 0, 0.58 - glide * 0.18)
+			rig.left.rotation = Vector3(-0.35 - glide * 0.42, 0, -0.065)
+			rig.right.rotation = Vector3(0.35 + glide * 0.42, 0, 0.065)
 		else:
-			# Waiting eagerly beside the boards, stamping feet to keep warm.
-			rig.right.rotation = Vector3(0, 0, 0.25 + sin(animation_clock * 2.5 + i) * 0.12)
+			# Waiting eagerly beside the boards, waving gently to keep warm.
+			rig.right.rotation = Vector3(0.30 + sin(animation_clock * 2.5 + i) * 0.22, 0, 0.065)
 		rig.eyes.scale.y = 0.08 if fmod(animation_clock + i * 0.9, 4.1) < 0.10 else 1.0
 
 func _update_birds(dt: float) -> void:

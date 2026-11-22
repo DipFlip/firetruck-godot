@@ -34,16 +34,17 @@ func outline() -> PackedVector2Array:
 		edge=(1 if relative.x>0 else 3) if absf(relative.x)/size.x>absf(relative.y)/size.y else (2 if relative.y>0 else 0)
 	var lo:=Vector2.ONE*1.5
 	var hi:=size-lo
+	var r:=minf(24.0,minf((hi.x-lo.x)*.4,(hi.y-lo.y)*.4))
 	var path:=PackedVector2Array()
-	var top_left:=lo+Vector2(26,0)
-	_append_edge(path,top_left,Vector2(hi.x-16,lo.y),Vector2.UP,edge==0)
-	_append_corner(path,Vector2(hi.x-16,lo.y),Vector2(hi.x,lo.y),Vector2(hi.x,lo.y+16))
-	_append_edge(path,Vector2(hi.x,lo.y+16),Vector2(hi.x,hi.y-26),Vector2.RIGHT,edge==1)
-	_append_corner(path,Vector2(hi.x,hi.y-26),hi,Vector2(hi.x-26,hi.y))
-	_append_edge(path,Vector2(hi.x-26,hi.y),Vector2(lo.x+16,hi.y),Vector2.DOWN,edge==2)
-	_append_corner(path,Vector2(lo.x+16,hi.y),Vector2(lo.x,hi.y),Vector2(lo.x,hi.y-16))
-	_append_edge(path,Vector2(lo.x,hi.y-16),Vector2(lo.x,lo.y+26),Vector2.LEFT,edge==3)
-	_append_corner(path,Vector2(lo.x,lo.y+26),lo,top_left)
+	var top_left:=lo+Vector2(r,0)
+	_append_edge(path,top_left,Vector2(hi.x-r,lo.y),Vector2.UP,edge==0)
+	_append_corner(path,Vector2(hi.x-r,lo.y),Vector2(hi.x,lo.y),Vector2(hi.x,lo.y+r))
+	_append_edge(path,Vector2(hi.x,lo.y+r),Vector2(hi.x,hi.y-r),Vector2.RIGHT,edge==1)
+	_append_corner(path,Vector2(hi.x,hi.y-r),hi,Vector2(hi.x-r,hi.y))
+	_append_edge(path,Vector2(hi.x-r,hi.y),Vector2(lo.x+r,hi.y),Vector2.DOWN,edge==2)
+	_append_corner(path,Vector2(lo.x+r,hi.y),Vector2(lo.x,hi.y),Vector2(lo.x,hi.y-r))
+	_append_edge(path,Vector2(lo.x,hi.y-r),Vector2(lo.x,lo.y+r),Vector2.LEFT,edge==3)
+	_append_corner(path,Vector2(lo.x,lo.y+r),lo,top_left)
 	if path[-1].is_equal_approx(path[0]): path.resize(path.size()-1)
 	return path
 
@@ -65,9 +66,9 @@ func _append_edge(path: PackedVector2Array, start: Vector2, finish: Vector2, nor
 		var tip:=base+(normal*depth+tangent*clampf(delta.dot(tangent),-10,10)).limit_length(36)
 		var bend:=minf(14,depth*.45)
 		path.append(left)
-		_append_curve(path,left,left+tangent*12,tip-normal*bend-tangent*3,tip-tangent*.8)
-		_append_curve(path,tip-tangent*.8,tip+normal*1.2,tip+normal*1.2,tip+tangent*.8)
-		_append_curve(path,tip+tangent*.8,tip-normal*bend+tangent*3,right-tangent*12,right)
+		_append_curve(path,left,left+tangent*12,tip-normal*bend-tangent*3.8,tip-tangent*2.4)
+		_append_curve(path,tip-tangent*2.4,tip+normal*1.6-tangent*.9,tip+normal*1.6+tangent*.9,tip+tangent*2.4,10)
+		_append_curve(path,tip+tangent*2.4,tip-normal*bend+tangent*3.8,right-tangent*12,right)
 	path.append(finish)
 
 func _append_corner(path: PackedVector2Array, start: Vector2, corner: Vector2, finish: Vector2) -> void:

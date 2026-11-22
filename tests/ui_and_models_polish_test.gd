@@ -45,54 +45,65 @@ func run() -> void:
 	game.set_paused(false)
 	await frames(2)
 
-	# --- 2. Injection-Molded Toy Character Geometry ---
+	# --- 2. Injection-Molded Toy Character Geometry (Single-Piece Hair + Flush Single-Axis Arms) ---
 	var test_person := TownProps.person(game, Vector3(0, -40, 0), Color("ecb354"))
 	var left_arm: Node3D = test_person.get_node("ArmLeft")
 	var arm_meshes := left_arm.find_children("*", "MeshInstance3D", true, false)
 	check(arm_meshes.size() >= 2 and arm_meshes.all(func(m: MeshInstance3D): return m.mesh is ArrayMesh and not (m.mesh is SphereMesh)),
 		"Character arms and hands use injection-molded cylindrical ArrayMeshes instead of stretched ovals")
+	check(absf(left_arm.position.x) <= 0.45 and absf(left_arm.rotation.z) <= 0.08,
+		"Character arms sit flush against the torso shoulder for clean single-axis toy rotation")
+	var hair_node: MeshInstance3D = test_person.get_node_or_null("Hair")
+	check(hair_node != null and hair_node.mesh is ArrayMesh and not (hair_node.mesh is SphereMesh),
+		"Character hair is a single sculpted injection-molded ArrayMesh piece with no separate horn spheres")
 	var leg_meshes := test_person.get_children().filter(func(c: Node): return c is MeshInstance3D and absf(absf((c as Node3D).position.x) - 0.22) < 0.02 and (c as Node3D).position.y > 0.25)
 	check(leg_meshes.size() == 2 and leg_meshes.all(func(m: MeshInstance3D): return m.mesh is ArrayMesh and m.get_meta("sdf_kind", "") == "cylinder"),
 		"Character legs use smooth filleted molded cylinders with no sharp box corners")
 	test_person.queue_free()
 
-	# --- 3. Stable NPCAttention + Compact "!" Badge ---
+	# --- 3. In-Place Morphing NPCAttention + Unified Rounded Silhouette ---
 	game.set_process(false)
 	game.travel.set_process(false)
 	game.stage = 1
 	var attention: NPCAttention = game.dialogue_control.attention
 	var maya: Node3D = game.town.people[0]
-	# Medium distance (12 m): shows compact "!" badge!
+	# Medium distance (12 m): shows compact "!" badge pinned directly above Maya's head!
 	game.truck.global_position = maya.global_position + Vector3(0, 0.855, 12.0)
 	game.truck.reset_physics_interpolation()
 	game.camera.position = maya.global_position + game.gameplay_camera_offset()
 	game.camera.look_at(maya.global_position)
 	attention._process(0.1)
-	check(attention.visible and attention.compact and attention.size == NPCAttention.BADGE_SIZE,
-		"Approaching an NPC at medium range displays the calm compact '!' exclamation badge")
-	# Close distance with open screen room (6 m): shows full prompt bubble!
+	var badge_center_x := attention.position.x + attention.size.x * 0.5
+	var head_screen: Vector2 = game.camera.unproject_position(maya.global_position + Vector3.UP * 2.85)
+	check(attention.visible and attention.compact and is_equal_approx(attention.size.x, NPCAttention.BADGE_SIZE.x) and absf(badge_center_x - head_screen.x) < 2.0,
+		"Approaching an NPC at medium range displays the compact '!' badge pinned centered above their head")
+	# Close distance (6 m): smoothly morphs in place above the head without flying in from the side!
 	game.truck.global_position = maya.global_position + Vector3(0, 0.855, 6.0)
 	game.truck.reset_physics_interpolation()
 	attention.mode_lock = 0.0
-	attention._process(0.1)
-	check(attention.visible and not attention.compact and attention.size.is_equal_approx(NPCAttention.FULL_SIZE),
-		"Driving within talk range with clear room displays the full talk prompt")
-	# Moving slightly while inside slot_lock keeps the chosen slot rock steady!
-	var locked_slot := attention.active_slot
-	for step in 5:
-		game.truck.global_position += Vector3(0.45, 0, -0.15)
-		game.truck.reset_physics_interpolation()
-		attention._process(0.05)
-	check(attention.active_slot == locked_slot,
-		"Slot hysteresis prevents the prompt bubble from wobbling/flipping while driving past")
-	# When NPC is pushed near the screen edge, falls back to compact "!" badge!
+	attention._process(0.05)
+	var mid_center_x := attention.position.x + attention.size.x * 0.5
+	check(attention.visible and not attention.compact and attention.expand > 0.1 and attention.expand < 0.95 and absf(mid_center_x - head_screen.x) < 2.0,
+		"Transitioning to talk range morphs smoothly in place directly above the NPC's head")
+	for step in 12:
+		attention._process(0.08)
+	var full_center_x := attention.position.x + attention.size.x * 0.5
+	check(attention.visible and not attention.compact and is_equal_approx(attention.size.x, NPCAttention.FULL_SIZE.x) and absf(full_center_x - head_screen.x) < 2.0,
+		"Full talk prompt finishes expanding symmetrically above the NPC's head with zero sideways fly-in")
+	# Verify unified rounded outline has smooth continuous points for both badge and full bubble.
+	var badge_outline := NPCAttention._unified_bubble_outline(48.0, 48.0, 22.0, 24.0, 11.0, 9.0)
+	var full_outline := NPCAttention._unified_bubble_outline(290.0, 68.0, 28.0, 145.0, 15.0, 15.5)
+	check(badge_outline.size() > 60 and full_outline.size() > 60,
+		"Both badge and expanded prompt render as one continuous rounded Bezier polygon silhouette")
+	# When NPC is pushed near the screen edge, collapses cleanly back to compact "!" badge!
 	var edge_shift: Vector3 = game.camera.global_basis.x * 18.5
 	game.camera.position = maya.global_position + edge_shift + game.gameplay_camera_offset()
 	game.camera.look_at(maya.global_position + edge_shift)
 	attention.mode_lock = 0.0
-	attention._process(0.1)
-	check(attention.visible and attention.compact and attention.size.is_equal_approx(NPCAttention.BADGE_SIZE),
-		"When the full bubble would clip the screen edge, it collapses cleanly to the compact '!' badge")
+	for step in 12:
+		attention._process(0.08)
+	check(attention.visible and attention.compact and is_equal_approx(attention.size.x, NPCAttention.BADGE_SIZE.x),
+		"When the full bubble would clip the screen edge, it morphs cleanly back to the compact '!' badge")
 
 	# --- 4. Auto-Triggered Conversation: First Click Fast-Forwards, Second Click Closes ---
 	game.talk("OLIVER  /  THANK YOU", "It's perfect! Thank you for saving our pool party. You're always welcome for a swim!", game.stage, true)

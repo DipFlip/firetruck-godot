@@ -760,7 +760,7 @@ func _broadcast_camera(parent: Node3D, at: Vector3) -> void:
 	ToyModels.dress_person(camera_operator,"operator")
 	camera_operator.rotation.y=PI
 	for arm in ["ArmLeft","ArmRight"]:
-		camera_operator.get_node(arm).rotation=Vector3(2.0,0,.12 if arm=="ArmRight" else -.12)
+		camera_operator.get_node(arm).rotation=Vector3(2.0,0,.065 if arm=="ArmRight" else -.065)
 
 func _update_broadcast_camera(dt: float) -> void:
 	if not running: return
@@ -792,7 +792,7 @@ func _process(dt: float) -> void:
 		var rig: Dictionary=actor_rigs[actor]
 		var toward: Vector3=game.truck.global_position-actor.global_position
 		var greeting:=toward.length()<12
-		rig.right.rotation=Vector3(.07*sin(animation_clock*.8+i),0,.65+sin(animation_clock*3+i)*.22 if greeting else .12)
+		rig.right.rotation=Vector3(2.15+sin(animation_clock*4.2+i)*.30 if greeting else .07*sin(animation_clock*.8+i),0,.065)
 		_pose_idle_head(rig,i,0.0,0.0,dt)
 		if greeting: actor.rotation.y=lerp_angle(actor.rotation.y,atan2(-toward.x,-toward.z),1-exp(-3*dt))
 	_update_walkers(dt)
@@ -900,8 +900,8 @@ func _update_audience(dt: float) -> void:
 			var cycle:=fposmod(animation_clock+i*2.37,20.0+(i%4)*1.7)
 			var glance:=smoothstep(1.0,1.8,cycle)*(1-smoothstep(3.8,4.6,cycle))*(.55 if i%3==2 else -.55)
 			var snack:=smoothstep(7.0,8.3,cycle)*(1-smoothstep(9.8,11.2,cycle)) if rig.snack!=null and not cheering else 0.0
-			var idle_arm:=Vector3(.07*sin(animation_clock*.8+i),0,.12)
-			var target:=Vector3(.25,0,1.7+sin(state.age*12)*.40) if cheering else idle_arm.lerp(Vector3(2.5,0,-.70),snack)
+			var idle_arm:=Vector3(.07*sin(animation_clock*.8+i),0,.065)
+			var target:=Vector3(2.55+sin(state.age*12)*.25,0,.065) if cheering else idle_arm.lerp(Vector3(2.5,0,-.70),snack)
 			rig.right.rotation=rig.right.rotation.lerp(target,1-exp(-9*dt))
 			if rig.snack!=null:
 				# The wrist keeps the cup upright, then tips it for the sip.

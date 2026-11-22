@@ -179,11 +179,11 @@ func _process(dt: float) -> void:
 		if truck and person.global_position.distance_to(truck.global_position)<11:
 			var toward:=truck.global_position-person.global_position
 			person.rotation.y=lerp_angle(person.rotation.y,atan2(-toward.x,-toward.z),dt*2)
-			person.get_node("ArmRight").rotation.z=0.8+sin(time*5+i)*0.25
-		else: person.get_node("ArmRight").rotation.z=0.12
+			person.get_node("ArmRight").rotation=Vector3(2.25+sin(time*5+i)*0.32,0,0.065)
+		else: person.get_node("ArmRight").rotation=Vector3(0,0,0.065)
 		if i==0 and cat_cuddling:
-			person.get_node("ArmLeft").rotation=Vector3(1.10,0,-.15)
-			person.get_node("ArmRight").rotation=Vector3(1.80+sin(time*5)*.13,0,.14+sin(time*5)*.08)
+			person.get_node("ArmLeft").rotation=Vector3(1.10,0,-0.065)
+			person.get_node("ArmRight").rotation=Vector3(1.80+sin(time*5)*.13,0,0.065)
 			if cat.get_parent()==person: cat.position.y=.80+sin(time*2)*.015
 	if not dog.get_meta("spray_reacting",false):
 		dog.rotation.y = PI+sin(time*2)*0.15

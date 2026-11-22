@@ -212,6 +212,289 @@ static func molded_limb(parent: Node3D, pos: Vector3, rx: float, rz: float, heig
 	node.position = pos
 	return node
 
+# Single-piece injection-molded toy hair shell (Lego/Playmobil style) that wraps
+# smoothly outside the Head ellipsoid (0.505, 0.535, 0.440) with a rounded lip
+# tucked cleanly inside the skull so zero skin or forehead horns ever poke out.
+static func molded_hair(parent: Node3D, pos: Vector3, color: Color, style: String = "classic") -> MeshInstance3D:
+	var key := "hair_" + style
+	if not molded_meshes.has(key):
+		const RX := 0.505
+		const RY := 0.535
+		const RZ := 0.440
+		const SEG := 40
+		const DOME_RINGS := 14
+		const LIP_STEPS := 4
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+		var ring_pts: Array = []
+		var total_rings := DOME_RINGS + LIP_STEPS + 2 # crown + dome + rounded lip + inner seal
+		for r in total_rings:
+			ring_pts.append([])
+
+		for i in SEG:
+			var phi := float(i) * TAU / float(SEG)
+			var ang := wrapf(phi, -PI, PI) # 0 = front (-Z), +-PI/2 = sides, +-PI = back (+Z)
+			var aabs := absf(ang)
+			var sx := sin(phi)
+			var sz := -cos(phi)
+
+			var rim_alpha := 0.52
+			var t_base := 0.11
+			var flare_amp := 0.0
+			var flip_y := 0.0
+			var back_t := smoothstep(1.15, 2.05, aabs)
+			match style:
+				"classic", "bun":
+					rim_alpha = lerpf(0.54, 0.27, smoothstep(0.35, 1.15, aabs))
+					rim_alpha = lerpf(rim_alpha, -0.42, back_t)
+					if style == "classic":
+						rim_alpha -= 0.065 * sin(ang - 0.45) * exp(-ang * ang * 2.2)
+					t_base = 0.112
+				"bob":
+					# Continuous wrap-around molded bob framing cheeks and full back.
+					rim_alpha = lerpf(0.45, -0.48, smoothstep(0.48, 1.12, aabs))
+					rim_alpha = lerpf(rim_alpha, -0.54, smoothstep(1.40, 2.25, aabs))
+					rim_alpha -= 0.055 * sin(ang - 0.48) * exp(-ang * ang * 2.6)
+					t_base = 0.165
+					flare_amp = 0.115 * smoothstep(0.65, 1.35, aabs)
+					flip_y = -0.025 * smoothstep(0.75, 1.45, aabs)
+				"long":
+					# Smooth shoulder-length molded shell; gently tapered at temples for earmuffs.
+					rim_alpha = lerpf(0.46, -0.60, smoothstep(0.50, 1.18, aabs))
+					rim_alpha = lerpf(rim_alpha, -0.68, smoothstep(1.45, 2.30, aabs))
+					rim_alpha -= 0.045 * sin(ang - 0.4) * exp(-ang * ang * 2.4)
+					t_base = 0.158
+					flare_amp = 0.095 * smoothstep(0.80, 1.65, aabs)
+				"under_beanie":
+					# Fits snugly under a beanie crown (t_base=0.125 < beanie 0.215) and flows
+					# cleanly out around the cheeks and back below the beanie cuff!
+					rim_alpha = lerpf(0.48, -0.50, smoothstep(0.60, 1.22, aabs))
+					rim_alpha = lerpf(rim_alpha, -0.58, smoothstep(1.50, 2.25, aabs))
+					t_base = 0.122
+					flare_amp = 0.13 * smoothstep(0.72, 1.35, aabs)
+				"curly":
+					rim_alpha = lerpf(0.49, 0.30, smoothstep(0.35, 1.15, aabs))
+					rim_alpha = lerpf(rim_alpha, -0.44, back_t)
+					t_base = 0.195
+				"wavy":
+					rim_alpha = lerpf(0.50, 0.24, smoothstep(0.35, 1.15, aabs))
+					rim_alpha = lerpf(rim_alpha, -0.43, back_t)
+					rim_alpha -= 0.08 * sin(ang - 0.35) * exp(-ang * ang * 2.0)
+					t_base = 0.145
+
+			for r in DOME_RINGS + 1:
+				var u := float(r) / float(DOME_RINGS)
+				var alpha := lerpf(PI * 0.5, rim_alpha, u)
+				var ca := cos(alpha)
+				var sa := sin(alpha)
+				var t := t_base * (0.93 + 0.09 * sin(u * PI))
+				if style == "bob" or style == "long" or style == "under_beanie":
+					# Flare only below the upper crown so beanie/earmuffs fit cleanly above.
+					var low_u := smoothstep(0.45, 1.0, u)
+					t += flare_amp * low_u * low_u
+				elif style == "curly":
+					var wave := sin(u * PI)
+					t += (0.022 * sin(phi * 7.0 + u * 2.4) + 0.016 * cos(phi * 5.0 - u * 4.5)) * wave
+				elif style == "wavy":
+					var crest := exp(-pow(ang - 0.32, 2.0) * 3.8) * exp(-pow(u - 0.68, 2.0) * 7.5)
+					t += 0.105 * crest
+				var scale_r := 1.0 + t
+				var px := RX * scale_r * ca * sx
+				var py := RY * scale_r * sa + flip_y * smoothstep(0.65, 1.0, u)
+				var pz := RZ * scale_r * ca * sz
+				if style == "wavy":
+					py += 0.055 * exp(-pow(ang - 0.32, 2.0) * 3.8) * exp(-pow(u - 0.68, 2.0) * 7.5)
+				ring_pts[r].append(Vector3(px, py, pz))
+
+			# Smooth rounded plastic lip rolling inward inside the head ellipsoid.
+			var outer_scale := 1.0 + t_base * 0.93 + flare_amp
+			var inner_scale := 0.93
+			var mid_scale := (outer_scale + inner_scale) * 0.5
+			var half_thick := (outer_scale - inner_scale) * 0.5
+			for s in range(1, LIP_STEPS + 1):
+				var la := float(s) * PI / float(LIP_STEPS)
+				var alpha := rim_alpha - 0.048 * sin(la)
+				var ca := cos(alpha)
+				var sa := sin(alpha)
+				var sr := mid_scale + half_thick * cos(la)
+				var px := RX * sr * ca * sx
+				var py := RY * sr * sa + flip_y * (0.5 + 0.5 * cos(la))
+				var pz := RZ * sr * ca * sz
+				ring_pts[DOME_RINGS + s].append(Vector3(px, py, pz))
+
+			# Close underside cleanly inside head center.
+			ring_pts[DOME_RINGS + LIP_STEPS + 1].append(Vector3(0.0, 0.06, 0.02))
+
+		_emit_lathed_grid(st, ring_pts, SEG)
+
+		# For June's bun style, integrate a smooth molded bun lobe right into the hair mesh!
+		if style == "bun":
+			_append_ellipsoid(st, Vector3(0.0, 0.60, 0.14), Vector3(0.24, 0.21, 0.24), 24, 14)
+
+		st.index()
+		st.generate_normals()
+		molded_meshes[key] = st.commit()
+
+	var node := MeshInstance3D.new()
+	node.mesh = molded_meshes[key]
+	node.material_override = material(color)
+	node.set_meta("no_sdf_blend", true)
+	parent.add_child(node)
+	node.position = pos
+	return node
+
+# Single-piece injection-molded cap or beanie dome strictly outside base hair
+# (t_base = 0.205..0.215 vs base hair 0.112) so zero hair ever pokes through!
+static func molded_hat(parent: Node3D, pos: Vector3, color: Color, style: String = "cap") -> MeshInstance3D:
+	var key := "hat_" + style
+	if not molded_meshes.has(key):
+		const RX := 0.505
+		const RY := 0.535
+		const RZ := 0.440
+		const SEG := 40
+		const DOME_RINGS := 14
+		const LIP_STEPS := 4
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+		if style == "cap_visor":
+			# Curved molded cap visor hugging the front forehead rim cleanly.
+			var v_rings := 8
+			var v_segs := 20
+			var grid: Array = []
+			for r in v_rings:
+				grid.append([])
+			var arc_half := 1.02
+			for i in v_segs + 1:
+				var frac := float(i) / float(v_segs)
+				var ang := lerpf(-arc_half, arc_half, frac)
+				var sx := sin(ang)
+				var sz := -cos(ang)
+				var arch := cos(ang * 1.15)
+				var inner_r := 1.14
+				var outer_r := 1.14 + 0.64 * maxf(0.05, pow(arch, 1.3))
+				var base_y := 0.22 + 0.03 * (1.0 - arch)
+				var tip_y := base_y - 0.055 * arch
+				var thick := 0.038 * (0.75 + 0.25 * arch)
+				# Cross-section loop around visor chord (8 profile pts).
+				var prof: Array[Vector2] = [
+					Vector2(inner_r, base_y + thick),
+					Vector2(lerpf(inner_r, outer_r, 0.55), lerpf(base_y, tip_y, 0.55) + thick * 0.95),
+					Vector2(outer_r - 0.04, tip_y + thick * 0.72),
+					Vector2(outer_r, tip_y),
+					Vector2(outer_r - 0.04, tip_y - thick * 0.72),
+					Vector2(lerpf(inner_r, outer_r, 0.55), lerpf(base_y, tip_y, 0.55) - thick * 0.85),
+					Vector2(inner_r, base_y - thick),
+					Vector2(inner_r - 0.05, base_y),
+				]
+				for r in v_rings:
+					var p2: Vector2 = prof[r]
+					grid[r].append(Vector3(RX * p2.x * sx, p2.y, RZ * p2.x * sz))
+			for r in v_rings:
+				var r_next := (r + 1) % v_rings
+				var row0: Array = grid[r]
+				var row1: Array = grid[r_next]
+				for i in v_segs:
+					var a: Vector3 = row0[i]
+					var b: Vector3 = row0[i + 1]
+					var c: Vector3 = row1[i]
+					var d: Vector3 = row1[i + 1]
+					st.add_vertex(a); st.add_vertex(c); st.add_vertex(b)
+					st.add_vertex(b); st.add_vertex(c); st.add_vertex(d)
+			st.index()
+			st.generate_normals()
+			molded_meshes[key] = st.commit()
+		else:
+			var ring_pts: Array = []
+			var total_rings := DOME_RINGS + LIP_STEPS + 2
+			for r in total_rings:
+				ring_pts.append([])
+			var is_beanie := style == "beanie"
+			var is_beanie_cuff := style == "beanie_cuff"
+			for i in SEG:
+				var phi := float(i) * TAU / float(SEG)
+				var ang := wrapf(phi, -PI, PI)
+				var aabs := absf(ang)
+				var sx := sin(phi)
+				var sz := -cos(phi)
+				var rim_alpha := lerpf(0.36, 0.14, smoothstep(0.4, 2.4, aabs)) if not is_beanie and not is_beanie_cuff else lerpf(0.33, -0.05, smoothstep(0.45, 2.4, aabs))
+				var top_alpha := PI * 0.5 if not is_beanie_cuff else rim_alpha + 0.30
+				var t_base := 0.21 if style == "cap" else (0.22 if is_beanie else 0.275)
+				for r in DOME_RINGS + 1:
+					var u := float(r) / float(DOME_RINGS)
+					var alpha := lerpf(top_alpha, rim_alpha, u)
+					var ca := cos(alpha)
+					var sa := sin(alpha)
+					var t := t_base
+					if is_beanie:
+						t += 0.03 * (1.0 - u)
+					elif is_beanie_cuff:
+						# Softly rounded folded knit cuff band around the beanie rim!
+						t = 0.21 + 0.068 * sin(u * PI)
+					elif style == "cap":
+						# Crisp domed baseball/conductor crown.
+						t += 0.045 * pow(1.0 - u, 1.4)
+					var sr := 1.0 + t
+					var py_lift := 0.035 if is_beanie else (0.025 if style == "cap" else 0.0)
+					ring_pts[r].append(Vector3(RX * sr * ca * sx, RY * sr * sa + py_lift, RZ * sr * ca * sz))
+
+				var outer_scale := 1.0 + (0.21 if is_beanie_cuff else t_base)
+				var inner_scale := 0.96
+				var mid_scale := (outer_scale + inner_scale) * 0.5
+				var half_thick := (outer_scale - inner_scale) * 0.5
+				for s in range(1, LIP_STEPS + 1):
+					var la := float(s) * PI / float(LIP_STEPS)
+					var alpha := rim_alpha - 0.04 * sin(la)
+					var ca := cos(alpha)
+					var sa := sin(alpha)
+					var sr := mid_scale + half_thick * cos(la)
+					var py_lift := 0.035 if is_beanie else (0.025 if style == "cap" else 0.0)
+					ring_pts[DOME_RINGS + s].append(Vector3(RX * sr * ca * sx, RY * sr * sa + py_lift, RZ * sr * ca * sz))
+				ring_pts[DOME_RINGS + LIP_STEPS + 1].append(Vector3(0.0, 0.20, 0.0))
+
+			_emit_lathed_grid(st, ring_pts, SEG)
+			st.index()
+			st.generate_normals()
+			molded_meshes[key] = st.commit()
+
+	var node := MeshInstance3D.new()
+	node.mesh = molded_meshes[key]
+	node.material_override = material(color)
+	node.set_meta("no_sdf_blend", true)
+	parent.add_child(node)
+	node.position = pos
+	return node
+
+static func _emit_lathed_grid(st: SurfaceTool, ring_pts: Array, segs: int) -> void:
+	var rings := ring_pts.size()
+	for r in rings - 1:
+		var row0: Array = ring_pts[r]
+		var row1: Array = ring_pts[r + 1]
+		for i in segs:
+			var j := (i + 1) % segs
+			var a: Vector3 = row0[i]
+			var b: Vector3 = row0[j]
+			var c: Vector3 = row1[i]
+			var d: Vector3 = row1[j]
+			if r > 0:
+				st.add_vertex(a); st.add_vertex(c); st.add_vertex(b)
+			if r < rings - 2:
+				st.add_vertex(b); st.add_vertex(c); st.add_vertex(d)
+
+static func _append_ellipsoid(st: SurfaceTool, center: Vector3, radii: Vector3, segs: int, rings: int) -> void:
+	var grid: Array = []
+	for r in rings + 1:
+		var row: Array = []
+		var alpha := lerpf(PI * 0.5, -PI * 0.5, float(r) / float(rings))
+		var ca := cos(alpha)
+		var sa := sin(alpha)
+		for i in segs:
+			var phi := float(i) * TAU / float(segs)
+			row.append(center + Vector3(radii.x * ca * sin(phi), radii.y * sa, -radii.z * ca * cos(phi)))
+		grid.append(row)
+	_emit_lathed_grid(st, grid, segs)
+
 static func label(parent: Node3D, pos: Vector3, words: String, size: int = 40) -> Label3D:
 	var l := Label3D.new()
 	parent.add_child(l)
@@ -296,23 +579,26 @@ static func person(parent: Node3D, pos: Vector3, shirt: Color, skin_tone: Color=
 	for x in [-0.22,0.22]:
 		molded_limb(p,Vector3(x,0.42,0),0.145,0.16,0.68,Color("465967"),0.11,0.045,1.02,0.96)
 		molded_limb(p,Vector3(x,0.11,-0.10),0.175,0.275,0.22,Color("775d4a"),0.105,0.032,0.90,1.04)
-	molded_limb(p,Vector3(0,1.03,0),0.45,0.30,1.00,shirt,0.24,0.11,0.90,1.04)
+	molded_limb(p,Vector3(0,1.03,0),0.45,0.30,1.00,shirt,0.145,0.10,0.94,1.04)
 	molded_limb(p,Vector3(0,1.06,-0.302),0.024,0.018,0.60,shirt.darkened(0.16),0.016,0.016)
 	for y in [0.85,1.08,1.31]: ball(p,Vector3(0,y,-0.318),Vector3.ONE*0.075,Color("e8d4ac"))
 	ball(p,Vector3(0,1.94,0),Vector3(1.01,1.07,0.88),skin).name="Head"
-	ball(p,Vector3(0,2.29,0.06),Vector3(1.07,0.62,0.95),hair)
+	var hair_mesh := molded_hair(p,Vector3(0,1.94,0),hair,"bun" if shirt==Color("b88ca1") else "classic")
+	hair_mesh.name="Hair"
 	for side in [-1,1]:
 		ball(p,Vector3(side*0.47,1.92,0),Vector3(0.18,0.28,0.2),skin)
-		ball(p,Vector3(side*0.34,2.32,-0.23),Vector3(0.4,0.34,0.32),hair)
 		var arm:=Node3D.new()
 		p.add_child(arm)
 		arm.name="ArmLeft" if side<0 else "ArmRight"
-		arm.position=Vector3(side*0.48,1.35,0)
-		arm.rotation.z=side*0.12
-		# Injection-molded cylindrical sleeve: uniform thickness along the arm,
-		# rounded shoulder dome at top and a flatter, softly filleted cuff end.
-		molded_limb(arm,Vector3(0,-0.27,0),0.135,0.145,0.56,shirt,0.11,0.042,0.95,1.0)
-		molded_limb(arm,Vector3(0,-0.59,0),0.105,0.112,0.19,skin,0.045,0.085)
+		arm.position=Vector3(side*0.445,1.32,0)
+		arm.rotation.z=side*0.065
+		# Injection-molded single-axis toy arm: sits flush against the torso shoulder
+		# with an internal shoulder pin bridging seamlessly across rotation.x swings.
+		var pin := molded_limb(arm,Vector3(-side*0.055,-0.01,0),0.115,0.125,0.18,shirt,0.055,0.055)
+		pin.rotation.z = PI * 0.5
+		pin.set_meta("no_sdf_blend", true)
+		molded_limb(arm,Vector3(0,-0.25,0),0.135,0.145,0.58,shirt,0.10,0.04,0.96,1.0)
+		molded_limb(arm,Vector3(0,-0.58,0),0.102,0.11,0.18,skin,0.042,0.082)
 	var eyes:=Node3D.new()
 	p.add_child(eyes)
 	eyes.name="Eyes"
@@ -322,8 +608,6 @@ static func person(parent: Node3D, pos: Vector3, shirt: Color, skin_tone: Color=
 		ball(eyes,Vector3(side*0.205-0.025,0.045,-0.04),Vector3.ONE*0.033,Color("fff1d6"))
 	ball(p,Vector3(0,1.84,-0.455),Vector3(0.15,0.13,0.16),skin.lightened(0.08))
 	ball(p,Vector3(0,1.68,-0.41),Vector3(0.17,0.055,0.045),Color("956352"))
-	if shirt==Color("b88ca1"):
-		ball(p,Vector3(0,2.57,0.1),Vector3(0.48,0.46,0.5),hair)
 	soften_toy_shine(p)
 	return p
 
@@ -359,8 +643,8 @@ static func pose_walk(person: Node3D, legs: Array[Node3D], phase: float, moving:
 	legs[1].rotation.x=-step
 	person.get_node("ArmLeft").rotation.x=-step
 	person.get_node("ArmRight").rotation.x=step
-	person.get_node("ArmLeft").rotation.z=-.12
-	person.get_node("ArmRight").rotation.z=.12
+	person.get_node("ArmLeft").rotation.z=-.065
+	person.get_node("ArmRight").rotation.z=.065
 	return absf(cos(phase))*.035 if moving else 0.0
 
 # Compatibility/WebGL has a much smaller instance-uniform buffer. Particle

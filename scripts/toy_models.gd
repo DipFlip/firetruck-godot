@@ -79,7 +79,7 @@ static func dress_person(person: Node3D, style: String = "default", accent: Colo
 		var at: Vector3 = inv * part.global_position
 		if at.distance_to(Vector3(0, 1.03, 0)) < 0.05: shirt = mat.albedo_color
 		elif part.name == "Head": skin = mat.albedo_color
-		elif at.distance_to(Vector3(0, 2.29, 0.06)) < 0.05: hair = mat.albedo_color
+		elif part.name == "Hair" or at.distance_to(Vector3(0, 2.29, 0.06)) < 0.05: hair = mat.albedo_color
 	if accent.a <= 0.0: accent = shirt.lightened(0.22)
 
 	# Expressive eyebrows, rosy cheek dots and hidden reaction mouth ("O" / grin).
@@ -88,100 +88,98 @@ static func dress_person(person: Node3D, style: String = "default", accent: Colo
 	brows.name = "Eyebrows"
 	head_details.add_child(brows)
 	for side in [-1, 1]:
-		var brow := _capsule(brows, Vector3(side * 0.205, 0.165, -0.415), 0.026, 0.15, brow_color)
+		var brow := _capsule(brows, Vector3(side * 0.205, 0.165, -0.415), 0.024, 0.145, brow_color)
 		brow.rotation.z = PI * 0.5 + side * 0.10
 		# Soft rosy cheek blush dots.
-		var cheek := TownProps.ball(head_details, Vector3(side * 0.305, -0.095, -0.365), Vector3(0.125, 0.085, 0.05), Color("e28d81"))
+		var cheek := TownProps.ball(head_details, Vector3(side * 0.305, -0.095, -0.365), Vector3(0.12, 0.08, 0.05), Color("e28d81"))
 		cheek.rotation.y = side * 0.48
 	var mouth_open := TownProps.ball(head_details, Vector3(0, -0.255, -0.425), Vector3(0.15, 0.14, 0.06), Color("7d3d3b"))
 	mouth_open.name = "MouthOpen"
 	mouth_open.visible = false
 
-	# Soft collar / neck transition so the head sits naturally on the torso.
-	_torus(outfit, Vector3(0, 1.50, 0), 0.175, 0.285, accent if style not in ["elsa", "astrid", "nora", "winter_skater", "winter_villager"] else Color("f0e6d2"))
-	# Molded flat rubber boot soles and subtle sleeve cuffs.
+	# Soft elliptical collar / neck transition so the head sits naturally on the torso.
+	var collar := _torus(outfit, Vector3(0, 1.49, 0), 0.175, 0.275, accent if style not in ["elsa", "astrid", "nora", "winter_skater", "winter_villager"] else Color("f0e6d2"))
+	collar.scale = Vector3(1.0, 0.92, 0.84)
+	# Molded flat rubber boot soles and trim sleeve cuffs.
 	for side in [-1, 1]:
 		var leg_parent: Node3D = person.get_node_or_null("LegLeft" if side < 0 else "LegRight")
 		var boot_rim := _mark_accessory(TownProps.molded_limb(leg_parent if leg_parent else outfit, Vector3(0 if leg_parent else side * 0.22, -0.685 if leg_parent else 0.035, -0.10), 0.185, 0.285, 0.07, Color("4f4239"), 0.02, 0.024, 0.96, 1.0))
 		boot_rim.name = "BootSole" + ("L" if side < 0 else "R")
 		var arm: Node3D = person.get_node_or_null("ArmLeft" if side < 0 else "ArmRight")
 		if arm:
-			var cuff := _mark_accessory(_torus(arm, Vector3(0, -0.51, 0), 0.115, 0.155, shirt.lightened(0.16)))
+			var cuff := _mark_accessory(_torus(arm, Vector3(0, -0.495, 0), 0.122, 0.146, shirt.lightened(0.14)))
 			cuff.name = "SleeveCuff"
 
-	# Style-specific sculpted headgear, hair silhouettes, glasses and clothes.
+	# Style-specific sculpted single-piece hairpieces, headgear, glasses and snug clothes.
 	match style:
 		"maya":
-			# Auburn bob side curls and cosy rounded raincoat pockets.
+			# Single-piece molded auburn bob + cosy rounded raincoat pockets.
+			TownProps.molded_hair(head_details, Vector3.ZERO, hair, "bob")
 			for side in [-1, 1]:
-				var curl := _capsule(head_details, Vector3(side * 0.44, -0.02, 0.08), 0.145, 0.50, hair)
-				curl.rotation.z = side * 0.16
-			TownProps.ball(head_details, Vector3(0, 0.05, 0.40), Vector3(0.76, 0.56, 0.30), hair)
-			for side in [-1, 1]:
-				TownProps.molded_limb(outfit, Vector3(side * 0.24, 0.78, -0.295), 0.09, 0.032, 0.15, shirt.darkened(0.12), 0.028, 0.035)
+				TownProps.molded_limb(outfit, Vector3(side * 0.24, 0.78, -0.305), 0.09, 0.032, 0.15, shirt.darkened(0.12), 0.028, 0.035)
 		"leo":
-			# Round dark glasses, curly hair tufts, neat beard and rounded barbecue apron.
+			# Round dark glasses, single-piece molded curly hair, neat sculpted beard and snug barbecue apron.
 			_add_glasses(head_details, Color("3c474d"))
-			for p in [Vector3(-0.26, 0.50, -0.10), Vector3(0.0, 0.55, -0.06), Vector3(0.26, 0.50, -0.10), Vector3(-0.34, 0.42, 0.18), Vector3(0.34, 0.42, 0.18)]:
-				TownProps.ball(head_details, p, Vector3(0.27, 0.23, 0.25), hair)
-			TownProps.ball(head_details, Vector3(0, -0.34, -0.25), Vector3(0.58, 0.34, 0.36), hair)
-			TownProps.molded_limb(outfit, Vector3(0, 0.90, -0.30), 0.27, 0.045, 0.56, Color("c96f55"), 0.04, 0.055)
-			_torus(outfit, Vector3(0, 0.94, 0.02), 0.37, 0.45, Color("c96f55"))
+			TownProps.molded_hair(head_details, Vector3.ZERO, hair, "curly")
+			TownProps.ball(head_details, Vector3(0, -0.33, -0.24), Vector3(0.54, 0.30, 0.34), hair)
+			TownProps.molded_limb(outfit, Vector3(0, 0.90, -0.326), 0.27, 0.042, 0.56, Color("c96f55"), 0.038, 0.05)
+			_waist_band(outfit, 0.94, 0.468, 0.318, 0.06, Color("c96f55"))
 		"june":
-			# Round green glasses and pearl cardigan collar.
+			# Round green glasses and pearl cardigan collar (June's sleek bun hair is built into person_bun).
 			_add_glasses(head_details, Color("5a8d73"))
 			for i in 5:
 				var a := -0.7 + i * 0.35
-				TownProps.ball(outfit, Vector3(sin(a) * 0.27, 1.46, -cos(a) * 0.24), Vector3.ONE * 0.075, Color("f6efdf"))
+				TownProps.ball(outfit, Vector3(sin(a) * 0.27, 1.46, -cos(a) * 0.24), Vector3.ONE * 0.072, Color("f6efdf"))
 		"oliver":
-			# Wavy sandy hair sweep and crisp rounded cream polo collar.
-			var sweep := _capsule(head_details, Vector3(0.08, 0.48, -0.16), 0.16, 0.56, hair)
-			sweep.rotation = Vector3(0.18, 0.2, PI * 0.46)
+			# Single-piece sculpted sandy wave hair + crisp cream polo lapels.
+			TownProps.molded_hair(head_details, Vector3.ZERO, hair, "wavy")
 			for side in [-1, 1]:
-				var lapel := TownProps.molded_limb(outfit, Vector3(side * 0.17, 1.43, -0.27), 0.085, 0.036, 0.11, Color("f4ecd8"), 0.028, 0.028)
+				var lapel := TownProps.molded_limb(outfit, Vector3(side * 0.17, 1.43, -0.275), 0.085, 0.036, 0.11, Color("f4ecd8"), 0.028, 0.028)
 				lapel.rotation.z = -side * 0.35
 		"rowan":
-			# Subtle brass collar kerchief (keeps Rowan's separate cap & moustache).
-			_torus(outfit, Vector3(0, 1.47, 0), 0.19, 0.30, Color("d9b579"))
+			# Molded brass collar kerchief (Rowan's sculpted cap & moustache live on northline_railway.gd).
+			var kerchief := _torus(outfit, Vector3(0, 1.46, 0), 0.185, 0.285, Color("d9b579"))
+			kerchief.scale = Vector3(1.0, 0.92, 0.84)
 		"kit":
 			_add_cap(head_details, Color("d47157"), Color("f3e5c7"))
-			_torus(outfit, Vector3(0, 0.78, 0), 0.38, 0.46, Color("4b5a64"))
+			_waist_band(outfit, 0.78, 0.472, 0.322, 0.075, Color("4b5a64"))
 		"sami":
 			_add_cap(head_details, Color("eee2c5"), Color("c86b56"))
-			TownProps.molded_limb(outfit, Vector3(0, 0.92, -0.30), 0.27, 0.045, 0.55, Color("f1e6cd"), 0.04, 0.055)
+			TownProps.molded_limb(outfit, Vector3(0, 0.92, -0.326), 0.27, 0.042, 0.55, Color("f1e6cd"), 0.038, 0.05)
+			_waist_band(outfit, 0.96, 0.468, 0.318, 0.055, Color("f1e6cd"))
 		"nora":
 			_add_beanie(head_details, Color("c5807b"), Color("f3e8d2"))
 			_add_scarf(outfit, Color("e6c17b"))
 		"quinn":
 			_add_cap(head_details, Color("cd7058"), Color("f4e5be"))
 			for side in [-1, 1]:
-				_torus(head_details, Vector3(side * 0.18, 0.38, -0.40), 0.06, 0.11, Color("3c5664")).rotation.x = PI * 0.5
+				_torus(head_details, Vector3(side * 0.18, 0.39, -0.45), 0.058, 0.105, Color("3c5664")).rotation.x = PI * 0.5
 		"piper":
 			_add_cap(head_details, Color("405b67"), Color("f4e5be"))
-			_torus(outfit, Vector3(0, 1.44, 0), 0.18, 0.29, Color("cd7058"))
+			var trim := _torus(outfit, Vector3(0, 1.44, 0), 0.18, 0.28, Color("cd7058"))
+			trim.scale = Vector3(1.0, 0.92, 0.84)
 		"elsa":
+			# Single-piece bob flowing cleanly out from underneath the molded knit beanie!
+			TownProps.molded_hair(head_details, Vector3.ZERO, hair, "under_beanie")
 			_add_beanie(head_details, Color("4f949a"), Color("f4ebd8"))
 			_add_scarf(outfit, Color("d97762"))
-			for side in [-1, 1]:
-				var hair_tail := _capsule(head_details, Vector3(side * 0.43, -0.08, 0.14), 0.12, 0.48, hair)
-				hair_tail.rotation.z = side * 0.14
 		"bram":
-			TownProps.ball(head_details, Vector3(0, -0.32, -0.25), Vector3(0.64, 0.40, 0.40), Color("c5c3b8"))
-			TownProps.ball(head_details, Vector3(0, -0.19, -0.40), Vector3(0.38, 0.13, 0.14), Color("b8b6ab"))
-			_torus(outfit, Vector3(0, 1.48, 0), 0.20, 0.32, Color("b84b44"))
-			_torus(outfit, Vector3(0, 0.74, 0), 0.39, 0.48, Color("3f6853"))
+			TownProps.ball(head_details, Vector3(0, -0.32, -0.24), Vector3(0.60, 0.36, 0.38), Color("c5c3b8"))
+			TownProps.ball(head_details, Vector3(0, -0.19, -0.40), Vector3(0.36, 0.125, 0.13), Color("b8b6ab"))
+			var neck_trim := _torus(outfit, Vector3(0, 1.47, 0), 0.19, 0.30, Color("b84b44"))
+			neck_trim.scale = Vector3(1.0, 0.92, 0.84)
+			_waist_band(outfit, 0.74, 0.474, 0.324, 0.085, Color("3f6853"))
 		"astrid":
+			TownProps.molded_hair(head_details, Vector3.ZERO, hair, "long")
 			_add_earmuffs(head_details, Color("d9a34a"), Color("b88233"))
 			_add_scarf(outfit, Color("efe3c9"))
-			for side in [-1, 1]:
-				var braid := _capsule(head_details, Vector3(side * 0.38, -0.22, 0.18), 0.11, 0.54, hair)
-				braid.rotation.z = side * 0.18
 		"torsten":
 			_add_beanie(head_details, Color("354c63"), Color("354c63"), false)
 			for side in [-1, 1]:
 				TownProps.ball(head_details, Vector3(side * 0.12, -0.17, -0.42), Vector3(0.24, 0.095, 0.08), Color("cfa060"))
-			_torus(outfit, Vector3(0, 1.48, 0), 0.20, 0.36, Color("f3ead6"))
-			_torus(outfit, Vector3(0, 0.72, 0), 0.39, 0.49, Color("f3ead6"))
+			var fur_collar := _torus(outfit, Vector3(0, 1.47, 0), 0.195, 0.33, Color("f3ead6"))
+			fur_collar.scale = Vector3(1.0, 0.92, 0.84)
+			_waist_band(outfit, 0.72, 0.476, 0.326, 0.09, Color("f3ead6"))
 		"winter_skater", "winter_villager":
 			if int(absf(person.position.x * 7 + person.position.z * 13)) % 2 == 0:
 				_add_beanie(head_details, accent, Color("f4ecd8"))
@@ -193,8 +191,7 @@ static func dress_person(person: Node3D, style: String = "default", accent: Colo
 			if variant == 0: _add_cap(head_details, Color("d47157"), Color("f3e5c7"))
 			elif variant == 1: _add_cap(head_details, Color("5c8fa3"), Color("f3e5c7"))
 			elif variant == 2:
-				for side in [-1, 1]:
-					_capsule(head_details, Vector3(side * 0.43, -0.02, 0.10), 0.13, 0.42, hair)
+				TownProps.molded_hair(head_details, Vector3.ZERO, hair, "bob")
 		"operator":
 			_add_cap(head_details, Color("3b525c"), Color("3b525c"))
 			_add_earmuffs(head_details, Color("3a474f"), Color("2a343b"))
@@ -203,11 +200,13 @@ static func dress_person(person: Node3D, style: String = "default", accent: Colo
 			if variant == 0: _add_cap(head_details, shirt.darkened(0.18), Color("f1e5ca"))
 			elif variant == 1: _add_scarf(outfit, shirt.lightened(0.24))
 			elif variant == 2:
-				for side in [-1, 1]:
-					_capsule(head_details, Vector3(side * 0.43, -0.02, 0.10), 0.13, 0.42, hair)
+				TownProps.molded_hair(head_details, Vector3.ZERO, hair, "bob")
 
 	TownProps.soften_toy_shine(head_details)
 	TownProps.soften_toy_shine(outfit)
+
+static func _waist_band(outfit: Node3D, y: float, rx: float, rz: float, height: float, color: Color) -> MeshInstance3D:
+	return TownProps.molded_limb(outfit, Vector3(0, y, 0), rx, rz, height, color, height * 0.42, height * 0.42)
 
 static func _add_glasses(head: Node3D, frame_color: Color) -> void:
 	for side in [-1, 1]:
@@ -217,36 +216,38 @@ static func _add_glasses(head: Node3D, frame_color: Color) -> void:
 	bridge.rotation.z = PI * 0.5
 
 static func _add_cap(head: Node3D, crown: Color, trim: Color) -> void:
-	TownProps.ball(head, Vector3(0, 0.39, 0.04), Vector3(1.06, 0.48, 0.96), crown)
-	var brim := TownProps.ball(head, Vector3(0, 0.26, -0.42), Vector3(0.84, 0.10, 0.52), trim)
-	brim.rotation.x = 0.14
-	TownProps.ball(head, Vector3(0, 0.62, 0.04), Vector3.ONE * 0.12, trim)
+	TownProps.molded_hat(head, Vector3.ZERO, crown, "cap")
+	TownProps.molded_hat(head, Vector3.ZERO, trim, "cap_visor")
+	TownProps.ball(head, Vector3(0, 0.69, 0.01), Vector3.ONE * 0.11, trim)
 
 static func _add_beanie(head: Node3D, knit: Color, pom: Color, with_pom: bool = true) -> void:
-	TownProps.ball(head, Vector3(0, 0.40, 0.04), Vector3(1.08, 0.58, 0.98), knit)
-	var cuff := _torus(head, Vector3(0, 0.24, 0.04), 0.39, 0.54, knit.lightened(0.12))
-	cuff.scale = Vector3(1.0, 1.35, 0.92)
+	TownProps.molded_hat(head, Vector3.ZERO, knit, "beanie")
+	TownProps.molded_hat(head, Vector3.ZERO, knit.lightened(0.12), "beanie_cuff")
 	if with_pom:
-		TownProps.ball(head, Vector3(0, 0.72, 0.08), Vector3.ONE * 0.28, pom)
+		TownProps.ball(head, Vector3(0, 0.74, 0.04), Vector3.ONE * 0.25, pom)
 
 static func _add_earmuffs(head: Node3D, fluff: Color, band: Color) -> void:
-	var arch := _torus(head, Vector3(0, 0.12, 0.02), 0.46, 0.52, band)
+	var arch := _torus(head, Vector3(0, 0.07, 0.01), 0.555, 0.608, band)
 	arch.rotation.x = PI * 0.5
+	arch.scale = Vector3(1.0, 0.96, 1.0)
 	for side in [-1, 1]:
-		TownProps.ball(head, Vector3(side * 0.53, 0.0, 0.02), Vector3(0.24, 0.30, 0.28), fluff)
+		TownProps.ball(head, Vector3(side * 0.58, 0.0, 0.01), Vector3(0.24, 0.29, 0.27), fluff)
 
 static func _add_scarf(outfit: Node3D, color: Color) -> void:
-	_torus(outfit, Vector3(0, 1.48, 0), 0.20, 0.36, color)
-	var tail := TownProps.molded_limb(outfit, Vector3(0.16, 1.18, -0.32), 0.095, 0.045, 0.46, color, 0.04, 0.04)
+	var ring := _torus(outfit, Vector3(0, 1.48, 0), 0.195, 0.34, color)
+	ring.scale = Vector3(1.0, 0.95, 0.84)
+	var tail := TownProps.molded_limb(outfit, Vector3(0.16, 1.18, -0.322), 0.095, 0.042, 0.46, color, 0.04, 0.04)
 	tail.rotation.z = 0.12
-	var tail2 := TownProps.molded_limb(outfit, Vector3(-0.04, 1.24, -0.33), 0.085, 0.04, 0.34, color.darkened(0.08), 0.036, 0.036)
+	var tail2 := TownProps.molded_limb(outfit, Vector3(-0.04, 1.24, -0.332), 0.085, 0.038, 0.34, color.darkened(0.08), 0.036, 0.036)
 	tail2.rotation.z = -0.08
 
 # Upgrade legacy baked Maple Bay people (in maple_bay.tscn) so Original (0%)
-# mode also gets the injection-molded cylindrical arms, legs, boots and torso.
+# mode also gets the injection-molded single-piece hair, flush shoulders, and limbs.
 static func upgrade_baked_person_limbs(person: Node3D) -> void:
 	if not is_instance_valid(person) or person.get_meta("limbs_upgraded", false): return
 	person.set_meta("limbs_upgraded", true)
+	var found_hair_color := Color.TRANSPARENT
+	var has_bun := false
 	for child in person.get_children():
 		if not child is MeshInstance3D: continue
 		var mat := child.get_active_material(0) as StandardMaterial3D
@@ -261,26 +262,42 @@ static func upgrade_baked_person_limbs(person: Node3D) -> void:
 			shoe.name = child.name
 			child.queue_free()
 		elif p.distance_to(Vector3(0, 1.03, 0)) < 0.03:
-			var torso := TownProps.molded_limb(person, Vector3(0, 1.03, 0), 0.45, 0.30, 1.00, mat.albedo_color, 0.24, 0.11, 0.90, 1.04)
+			var torso := TownProps.molded_limb(person, Vector3(0, 1.03, 0), 0.45, 0.30, 1.00, mat.albedo_color, 0.145, 0.10, 0.94, 1.04)
 			torso.name = child.name
 			child.queue_free()
 		elif p.distance_to(Vector3(0, 1.09, -0.29)) < 0.04:
 			var placket := TownProps.molded_limb(person, Vector3(0, 1.06, -0.302), 0.024, 0.018, 0.60, mat.albedo_color, 0.016, 0.016)
 			placket.name = child.name
 			child.queue_free()
-	for arm_name in ["ArmLeft", "ArmRight"]:
-		var arm: Node3D = person.get_node_or_null(arm_name)
+		elif p.distance_to(Vector3(0, 2.29, 0.06)) < 0.05:
+			found_hair_color = mat.albedo_color
+			child.queue_free()
+		elif absf(absf(p.x) - 0.34) < 0.04 and absf(p.y - 2.32) < 0.05:
+			child.queue_free()
+		elif p.distance_to(Vector3(0, 2.57, 0.10)) < 0.05:
+			has_bun = true
+			child.queue_free()
+	if found_hair_color.a > 0.0:
+		var hair_node := TownProps.molded_hair(person, Vector3(0, 1.94, 0), found_hair_color, "bun" if has_bun else "classic")
+		hair_node.name = "Hair"
+	for side_idx in 2:
+		var side := -1 if side_idx == 0 else 1
+		var arm: Node3D = person.get_node_or_null("ArmLeft" if side < 0 else "ArmRight")
 		if not arm: continue
+		arm.position = Vector3(side * 0.445, 1.32, 0)
+		arm.rotation.z = side * 0.065
 		for child in arm.get_children():
 			if not child is MeshInstance3D or child.get_meta("blend_accessory", false): continue
 			var mat := child.get_active_material(0) as StandardMaterial3D
 			if not mat: continue
 			if absf(child.position.y + 0.28) < 0.06:
-				var sleeve := TownProps.molded_limb(arm, Vector3(0, -0.27, 0), 0.135, 0.145, 0.56, mat.albedo_color, 0.11, 0.042, 0.95, 1.0)
+				var pin := TownProps.molded_limb(arm, Vector3(-side * 0.055, -0.01, 0), 0.115, 0.125, 0.18, mat.albedo_color, 0.055, 0.055)
+				pin.rotation.z = PI * 0.5
+				var sleeve := TownProps.molded_limb(arm, Vector3(0, -0.25, 0), 0.135, 0.145, 0.58, mat.albedo_color, 0.10, 0.04, 0.96, 1.0)
 				sleeve.name = child.name
 				child.queue_free()
 			elif absf(child.position.y + 0.62) < 0.06:
-				var hand := TownProps.molded_limb(arm, Vector3(0, -0.59, 0), 0.105, 0.112, 0.19, mat.albedo_color, 0.045, 0.085)
+				var hand := TownProps.molded_limb(arm, Vector3(0, -0.58, 0), 0.102, 0.11, 0.18, mat.albedo_color, 0.042, 0.082)
 				hand.name = child.name
 				child.queue_free()
 	TownProps.soften_toy_shine(person)

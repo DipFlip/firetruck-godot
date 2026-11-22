@@ -97,6 +97,7 @@ func run() -> void:
 		if challenge.awards.announced: break
 	check(game.hud.full_text.begins_with("Well, better luck next time") and game.truck.global_position.distance_to(ToyRaceTrack.ORIGIN+RaceAwards.PODIUM+Vector3(0,.855,6))<.01,"Loss returns to the podium for Quinn's better-luck message")
 	game.interact()
+	game.interact()
 	await frames(60)
 	check(not challenge.result_open and not game.truck.freeze and game.truck.enabled,"Acknowledging the result returns ordinary truck control")
 	challenge.offer()
@@ -124,6 +125,7 @@ func run() -> void:
 		hand_gap_max=maxf(hand_gap_max,gap)
 	check(hand_gap_min<.23 and hand_gap_max>.5,"Clapping hands meet in front of the body and separate rhythmically")
 	check(race.people[3].get_node("ArmRight").rotation.x>1 and not car.collision_layer,"Clapping animates and the rival collider stays removed throughout the ceremony")
+	game.interact()
 	game.interact()
 	await frames(60)
 	check(not awards.active and not awards.troupe.visible and not challenge.result_open and game.truck.enabled and not game.truck.freeze and race.people[3].visible,"Ceremony dismissal restores the podium NPCs and free driving")
