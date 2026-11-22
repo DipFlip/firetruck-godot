@@ -7,11 +7,12 @@ func _ready() -> void:
 	name="KettleBarbecue"
 	set_meta("toy_arrival","drop")
 	position=TownLayout.FIRE
-	# Replace the two old stacked drums, keeping the fire target unchanged.
-	for child in town.get_children():
-		if child is MeshInstance3D and child.mesh is CylinderMesh and (child.position.distance_to(position+Vector3.UP*.7)<.01 or child.position.distance_to(position+Vector3.UP*1.35)<.01):
-			town.remove_child(child)
-			child.queue_free()
+	# Replace the two old stacked drums (at either current or legacy baked FIRE), keeping the fire target unchanged.
+	for origin in [position, Vector3(49,0,-19)]:
+		for child in town.get_children():
+			if child is MeshInstance3D and child.mesh is CylinderMesh and (child.position.distance_to(origin+Vector3.UP*.7)<.02 or child.position.distance_to(origin+Vector3.UP*1.35)<.02):
+				town.remove_child(child)
+				child.queue_free()
 	var charcoal:=Color("354653")
 	var steel:=Color("bdced0")
 	var red:=Color("b64e42")

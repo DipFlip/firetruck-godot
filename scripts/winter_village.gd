@@ -450,7 +450,7 @@ func _build_rink() -> void:
 	var skater_shirts := [Color("d97762"), Color("689fb2"), Color("e2b25a")]
 	var skater_accents := [Color("f3e5c5"), Color("d97762"), Color("5b9682")]
 	for i in 3:
-		var skater := _make_person(RINK_CENTER + Vector3(-hw - 2.2, 0, -4.0 + i * 4.0), skater_shirts[i], "winter_skater", skater_accents[i], true)
+		var skater := _make_person(RINK_CENTER + Vector3(-hw - 2.2, 0.12, -4.0 + i * 4.0), skater_shirts[i], "winter_skater", skater_accents[i], true)
 		skater.name = "WinterSkater%d" % i
 		skater.rotation.y = -PI * 0.5
 		skaters.append(skater)
@@ -809,18 +809,18 @@ func _physics_process(dt: float) -> void:
 	if not active or game.paused or game.travel.active: return
 	if is_instance_valid(sled):
 		sled.freeze = game.paused or sled_done
-	# Refill from the nearest intact winter hydrant.
+	# Refill from the nearest winter hydrant (broken hydrants still refill at 70% speed).
 	var refill_source: BreakableProp = null
 	var refill_dist := 6.75
 	for h in hydrants:
-		if not is_instance_valid(h) or h.loose: continue
-		var d: float = game.truck.global_position.distance_to(h.global_position)
+		if not is_instance_valid(h): continue
+		var d: float = game.truck.global_position.distance_to(h.home.origin)
 		if game.truck.water < game.truck.tank_capacity and d < refill_dist:
 			refill_source = h
 			refill_dist = d
 	game.refill_hose.update(refill_source, dt)
 	if game.refill_hose.active:
-		game.truck.water = minf(game.truck.tank_capacity, game.truck.water + 25.0 * dt)
+		game.truck.water = minf(game.truck.tank_capacity, game.truck.water + game.refill_hose.refill_rate() * dt)
 
 	_update_sled(dt)
 
@@ -911,7 +911,7 @@ func _update_skaters(dt: float) -> void:
 		if rink_done:
 			# Graceful figure-8 / oval glide across the newly frozen village rink!
 			var phase := animation_clock * (0.62 + i * 0.09) + i * TAU / 3.0
-			var target := RINK_CENTER + Vector3(cos(phase) * (5.6 - i * 0.8), 0.07, sin(phase * (2.0 if i == 1 else 1.0)) * (3.8 - i * 0.4))
+			var target := RINK_CENTER + Vector3(cos(phase) * (5.6 - i * 0.8), 0.15, sin(phase * (2.0 if i == 1 else 1.0)) * (3.8 - i * 0.4))
 			var prev := skater.position
 			skater.position = skater.position.lerp(target, 1.0 - exp(-3.5 * dt))
 			var vel := skater.position - prev

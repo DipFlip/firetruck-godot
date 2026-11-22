@@ -772,14 +772,14 @@ func _process(dt: float) -> void:
 	# Activation uses the rigid body centre; the rear socket is visual only.
 	var refill_center:=truck.global_position
 	for i in town.hydrants.size():
-		var h:=town.hydrants[i]
-		if interactions.hydrant_props[i].loose: continue
+		var prop: BreakableProp=interactions.hydrant_props[i]
+		var h: Vector3=prop.home.origin if is_instance_valid(prop) else town.hydrants[i]
 		var distance:=refill_center.distance_to(h)
 		if truck.water<truck.tank_capacity and distance<refill_distance:
-			refill_source=interactions.hydrant_props[i]
+			refill_source=prop
 			refill_distance=distance
 	refill_hose.update(refill_source,dt)
-	if refill_hose.active: truck.water=minf(truck.tank_capacity,truck.water+dt*25)
+	if refill_hose.active: truck.water=minf(truck.tank_capacity,truck.water+dt*refill_hose.refill_rate())
 	var prompt:=""
 	# The hint is a control reminder after Maya's briefing, not a status feed.
 	if stage==1 and rescued and not cat_rescued and not dialogue_active and not rescue_running and not truck.ladder_deployed and truck.global_position.distance_to(TownLayout.MAYA)<12:

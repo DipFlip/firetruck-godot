@@ -49,14 +49,21 @@ func _ready() -> void:
 	ground_heights.fill(-INF)
 	visible=false
 
+const NORMAL_REFILL_RATE:=25.0
+const BROKEN_REFILL_SCALE:=0.70
+
+func refill_rate() -> float:
+	if not active or not is_instance_valid(hydrant): return 0.0
+	return NORMAL_REFILL_RATE*(BROKEN_REFILL_SCALE if hydrant.loose else 1.0)
+
 func update(source: BreakableProp, dt: float) -> void:
-	if not is_instance_valid(source) or source.loose: source=null
+	if not is_instance_valid(source): source=null
 	if hydrant==null and source!=null:
 		hydrant=source
 	var connecting:=source!=null and source==hydrant
-	if connecting and rest.is_empty():
+	if connecting and not hydrant.loose and rest.is_empty():
 		for mesh in hydrant.meshes: rest.append(mesh.transform)
-	if not connecting:
+	if not connecting or (is_instance_valid(hydrant) and hydrant.loose):
 		_restore_hydrant()
 		rest.clear()
 	extension=move_toward(extension,1.0 if connecting else 0.0,dt/(EXTEND_TIME if connecting else RETRACT_TIME))
@@ -66,14 +73,18 @@ func update(source: BreakableProp, dt: float) -> void:
 		hydrant=null
 		return
 	time+=dt
-	var pulse:=1+.05*(.5+.5*sin(time*TAU*1.6)) if active else 1.0
+	var pulse:=1+.05*(.5+.5*sin(time*TAU*1.6)) if active and not hydrant.loose else 1.0
 	for i in rest.size():
 		hydrant.meshes[i].transform=Transform3D(rest[i].basis.scaled(Vector3.ONE*pulse),rest[i].origin*pulse)
 	var truck_pose: Transform3D=game.truck.get_global_transform_interpolated()
 	var end: Vector3=truck_pose*(game.truck.visual.transform*game.truck.body_point(REAR_SOCKET))
 	if connecting:
-		var side:=1.0 if hydrant.to_local(end).x>=0 else -1.0
-		outlet=hydrant.global_transform*(Vector3(side*.47,.65,0)*pulse)
+		if hydrant.loose:
+			# Plug into the spouting pipe stub at home while the water fountain keeps shooting upward.
+			outlet=hydrant.home.origin+Vector3.UP*.24
+		else:
+			var side:=1.0 if hydrant.to_local(end).x>=0 else -1.0
+			outlet=hydrant.global_transform*(Vector3(side*.47,.65,0)*pulse)
 	# Keep the last outlet when disconnected, including a toppled hydrant.
 	# Only the truck end follows the moving chassis while the hose reels in.
 	var start:=outlet

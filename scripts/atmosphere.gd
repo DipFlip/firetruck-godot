@@ -72,17 +72,18 @@ func _ready() -> void:
 	var water:=ShaderMaterial.new()
 	water.shader=preload("res://shaders/pool.gdshader")
 	town.pool_water.material_override=water
-	# Footpaths and hedges lead from every front door all the way to a sidewalk.
+	# Straight footpaths from every front door to the sidewalk, or crisp
+	# 90-degree turns with a tight rounded corner where the sidewalk runs along the side.
 	var walks: Dictionary={
-		Vector3(18,0,19):[Vector3(18,0,23.0),Vector3(18,0,26.5),Vector3(18,0,30.0)],
-		Vector3(-19,0,-20):[Vector3(-19,0,-16.1),Vector3(-18.8,0,-11.0),Vector3(-17.4,0,-6.0)],
-		Vector3(19,0,-20):[Vector3(19,0,-16.1),Vector3(19.1,0,-11.0),Vector3(19.5,0,-6.0)],
-		Vector3(-48,0,18):[Vector3(-48,0,21.9),Vector3(-47.6,0,26.0),Vector3(-45.2,0,30.0)],
-		Vector3(49,0,18):[Vector3(49,0,21.9),Vector3(49.4,0,26.0),Vector3(51.6,0,30.0)],
-		Vector3(49,0,-25):[Vector3(49,0,-21.1),Vector3(49,0,-13.5),Vector3(49.5,0,-6.0)],
-		Vector3(-49,0,-22):[Vector3(-49,0,-18.1),Vector3(-49.3,0,-12.0),Vector3(-51.0,0,-6.0)],
-		Vector3(18,0,49):[Vector3(18,0,52.9),Vector3(18,0,57.2),Vector3(15.2,0,57.6),Vector3(6.0,0,57.6)],
-		Vector3(-19,0,49):[Vector3(-19,0,52.9),Vector3(-19,0,57.5),Vector3(-16.2,0,58.0),Vector3(-6.0,0,58.0)],
+		Vector3(18,0,19):[Vector3(18,0,23.0),Vector3(18,0,30.0)],
+		Vector3(-19,0,-20):[Vector3(-19,0,-16.1),Vector3(-19,0,-6.0)],
+		Vector3(19,0,-20):[Vector3(19,0,-16.1),Vector3(19,0,-6.0)],
+		Vector3(-48,0,18):[Vector3(-48,0,21.9),Vector3(-48,0,30.0)],
+		Vector3(49,0,18):[Vector3(49,0,21.9),Vector3(49,0,30.0)],
+		Vector3(49,0,-25):[Vector3(49,0,-21.1),Vector3(49,0,-6.0)],
+		Vector3(-49,0,-22):[Vector3(-49,0,-18.1),Vector3(-49,0,-6.0)],
+		Vector3(18,0,49):[Vector3(18,0,52.9),Vector3(18,0,58.0),Vector3(6.0,0,58.0)],
+		Vector3(-19,0,49):[Vector3(-19,0,52.9),Vector3(-19,0,58.0),Vector3(-6.0,0,58.0)],
 	}
 	for garden in walks:
 		_garden_walk(walks[garden])
@@ -94,7 +95,7 @@ func _ready() -> void:
 				var p: Vector3=garden+Vector3(side*3+randf_range(-1,1),0,4+randf_range(0,1))
 				_flower(p,Color("e65d9a") if n%2 else Color("a479df"))
 	# Pocket park: a little fountain makes the neighbourhood feel inhabited.
-	var center:=Vector3(-23,0,-10)
+	var center:=Vector3(-23.8,0,-10)
 	fountain=TownProps.toy_group(self,center,"grow","ParkFountain")
 	TownProps.cylinder(fountain,Vector3.UP*.06,3.0,.12,Color("c8bca1"))
 	TownProps.cylinder(fountain,Vector3.UP*.36,2.1,.6,Color("bcaf92"))
@@ -121,10 +122,10 @@ func _ready() -> void:
 	var moving: Array[Node3D]=[]
 	moving.append_array(fountain_drops)
 	TownProps.merge_fixed_geometry(fountain,moving,"park_fountain")
-	# A station forecourt apron and path out to the south sidewalk.
+	# A station forecourt apron and centered straight path out to the south sidewalk.
 	for n in [-1,0,1]:
 		TownProps.box(self,Vector3(-15.0+n*1.75,.075,17.7),Vector3(1.65,.1,2.3),Color("bcb6a0")).set_meta("batch_static",true)
-	_garden_walk([Vector3(-14.2,0,18.95),Vector3(-13.9,0,24.5),Vector3(-13.6,0,30.0)])
+	_garden_walk([Vector3(-15.0,0,18.85),Vector3(-15.0,0,30.0)])
 	for p in [Vector3(8,0,10),Vector3(-8,0,-15),Vector3(29,0,23),Vector3(9,0,-26)]:
 		TownProps.cylinder(self,p+Vector3.UP*.42,.46,.84,Color("b48868"))
 		TownProps.ball(self,p+Vector3.UP*.99,Vector3(1.1,1.1,1.1),Color("779569"))
@@ -154,43 +155,70 @@ func _ready() -> void:
 	embers=fire.embers
 	fire_light=fire.fire_light
 
-func _garden_walk(control_points: Array) -> void:
-	var samples:=PackedVector3Array()
-	if control_points.size()==3:
-		var a: Vector3=control_points[0]
-		var b: Vector3=control_points[1]
-		var c: Vector3=control_points[2]
-		for i in 49:
-			var t:=float(i)/48.0
-			samples.append(a.lerp(b,t).lerp(b.lerp(c,t),t))
+func _garden_walk(waypoints: Array, corner_radius: float = 2.2) -> void:
+	# Build straight segments with crisp 90-degree rounded corners (fillet arcs)
+	# rather than meandering splines, so stones stay square to doors and sidewalks.
+	var samples := PackedVector3Array()
+	var tangents := PackedVector3Array()
+	var turn_signs := PackedFloat32Array() # 0 on straight, +1/-1 on corner arc
+	if waypoints.size() == 2:
+		var p0: Vector3 = waypoints[0]
+		var p1: Vector3 = waypoints[1]
+		var dir := (p1 - p0).normalized()
+		samples.append(p0); tangents.append(dir); turn_signs.append(0.0)
+		samples.append(p1); tangents.append(dir); turn_signs.append(0.0)
 	else:
-		var p0: Vector3=control_points[0]
-		var p1: Vector3=control_points[1]
-		var p2: Vector3=control_points[2]
-		var p3: Vector3=control_points[3]
-		for i in 65:
-			var t:=float(i)/64.0
-			samples.append(p0.bezier_interpolate(p1,p2,p3,t))
-	var lengths:=PackedFloat32Array([0.0])
-	for i in range(1,samples.size()):
-		lengths.append(lengths[i-1]+samples[i].distance_to(samples[i-1]))
-	var total:=lengths[lengths.size()-1]
-	var start_s:=0.38
-	var end_s:=total-0.36
-	var steps:=maxi(2,roundi((end_s-start_s)/.88))
-	for row in steps+1:
-		var target_s:=lerpf(start_s,end_s,float(row)/steps)
-		var seg:=0
-		while seg<lengths.size()-2 and lengths[seg+1]<target_s: seg+=1
-		var u:=(target_s-lengths[seg])/maxf(.0001,lengths[seg+1]-lengths[seg])
-		var center:=samples[seg].lerp(samples[seg+1],u)
-		var tangent:=(samples[mini(samples.size()-1,seg+1)]-samples[maxi(0,seg)]).normalized()
-		var right:=Vector3(tangent.z,0,-tangent.x)
-		var yaw:=atan2(tangent.x,tangent.z)
-		for side in [-1,1]:
-			var stone:=TownProps.box(self,center+right*(side*.56)+Vector3.UP*.075,Vector3(1.06,.1,.81),Color("c9c8bb"))
-			stone.rotation.y=yaw
-			stone.set_meta("batch_static",true)
+		var p0: Vector3 = waypoints[0]
+		var p1: Vector3 = waypoints[1]
+		var p2: Vector3 = waypoints[2]
+		var d0 := (p1 - p0).normalized()
+		var d1 := (p2 - p1).normalized()
+		var r := minf(corner_radius, minf(p0.distance_to(p1) * 0.48, p1.distance_to(p2) * 0.48))
+		var t0 := p1 - d0 * r
+		var t1 := p1 + d1 * r
+		var arc_center := t0 + d1 * r
+		# Right-hand perpendicular of d0 is (d0.z, 0, -d0.x); sign > 0 means turning right.
+		var right0 := Vector3(d0.z, 0.0, -d0.x)
+		var turn_sign := signf(right0.dot(d1))
+		# Straight leg 1: door -> corner tangent start.
+		samples.append(p0); tangents.append(d0); turn_signs.append(0.0)
+		samples.append(t0); tangents.append(d0); turn_signs.append(0.0)
+		# Small tight circular fillet arc through the 90-degree corner.
+		var arc_steps := 16
+		for k in range(1, arc_steps):
+			var theta := (PI * 0.5) * float(k) / float(arc_steps)
+			var pt := arc_center - d1 * (r * cos(theta)) + d0 * (r * sin(theta))
+			var tan_dir := (d1 * sin(theta) + d0 * cos(theta)).normalized()
+			samples.append(pt); tangents.append(tan_dir); turn_signs.append(turn_sign)
+		# Straight leg 2: corner tangent end -> sidewalk.
+		samples.append(t1); tangents.append(d1); turn_signs.append(0.0)
+		samples.append(p2); tangents.append(d1); turn_signs.append(0.0)
+
+	var lengths := PackedFloat32Array([0.0])
+	for i in range(1, samples.size()):
+		lengths.append(lengths[i - 1] + samples[i].distance_to(samples[i - 1]))
+	var total := lengths[lengths.size() - 1]
+	var start_s := 0.41
+	var end_s := total - 0.39
+	var steps := maxi(2, roundi((end_s - start_s) / 0.86))
+	for row in steps + 1:
+		var target_s := lerpf(start_s, end_s, float(row) / float(steps))
+		var seg := 0
+		while seg < lengths.size() - 2 and lengths[seg + 1] < target_s:
+			seg += 1
+		var u := (target_s - lengths[seg]) / maxf(0.0001, lengths[seg + 1] - lengths[seg])
+		var center := samples[seg].lerp(samples[seg + 1], u)
+		var tangent := tangents[seg].lerp(tangents[seg + 1], u).normalized()
+		var right := Vector3(tangent.z, 0.0, -tangent.x)
+		var yaw := atan2(tangent.x, tangent.z)
+		var on_curve := absf(turn_signs[seg]) > 0.5 or absf(turn_signs[seg + 1]) > 0.5
+		var curve_sign := turn_signs[seg] if absf(turn_signs[seg]) > 0.5 else turn_signs[seg + 1]
+		for side in [-1, 1]:
+			var is_inner := on_curve and (float(side) * curve_sign > 0.0)
+			var stone_len := 0.66 if is_inner else 0.80
+			var stone := TownProps.box(self, center + right * (side * 0.54) + Vector3.UP * 0.075, Vector3(1.02, 0.1, stone_len), Color("c9c8bb"))
+			stone.rotation.y = yaw
+			stone.set_meta("batch_static", true)
 
 func _flower(p: Vector3, color: Color) -> void:
 	var parts: Array[MeshInstance3D]=[]

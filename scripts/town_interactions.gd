@@ -76,7 +76,7 @@ func _ready() -> void:
 		var prop:=FireHydrant.spawn(self,game,p)
 		_register(prop)
 		hydrant_props.append(prop)
-	for garden in [Vector3(-20,0,24),Vector3(24,0,13),Vector3(-22,0,-28),Vector3(45,0,28)]:
+	for garden in [Vector3(-22,0,24),Vector3(24,0,13),Vector3(-22,0,-28),Vector3(56.5,0,26.5)]:
 		var p: Vector3=garden+Vector3(0,0,2.5)
 		add_prop("fence",p,_parts(game.town,p+Vector3.UP*.65,Vector3(4.3,.66,.15)),Vector3(8.5,1.3,.15),Vector3.UP*.65,1.0)
 	for child in game.atmosphere.get_children():

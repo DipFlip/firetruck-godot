@@ -270,9 +270,9 @@ func _physics_process(dt: float) -> void:
 		checkpoint_flag.visible=running
 	previous=p
 	previous_height=game.truck.global_position.y
-	var source: BreakableProp=hydrant if not hydrant.loose and game.truck.global_position.distance_to(hydrant.global_position)<6.75 and game.truck.water<game.truck.tank_capacity else null
+	var source: BreakableProp=hydrant if is_instance_valid(hydrant) and game.truck.global_position.distance_to(hydrant.home.origin)<6.75 and game.truck.water<game.truck.tank_capacity else null
 	game.refill_hose.update(source,dt)
-	if game.refill_hose.active: game.truck.water=minf(game.truck.tank_capacity,game.truck.water+25*dt)
+	if game.refill_hose.active: game.truck.water=minf(game.truck.tank_capacity,game.truck.water+game.refill_hose.refill_rate()*dt)
 	_update_pond(dt)
 	# The clock follows every 60 Hz race tick; layout does not need that rate.
 	timer_label.text=("TIME TRIAL  "+format_time(challenge.elapsed) if challenge.solo else "RACE  "+format_time(challenge.elapsed)+"  ·  "+("QUINN FINISHED" if challenge.rival_finish>=0 else "CHASE QUINN!")) if challenge.active else ""

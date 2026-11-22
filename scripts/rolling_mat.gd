@@ -20,9 +20,8 @@ func _ready() -> void:
 	finish.set_shader_parameter("maple_print",preload("res://assets/scenery/maple_mat.png"))
 	if ResourceLoader.exists("res://assets/scenery/race_mat.png"):
 		finish.set_shader_parameter("race_print",load("res://assets/scenery/race_mat.png"))
-	if ResourceLoader.exists("res://assets/scenery/winter_mat.png"):
-		finish.set_shader_parameter("winter_print",load("res://assets/scenery/winter_mat.png"))
-		finish.set_shader_parameter("has_winter_print",true)
+	finish.set_shader_parameter("winter_print",preload("res://assets/scenery/winter_mat.png"))
+	finish.set_shader_parameter("has_winter_print",true)
 	for world in ["maple","race","winter"]:
 		for suffix in ["clean","arrival"]:
 			var path: String="res://assets/scenery/%s_mat_%s.png" % [world,suffix]

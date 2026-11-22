@@ -190,16 +190,57 @@ func _open_east_street() -> void:
 			block.material_override=Playroom.wood_finish(Color(["d0aa76","e3c79d","b98a5c"][(piece+(1 if side>0 else 0))%3]))
 			block.set_meta("batch_static",true)
 	TownProps.batch_decorations(passage)
-	# Snow-dusted wooden signpost inviting the player east to Frostpine Hollow.
-	var sign_root:=TownProps.toy_group(game.playroom,Vector3(70.0,0,-8.5),"drop","WinterSignpost")
-	TownProps.cylinder(sign_root,Vector3.UP*1.45,.13,2.9,Color("856347"))
-	TownProps.box(sign_root,Vector3(0,2.52,0),Vector3(3.6,.76,.20),Color("4f8096"))
-	TownProps.box(sign_root,Vector3(0,2.95,0),Vector3(3.65,.14,.26),Color("f2f7fb"))
-	var sign_text:=TownProps.label(sign_root,Vector3(0,2.52,.13),"FROSTPINE →",22)
+	# Snow-dusted wooden signpost placed cleanly on the north curb west of the
+	# wooden corridor blocks so neither blocks nor trees ever cover the text.
+	var sign_root:=TownProps.toy_group(game.playroom,Vector3(65.4,0,-5.4),"drop","WinterSignpost")
+	sign_root.rotation.y=-0.10
+	TownProps.cylinder(sign_root,Vector3.UP*1.75,.14,3.5,Color("856347"))
+	TownProps.box(sign_root,Vector3(0,3.15,0),Vector3(4.1,.86,.22),Color("42768f"))
+	TownProps.box(sign_root,Vector3(0,3.62,0),Vector3(4.18,.15,.28),Color("f4f9fc"))
+	var sign_text:=TownProps.label(sign_root,Vector3(0,3.15,.14),"FROSTPINE →",26)
 	sign_text.billboard=BaseMaterial3D.BILLBOARD_DISABLED
-	sign_text.pixel_size=.017
-	# Snow drift cushion at the foot of the signpost.
-	TownProps.ball(sign_root,Vector3(0,.12,0),Vector3(1.5,.28,1.2),Color("eef5f9"))
+	sign_text.pixel_size=.018
+	# Delicate flat matte snow specks and soft drifts dusting Maple Bay's east entrance.
+	var snow_mat:=StandardMaterial3D.new()
+	snow_mat.albedo_color=Color("f3f8fc")
+	snow_mat.roughness=0.94
+	snow_mat.metallic=0.0
+	snow_mat.metallic_specular=0.08
+	snow_mat.clearcoat_enabled=false
+	snow_mat.set_meta("toy_finish",true)
+	var snow_mat_alt:=snow_mat.duplicate() as StandardMaterial3D
+	snow_mat_alt.albedo_color=Color("e6f1f8")
+	var snow_dust:=Node3D.new()
+	snow_dust.name="WinterEntranceSnow"
+	game.playroom.add_child(snow_dust)
+	var snow_rng:=RandomNumberGenerator.new()
+	snow_rng.seed=6147
+	var speck_mesh:=CylinderMesh.new()
+	speck_mesh.top_radius=0.5
+	speck_mesh.bottom_radius=0.54
+	speck_mesh.height=0.024
+	speck_mesh.radial_segments=12
+	for i in 120:
+		var t:=float(i)/119.0
+		var sx:=minf(78.6,lerpf(55.5,78.4,pow(t,0.72))+snow_rng.randf_range(-1.4,1.2))
+		var sz:=snow_rng.randf_range(-15.5,15.5)
+		var on_road:=absf(sz)<3.85
+		if on_road and sx<64.5: continue
+		if absf(sz)>4.4 and absf(sz)<8.0 and sx>66.8: continue # under corridor blocks
+		var y_base:=0.068 if on_road else (0.112 if absf(sz)<6.05 else 0.022)
+		var small_speck:=i%3!=0 or on_road or sx<65.0
+		var rad:=snow_rng.randf_range(0.09,0.28) if small_speck else snow_rng.randf_range(0.32,0.85)
+		var squash:=snow_rng.randf_range(0.65,1.35)
+		var speck:=MeshInstance3D.new()
+		speck.mesh=speck_mesh
+		speck.material_override=snow_mat if i%3!=0 else snow_mat_alt
+		speck.position=Vector3(sx,y_base,sz)
+		speck.scale=Vector3(rad*2.0,1.0,rad*2.0*squash)
+		speck.rotation.y=snow_rng.randf_range(0,TAU)
+		speck.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		speck.set_meta("batch_static",true)
+		snow_dust.add_child(speck)
+	TownProps.batch_decorations(snow_dust)
 
 func north_exit_clear() -> bool:
 	if in_race: return true

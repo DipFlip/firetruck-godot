@@ -185,12 +185,28 @@ func run() -> void:
 	game.truck.automated_drive = Vector2.ZERO
 	check(winter.sled_done, "Pushing the supply sled across the frozen ice lane delivers it to the golden pad")
 
-	# --- 10. Return West to Maple Bay East Entrance ---
+	# --- 10. Return West to Maple Bay East Entrance & Polish Verifications ---
+	check(winter.skaters.all(func(s: Node3D): return s.find_child("IceSkateL", true, false) != null and s.find_child("IceSkateR", true, false) != null),
+		"Winter skaters wear sculpted ice skates on both feet")
+	check(bool(travel.mat.finish.get_shader_parameter("has_winter_print")),
+		"Frostpine Hollow play-mat unroll uses the printed winter_mat.png map illustration")
+	var spot := Vector3(52.0, 0.05, 18.0)
+	winter.ice_field.deposit(spot, 0.08, true)
+	var slip_initial := winter.ice_field.slip_at(spot + Vector3(2.3, 0, 0))
+	for _k in 14:
+		winter.ice_field.deposit(spot, 0.08, true)
+	var slip_expanded := winter.ice_field.slip_at(spot + Vector3(2.3, 0, 0))
+	check(slip_expanded > slip_initial + 0.15,
+		"Spraying more water onto snow grows the continuous ice sheet horizontally outward")
 	await frames(120)
 	game.end_dialogue()
 	travel.start_world(0)
 	travel.finish()
 	await frames(4)
+	var sign_node: Node3D = game.playroom.get_node_or_null("WinterSignpost")
+	var snow_node: Node3D = game.playroom.get_node_or_null("WinterEntranceSnow")
+	check(sign_node != null and sign_node.position.x < 67.0 and snow_node != null,
+		"Maple Bay's east exit displays an unobstructed Frostpine signpost and snow specks on the ground")
 	check(not travel.in_winter and not travel.in_race and game.town.visible and game.truck.global_position.x > 65.0,
 		"Returning from Frostpine Hollow restores Maple Bay with the truck entering from the east road")
 

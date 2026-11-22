@@ -186,6 +186,8 @@ static func dress_person(person: Node3D, style: String = "default", accent: Colo
 			else:
 				_add_earmuffs(head_details, accent, accent.darkened(0.22))
 			_add_scarf(outfit, accent.lightened(0.18))
+			if style == "winter_skater":
+				_add_ice_skates(person)
 		"spectator":
 			var variant := int(absf(person.position.x * 11 + person.position.z * 5)) % 4
 			if variant == 0: _add_cap(head_details, Color("d47157"), Color("f3e5c7"))
@@ -240,6 +242,36 @@ static func _add_scarf(outfit: Node3D, color: Color) -> void:
 	tail.rotation.z = 0.12
 	var tail2 := TownProps.molded_limb(outfit, Vector3(-0.04, 1.24, -0.332), 0.085, 0.038, 0.34, color.darkened(0.08), 0.036, 0.036)
 	tail2.rotation.z = -0.08
+
+static func _add_ice_skates(person: Node3D) -> void:
+	var blade_mat := StandardMaterial3D.new()
+	blade_mat.albedo_color = Color("dde8f0")
+	blade_mat.metallic = 0.72
+	blade_mat.roughness = 0.18
+	blade_mat.metallic_specular = 0.92
+	blade_mat.set_meta("toy_finish", true)
+	for side in [-1, 1]:
+		var leg_parent: Node3D = person.get_node_or_null("LegLeft" if side < 0 else "LegRight")
+		var parent_node: Node3D = leg_parent if leg_parent else person
+		var y_off: float = -0.72 if leg_parent else 0.0
+		var x_off: float = 0.0 if leg_parent else float(side) * 0.22
+		var skate := _mark_accessory(Node3D.new())
+		skate.name = "IceSkateL" if side < 0 else "IceSkateR"
+		skate.position = Vector3(x_off, y_off, 0.0)
+		parent_node.add_child(skate)
+		# Crisp white skate boot upper + dark midsole.
+		TownProps.molded_limb(skate, Vector3(0, 0.12, -0.10), 0.188, 0.29, 0.23, Color("f4f1e8"), 0.095, 0.03, 0.92, 1.03)
+		TownProps.molded_limb(skate, Vector3(0, 0.02, -0.10), 0.192, 0.295, 0.055, Color("3c4c57"), 0.015, 0.015)
+		# Two metallic blade stanchions underneath the boot.
+		for sz in [-0.24, 0.04]:
+			var post := TownProps.molded_limb(skate, Vector3(0, -0.04, sz), 0.032, 0.048, 0.09, Color("c2d2dc"), 0.012, 0.012)
+			post.material_override = blade_mat
+		# Gleaming steel runner blade + upturned front toe-pick curl!
+		var runner := TownProps.box(skate, Vector3(0, -0.092, -0.12), Vector3(0.042, 0.062, 0.64), Color("dde8f0"))
+		runner.material_override = blade_mat
+		var toe_curl := TownProps.box(skate, Vector3(0, -0.068, -0.43), Vector3(0.042, 0.052, 0.13), Color("dde8f0"))
+		toe_curl.rotation.x = 0.58
+		toe_curl.material_override = blade_mat
 
 # Upgrade legacy baked Maple Bay people (in maple_bay.tscn) so Original (0%)
 # mode also gets the injection-molded single-piece hair, flush shoulders, and limbs.

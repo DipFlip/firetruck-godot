@@ -146,11 +146,13 @@ func run() -> void:
 	check(not game.hud.prompt_label.text.to_lower().contains("tank") and not game.hud.prompt_label.text.to_lower().contains("refilling"),"Tank status uses the gauge without full, empty or refill popups")
 	game.truck.water=20
 	await frames(55)
+	var intact_rate: float=hose.refill_rate()
 	hydrant.knock(Vector3(10,0,0))
 	await frames(2)
-	var stopped_water: float=game.truck.water
-	await frames(12)
-	check(hydrant.loose and not hose.active and game.truck.water==stopped_water,"Knocking over a connected hydrant detaches the hose and stops refilling")
+	var broken_water_before: float=game.truck.water
+	var broken_rate: float=hose.refill_rate()
+	await frames(20)
+	check(hydrant.loose and hose.active and game.truck.water>broken_water_before and is_equal_approx(broken_rate,intact_rate*0.7) and hose.outlet.distance_to(hydrant.home.origin+Vector3.UP*.24)<.05,"A knocked-over hydrant stays connected to the spouting base and refills at 70% speed while the fountain keeps spraying")
 	game.queue_free()
 	await process_frame
 	await process_frame

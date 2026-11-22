@@ -33,19 +33,40 @@ func _ready() -> void:
 		pool_water.position.x=TownLayout.POOL.x
 		pool_water.position.z=TownLayout.POOL.z
 		_gather_foliage()
-		# Adapt the editable baked tree before gameplay captures the cat pose.
+		# Adapt editable baked props when shared mission/walkway layout moves.
 		cat.position=TownLayout.CAT_PERCH
+		if dog: dog.position=TownLayout.DOG
+		var fire_shift:=TownLayout.FIRE-Vector3(49,0,-19)
+		if fire_shift.length_squared()>.001:
+			for flame in flames:
+				if is_instance_valid(flame): flame.position+=fire_shift
 		for art in foliage:
-			if art.get_parent().position.distance_to(TownLayout.CAT_TREE)<.1: art.scale=Vector3.ONE*TownLayout.CAT_TREE_SIZE
+			var tree_root:=art.get_parent() as Node3D
+			if tree_root.position.distance_to(TownLayout.CAT_TREE)<.1: art.scale=Vector3.ONE*TownLayout.CAT_TREE_SIZE
+			elif tree_root.position.distance_to(Vector3(-49,0,30))<.2: tree_root.position=Vector3(-57.3,0,26.8)
+		var garden_shifts: Array=[
+			[Vector3(45,0,28),Vector3(56.5,0,26.5)],
+			[Vector3(-20,0,24),Vector3(-22.0,0,24.0)],
+		]
 		for child in get_children():
-			if child is MeshInstance3D and child.position.distance_to(Vector3(17,2.8,-8.6))<.01: child.position=TownLayout.CAT_BRANCH
+			if child is MeshInstance3D and child.position.distance_to(Vector3(17,2.8,-8.6))<.01:
+				child.position=TownLayout.CAT_BRANCH
+			elif child is MeshInstance3D and child.position.y<=1.5:
+				for pair in garden_shifts:
+					var old_g: Vector3=pair[0]
+					var new_g: Vector3=pair[1]
+					if absf(child.position.x-old_g.x)<=4.6 and absf(child.position.z-old_g.z)<=3.0:
+						child.position+=new_g-old_g
+						break
 		TownProps.apply_toy_finish(self)
 		for art in foliage: TownProps.soften_toy_shine(art)
 		ToyModels.upgrade_cat(cat)
 		ToyModels.upgrade_dog(dog)
 		var styles:=["maya","leo","june","oliver"]
+		var homes: Array[Vector3]=[TownLayout.MAYA,TownLayout.LEO,TownLayout.JUNE,TownLayout.OLIVER]
 		for i in people.size():
 			var person:=people[i]
+			if i<homes.size(): person.position=Vector3(homes[i].x,person.position.y,homes[i].z)
 			person.set_meta("toy_arrival","drop")
 			person.set_meta("omit_mat_print",true)
 			ToyModels.upgrade_baked_person_limbs(person)
@@ -109,7 +130,7 @@ func _ready() -> void:
 	for pos in [Vector3(-5,.1,12),Vector3(5,.1,-29),Vector3(31,.1,6),Vector3(-30.5,.1,30.5),Vector3(41,.1,-12),Vector3(5,.1,55),Vector3(-41,.1,-9)]:
 		hydrants.append(pos)
 		FireHydrant.build_art(self,pos)
-	for pos in [Vector3(-26,0,9),Vector3(-27,0,-10),Vector3(9,0,23),Vector3(27,0,13),Vector3(-10,0,26),Vector3(56,0,-8),Vector3(-49,0,30),Vector3(9,0,46),Vector3(48,0,46),Vector3(-48,0,47)]:
+	for pos in [Vector3(-26,0,9),Vector3(-27,0,-10),Vector3(9,0,23),Vector3(27,0,13),Vector3(-10,0,26),Vector3(56,0,-8),Vector3(-57.3,0,26.8),Vector3(9,0,46),Vector3(48,0,46),Vector3(-48,0,47)]:
 		TownProps.tree(self,pos,randf_range(0.85,1.4))
 	# Irregular groves and isolated trees occupy clear lawn, with open roads,
 	# front paths and mission gardens preserved.
@@ -123,7 +144,7 @@ func _ready() -> void:
 		TownProps.bench(self,spec.position,float(spec.yaw))
 
 	# Garden islands, fences, and flower beds add scale without blocking routes.
-	for garden in [Vector3(-20,0,24),Vector3(24,0,13),Vector3(-22,0,-28),Vector3(45,0,28)]:
+	for garden in [Vector3(-22,0,24),Vector3(24,0,13),Vector3(-22,0,-28),Vector3(56.5,0,26.5)]:
 		TownProps.box(self,garden+Vector3(0,0.055,0),Vector3(9,0.1,5),Color("92ab79"))
 		for k in range(8):
 			var p: Vector3 = garden+Vector3(-4+k*1.1,0,2.5)

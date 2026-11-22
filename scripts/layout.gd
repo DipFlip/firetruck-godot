@@ -7,10 +7,10 @@ const CAT_BRANCH:=Vector3(17,3.65,-8.6)
 const CAT_PERCH:=Vector3(17,3.78,-7.2)
 const CAT_TREE_SIZE:=1.25
 const MAYA := Vector3(12,0,-7)
-const FIRE := Vector3(49,0,-19)
-const LEO := Vector3(46,0,-12)
-const DOG := Vector3(-47,0,-9)
-const JUNE := Vector3(-49,0,-7)
+const FIRE := Vector3(44.6,0,-15.3)
+const LEO := Vector3(52.2,0,-11.5)
+const DOG := Vector3(-45.5,0,-10.0)
+const JUNE := Vector3(-45.2,0,-7.0)
 const POOL := Vector3(22,0,63)
 const OLIVER := Vector3(10,0,62)
 const OLD_BENCHES: Array[Vector3]=[Vector3(-10,0,21),Vector3(10,0,-27),Vector3(-23,0,-8)]
@@ -25,7 +25,7 @@ const BENCHES: Array[Dictionary]=[
 static func woodland_positions() -> Array[Vector3]:
 	var rng:=RandomNumberGenerator.new()
 	rng.seed=7821
-	var planted: Array[Vector3]=[Vector3(17,0,-10),Vector3(-26,0,9),Vector3(-27,0,-10),Vector3(9,0,23),Vector3(27,0,13),Vector3(-10,0,26),Vector3(56,0,-8),Vector3(-49,0,30),Vector3(9,0,46),Vector3(48,0,46),Vector3(-48,0,47)]
+	var planted: Array[Vector3]=[Vector3(17,0,-10),Vector3(-26,0,9),Vector3(-27,0,-10),Vector3(9,0,23),Vector3(27,0,13),Vector3(-10,0,26),Vector3(56,0,-8),Vector3(-57.3,0,26.8),Vector3(9,0,46),Vector3(48,0,46),Vector3(-48,0,47)]
 	var houses: Array[Vector3]=[Vector3(-15,0,13),Vector3(18,0,19),Vector3(19,0,-20),Vector3(-19,0,-20),Vector3(49,0,18),Vector3(-48,0,18),Vector3(18,0,49),Vector3(-19,0,49),Vector3(-49,0,-22),Vector3(49,0,-29)]
 	var groves: Array[Vector3]=[Vector3(-63,0,-58),Vector3(-61,0,61),Vector3(62,0,-61),Vector3(62,0,59),Vector3(-17,0,-53),Vector3(20,0,-54),Vector3(-59,0,0),Vector3(55,0,0),Vector3(-19,0,20),Vector3(18,0,14)]
 	var result: Array[Vector3]=[]
@@ -42,7 +42,7 @@ static func woodland_positions() -> Array[Vector3]:
 			if absf(p.x-house.x)<8 and p.z>house.z-7 and p.z<house.z+12: clear=false
 		for job in [MAYA,LEO,FIRE,DOG,JUNE,POOL,OLIVER]:
 			if p.distance_to(job)<11: clear=false
-		if p.distance_to(Vector3(-23,0,-10))<6: clear=false # fountain
+		if p.distance_to(Vector3(-23.8,0,-10))<6: clear=false # fountain
 		for other in planted:
 			if p.distance_to(other)<5.8: clear=false
 		if not clear: continue
