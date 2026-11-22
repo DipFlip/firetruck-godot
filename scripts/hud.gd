@@ -32,6 +32,8 @@ var menu_titles: Array[Label]=[]
 var menu_start: Button
 var menu_hint: Label
 var resume_button: Button
+var sound_label: Label
+var sound_button: Button
 var pause_resume_selected:=true
 const GAME_TITLE:="FIRE AWAY!"
 var portrait: TextureRect
@@ -87,6 +89,7 @@ var dialogue_source:=""
 var dialogue_pages: Array[String]=[]
 var page_index:=0
 var dialogue_font_size:=19
+var open_grace:=0.0
 
 func style(color: Color, radius: int = 20, shadow: bool = true) -> StyleBoxFlat:
 	var s:=StyleBoxFlat.new()
@@ -224,6 +227,10 @@ void fragment(){
 	refresh_controls()
 	resume_button=_pause_button("Resume",func(): game.set_paused(false))
 	menu_button=_pause_button("Main menu",func(): game.return_to_main_menu())
+	sound_label=words(pause_panel,Rect2(),"Sound",18,INK,true)
+	sound_button=_pause_button("Sound: On",func(): game.toggle_sound())
+	sound_button.add_theme_font_size_override("font_size",18)
+	refresh_sound_button()
 	select_pause_choice(true)
 	pause_panel.hide()
 	main_menu=Control.new()
@@ -300,6 +307,7 @@ func begin_dialogue(speaker: String, text: String) -> void:
 	char_count=0
 	text_clock=0
 	radio_idle=0
+	open_grace=0.28
 	dialogue_layout_width=-1
 	bubble_position_ready=false
 	bubble_slot=-1
@@ -376,6 +384,12 @@ func select_pause_choice(resume: bool) -> void:
 	pause_resume_selected=resume
 	resume_button.add_theme_stylebox_override("normal",style(ORANGE if resume else Color("d0e8ef"),16,false))
 	menu_button.add_theme_stylebox_override("normal",style(Color("d0e8ef") if resume else ORANGE,16,false))
+
+func refresh_sound_button() -> void:
+	if not sound_button: return
+	var muted: bool=game!=null and game.sound_muted
+	sound_button.text="Off" if muted else "On"
+	sound_button.add_theme_stylebox_override("normal",style(Color("c9dce3") if muted else TEAL,14,false))
 
 # Re-render every control reminder after the input device changes.
 func refresh_controls() -> void:
@@ -589,6 +603,14 @@ func advance_text() -> bool:
 	if char_count<full_text.length() and not revealed:
 		dialogue_label.visible_characters=-1
 		char_count=full_text.length()
+		open_grace=0.0
+		return false
+	# Prevent an accidental Space/click right as an auto-triggered bubble pops
+	# in from immediately dismissing it before the player sees it.
+	if open_grace>0.0:
+		open_grace=0.0
+		dialogue_label.visible_characters=-1
+		char_count=full_text.length()
 		return false
 	return true
 
@@ -611,6 +633,7 @@ func _process(dt: float) -> void:
 	if game.paused: dialogue_panel.hide()
 	elif game.dialogue_active: dialogue_panel.show()
 	if dialogue_panel.visible and not game.paused:
+		open_grace=maxf(0.0,open_grace-dt)
 		_position_dialogue(dt)
 		text_clock-=dt
 		while char_count<full_text.length() and text_clock<=0:
@@ -666,10 +689,16 @@ func _layout_viewport() -> void:
 		get_window().content_scale_aspect=Window.CONTENT_SCALE_ASPECT_EXPAND
 	pause_title.visible=not touch_mode
 	pause_help.visible=not touch_mode
-	pause_panel.size=Vector2(330,166 if game.toy_blending else 96) if touch_mode else Vector2(548,620)
-	resume_button.position=Vector2(18,18) if touch_mode else Vector2(38,540)
+	var has_blend: bool=game.toy_blending!=null
+	pause_panel.size=Vector2(330,206 if has_blend else 148) if touch_mode else Vector2(548,668)
+	if sound_label and sound_button:
+		sound_label.position=Vector2(22,150 if has_blend else 93) if touch_mode else Vector2(38,540)
+		sound_label.size=Vector2(115,32) if touch_mode else Vector2(180,32)
+		sound_button.position=Vector2(143,142 if has_blend else 84) if touch_mode else Vector2(245,530)
+		sound_button.size=Vector2(165,46) if touch_mode else Vector2(265,44)
+	resume_button.position=Vector2(18,18) if touch_mode else Vector2(38,592)
 	resume_button.size=Vector2(141,60) if touch_mode else Vector2(228,54)
-	menu_button.position=Vector2(171,18) if touch_mode else Vector2(282,540)
+	menu_button.position=Vector2(171,18) if touch_mode else Vector2(282,592)
 	menu_button.size=resume_button.size
 	if main_menu.visible:
 		var title_size:=int(clampf(size.x*.125,38,112))

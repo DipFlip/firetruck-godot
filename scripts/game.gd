@@ -66,6 +66,8 @@ var dog_camera_interest: CameraPointOfInterest
 var fire_camera_interest: CameraPointOfInterest
 var music: AudioStreamPlayer
 var music_muted:=false
+static var saved_sound_muted:=false
+var sound_muted:=false
 var water_audio: AudioStreamPlayer
 var hose_volume := 0.0
 var camera_trauma := 0.0
@@ -242,13 +244,16 @@ func _ready() -> void:
 	web_controls=WebControls.new()
 	web_controls.game=self
 	add_child(web_controls)
-	if OS.has_feature("web"):
+	sound_muted=saved_sound_muted
+	AudioServer.set_bus_mute(0,sound_muted)
+	hud.refresh_sound_button()
+	if OS.has_feature("web") and not WebWarmup.web_warmed:
 		loading=true
 		var warmup:=WebWarmup.new()
 		warmup.game=self
 		add_child(warmup)
 		warmup.call_deferred("run")
-	elif DisplayServer.get_name()!="headless" and not OS.get_cmdline_args().has("--script"):
+	elif OS.has_feature("web") or (DisplayServer.get_name()!="headless" and not OS.get_cmdline_args().has("--script")):
 		intro.call_deferred("start")
 
 func _setup_input() -> void:
@@ -351,7 +356,6 @@ func talk(speaker: String, words: String, next: int, interrupting: bool=false) -
 	hud.begin_dialogue(speaker,words)
 	if interrupting:
 		hud.auto_close_delay=-1
-		hud.advance_text()
 	truck.enabled=not paused and not rescue_running and not interrupting
 
 func end_dialogue(keep_camera: bool=false) -> void:
@@ -585,7 +589,7 @@ func _nearest_npc() -> int:
 	var index:=-1
 	var nearest:=9.0
 	if pool_basin and not (travel and (travel.in_race or travel.in_winter)) and pool_basin.contains_truck(): return -1
-	if dialogue_control.attention.visible: return dialogue_control.attention.actor_index
+	if dialogue_control.attention.visible and not dialogue_control.attention.compact: return dialogue_control.attention.actor_index
 	var actors:=_npc_actors()
 	for i in actors.size():
 		if not actors[i].visible: continue
@@ -681,6 +685,9 @@ func _talk_to_npc(i: int, manual: bool=false) -> bool:
 
 func _process(dt: float) -> void:
 	if not is_instance_valid(truck): return
+	if in_main_menu and OS.has_feature("web") and bool(JavaScriptBridge.eval("window.firetruckStarted === true")):
+		start_from_main_menu()
+		return
 	_audio_update(dt)
 	if not paused and travel and (travel.active or travel.in_race or travel.in_winter): _defer_followup_call()
 	if paused or loading or (travel and travel.active): return
@@ -700,6 +707,9 @@ func _process(dt: float) -> void:
 	var proximity:=1-smoothstep(TALK_FULL_RADIUS,TALK_RELEASE_RADIUS,rendered_truck_position.distance_to(approached.global_position)) if approached else 0.0
 	conversation_blend=lerpf(conversation_blend,proximity,1-exp(-5*dt))
 	if conversation_blend<.0001: conversation_blend=0.0
+	# Gently draw nearby waiting NPCs toward the frame so their prompts stay comfortable.
+	if approached and proximity>0.01:
+		focus=focus.lerp(approached.global_position+Vector3.UP*1.3,proximity*0.24)
 	# Talkers tighten the lens without pulling the driving focus sideways.
 	# Only explicit mission scenery participates in positional framing.
 	rewards.frame_camera()
@@ -926,20 +936,30 @@ func _pause_menu_input(event: InputEvent) -> void:
 	else: handled=false
 	if handled: get_viewport().set_input_as_handled()
 
+func toggle_sound() -> void:
+	sound_muted=not sound_muted
+	saved_sound_muted=sound_muted
+	AudioServer.set_bus_mute(0,sound_muted)
+	if hud: hud.refresh_sound_button()
+
 func start_from_main_menu() -> void:
 	if in_main_menu: get_tree().reload_current_scene()
 
 func return_to_main_menu() -> void:
-	if OS.has_feature("web"):
-		JavaScriptBridge.eval("window.firetruckMainMenu()")
-		return
 	in_main_menu=true
 	paused=true
 	end_dialogue()
 	truck.freeze=true
 	truck.enabled=false
+	truck.set_physics_process(false)
+	if music: music.stream_paused=true
+	if audio: audio.stream_paused=true
+	if water_audio: water_audio.volume_db=-80
 	hud.pause_panel.hide()
-	hud.main_menu.show()
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.firetruckMainMenu()")
+	else:
+		hud.main_menu.show()
 
 func _assisted_water_target(origin: Vector3, requested: Vector3) -> Variant:
 	if travel and travel.in_race: return travel.race.aim_target(origin,requested)
@@ -1201,5 +1221,6 @@ func _exit_tree() -> void:
 	TownProps.rounded_mesh=null
 	TownProps.sphere_mesh=null
 	TownProps.cylinder_meshes.clear()
+	TownProps.molded_meshes.clear()
 	ToyModels.capsule_meshes.clear()
 	ToyModels.torus_meshes.clear()

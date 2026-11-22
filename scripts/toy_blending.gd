@@ -76,9 +76,9 @@ func _process(_dt: float) -> void:
 func layout() -> void:
 	if not selector: return
 	var touch: bool=game.hud.touch_mode
-	label.position=Vector2(22,93) if touch else Vector2(38,492)
-	selector.position=Vector2(143,84) if touch else Vector2(245,480)
-	selector.size=Vector2(165,48) if touch else Vector2(265,45)
+	label.position=Vector2(22,93) if touch else Vector2(38,490)
+	selector.position=Vector2(143,84) if touch else Vector2(245,478)
+	selector.size=Vector2(165,46) if touch else Vector2(265,44)
 
 func _input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo or event.physical_keycode!=KEY_B: return

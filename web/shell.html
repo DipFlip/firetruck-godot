@@ -39,7 +39,7 @@ const canvas=document.querySelector('#canvas'),screen=document.querySelector('#s
 window.firetruckRenderBudget.install(canvas);
 const state=window.firetruckTouch={enabled:false,portrait:false,focused:document.hasFocus(),visible:!document.hidden,driveX:0,driveY:0,aimX:0,aimY:0,jump:false,ladder:0,pause:0,map:0,recover:0,cancel:0,talking:false,testing:new URLSearchParams(location.search).has('qa'),telemetry:"",width:0,height:0};
 window.firetruckPause=paused=>{document.body.classList.toggle("paused",paused);if(paused)clearControls();};
-window.firetruckMainMenu=()=>{clearControls();location.reload();};
+window.firetruckMainMenu=()=>{clearControls();started=false;ready=false;window.firetruckStarted=false;document.body.classList.remove("playing","paused","intro");const launch=document.querySelector('#launch');launch.hidden=false;launch.style.display='grid';play.disabled=false;play.classList.remove('starting');play.querySelector('.label').textContent='Start';status.textContent='';progress(1);pollPad();};
 if(new URLSearchParams(location.search).get("qa")==="travel") window.firetruckQA={sequence:0,action:"",x:0,z:0,value:0};
 window.firetruckIntro=active=>{document.body.classList.toggle('intro',active);if(active)clearControls();};
 let started=false,ready=false,engineStarted=false,nativeReady=false;
@@ -98,7 +98,8 @@ addEventListener('pointerdown',startAudio);
 // F toggles true fullscreen. Browsers only allow this from a key press or click,
 // so it is handled here and not inside the game.
 addEventListener('keydown',event=>{if(event.code!=='KeyF'||event.repeat||event.ctrlKey||event.metaKey||event.altKey)return;const root=document.documentElement;if(document.fullscreenElement||document.webkitFullscreenElement)(document.exitFullscreen||document.webkitExitFullscreen).call(document);else{const request=root.requestFullscreen||root.webkitRequestFullscreen;if(request)Promise.resolve(request.call(root)).catch(()=>{});}},true);
-(function pollPad(){if(started)return;const pads=navigator.getGamepads?navigator.getGamepads():[];for(const pad of pads){if(pad&&[0,1,2,3,9].some(i=>pad.buttons[i]&&pad.buttons[i].pressed)){play.click();return;}}requestAnimationFrame(pollPad);})();
+function pollPad(){if(started)return;const pads=navigator.getGamepads?navigator.getGamepads():[];for(const pad of pads){if(pad&&[0,1,2,3,9].some(i=>pad.buttons[i]&&pad.buttons[i].pressed)){play.click();return;}}requestAnimationFrame(pollPad);}
+pollPad();
 play.addEventListener('click',()=>{if(started)return;started=true;startAudio();play.disabled=true;play.classList.add('starting');play.querySelector('.label').textContent='Starting…';status.textContent='Starting…';showGame();});
 engine.startGame({canvas,canvasResizePolicy:0,focusCanvas:false,onProgress:(n,total)=>{if(total)progress(n/total*.75);},onPrintError:(...args)=>console.error(...args)}).then(()=>{engineStarted=true;showGame();}).catch(error=>{status.classList.remove('sr-only');status.textContent='Could not start. Please use a browser with WebGL 2 and reload to try again.';play.classList.remove('starting');play.querySelector('.label').textContent='Start';console.error(error);});
 layout();drawMap();

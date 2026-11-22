@@ -1,6 +1,7 @@
 class_name WebWarmup
 extends Node
 
+static var web_warmed:=false
 var game: Node3D
 var rendered_views:=0
 
@@ -145,7 +146,7 @@ func run() -> void:
 	camera.transform=saved_transform
 	camera.size=saved_size
 	# Populate the portrait/font shader paths before the first incoming call.
-	for speaker in ["DISPATCH","MAYA","LEO","JUNE","OLIVER","ROWAN"]:
+	for speaker in ["DISPATCH","MAYA","LEO","JUNE","OLIVER","ROWAN","ELSA","BRAM","ASTRID","TORSTEN"]:
 		game.hud.begin_dialogue(speaker,"ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789.,!? ' · ›")
 		game.hud.dialogue_panel.modulate.a=1
 		game.hud.dialogue_label.visible_characters=-1
@@ -158,6 +159,7 @@ func run() -> void:
 	# may finish loading long before the user presses Start.
 	game.intro.start()
 	await _draw_frames(1)
+	web_warmed=true
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.firetruckReady()")
 		while not bool(JavaScriptBridge.eval("window.firetruckStarted === true")):

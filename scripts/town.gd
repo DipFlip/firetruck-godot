@@ -48,6 +48,7 @@ func _ready() -> void:
 			var person:=people[i]
 			person.set_meta("toy_arrival","drop")
 			person.set_meta("omit_mat_print",true)
+			ToyModels.upgrade_baked_person_limbs(person)
 			TownProps.soften_toy_shine(person)
 			if i<styles.size(): ToyModels.dress_person(person,styles[i])
 		return

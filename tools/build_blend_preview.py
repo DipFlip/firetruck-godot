@@ -2,11 +2,28 @@
 from pathlib import Path
 import json, struct
 import numpy as np
-from scipy.sparse import coo_matrix
-from scipy.sparse.csgraph import connected_components
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'builds/blend'
 OUT.mkdir(parents=True,exist_ok=True)
+
+
+def connected_components_undirected(n, edges_a, edges_b):
+    adj = [[] for _ in range(n)]
+    for u, v in zip(edges_a, edges_b):
+        if u != v:
+            adj[u].append(v); adj[v].append(u)
+    labels = np.full(n, -1, dtype=int)
+    comp = 0
+    for start in range(n):
+        if labels[start] >= 0: continue
+        stack = [start]; labels[start] = comp
+        while stack:
+            cur = stack.pop()
+            for nxt in adj[cur]:
+                if labels[nxt] < 0:
+                    labels[nxt] = comp; stack.append(nxt)
+        comp += 1
+    return comp, labels
 
 
 def sdf(p, points):
@@ -34,7 +51,7 @@ def expand(name, parts):
         unique,inv=np.unique(np.round(v,5),axis=0,return_inverse=True)
         tri=inv[idx].reshape(-1,3)
         a=tri[:,[0,1,2]].ravel(); b=tri[:,[1,2,0]].ravel()
-        _,labels=connected_components(coo_matrix((np.ones(len(a)),(a,b)),shape=(len(unique),len(unique))),directed=False)
+        _,labels=connected_components_undirected(len(unique), a, b)
         for group in np.unique(labels):
             chosen=np.flatnonzero(labels[inv]==group)
             if not len(chosen): continue
@@ -76,7 +93,8 @@ def contact_groups(name, parts):
             # A positive gap, however small, is not an invitation to bridge it.
             contact=min(sdf(a,np.asarray(b['raw'])).min(),sdf(b,np.asarray(a['raw'])).min())<=.001
             adjacency[i,j]=adjacency[j,i]=contact
-    _,labels=connected_components(coo_matrix(adjacency),directed=False)
+    u, v = np.nonzero(adjacency)
+    _,labels=connected_components_undirected(len(parts), u, v)
     return [np.flatnonzero(labels==g) for g in np.unique(labels)],adjacency
 
 

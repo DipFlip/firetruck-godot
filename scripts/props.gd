@@ -5,6 +5,7 @@ static var materials: Dictionary = {}
 static var rounded_mesh: Mesh
 static var sphere_mesh: SphereMesh
 static var cylinder_meshes: Dictionary = {}
+static var molded_meshes: Dictionary = {}
 static var effect_shaders: Dictionary = {}
 static var bake_scenery:=false
 static var toy_materials: Dictionary={}
@@ -142,6 +143,75 @@ static func cylinder(parent: Node3D, pos: Vector3, radius: float, height: float,
 	node.position = pos
 	return node
 
+# Injection-molded toy limb / torso: straight or gently tapered cylindrical
+# walls that keep full thickness toward the ends before rounding off cleanly
+# with distinct top and bottom fillet radii (no sharp box corners or footballs).
+static func molded_limb(parent: Node3D, pos: Vector3, rx: float, rz: float, height: float, color: Color, top_fillet: float = 0.08, bottom_fillet: float = 0.045, top_taper: float = 1.0, bottom_taper: float = 1.0, segments: int = 24) -> MeshInstance3D:
+	var key := "%.4f_%.4f_%.4f_%.4f_%.4f_%.4f_%.4f_%d" % [rx, rz, height, top_fillet, bottom_fillet, top_taper, bottom_taper, segments]
+	if not molded_meshes.has(key):
+		var half_h := height * 0.5
+		var tf := minf(top_fillet, minf(half_h * 0.85, minf(rx, rz) * top_taper * 0.92))
+		var bf := minf(bottom_fillet, minf(half_h * 0.85, minf(rx, rz) * bottom_taper * 0.92))
+		var profile: Array[Vector3] = [] # (radius_scale_x, y, radius_scale_z)
+		var ring_normals: Array[Vector2] = [] # (radial_n, y_n)
+		# Bottom center -> bottom fillet -> straight wall -> top fillet -> top center.
+		profile.append(Vector3(0.0, -half_h, 0.0))
+		ring_normals.append(Vector2(0.0, -1.0))
+		var fillet_steps := 5
+		var b_flat_x := maxf(0.002, rx * bottom_taper - bf)
+		var b_flat_z := maxf(0.002, rz * bottom_taper - bf)
+		for s in fillet_steps + 1:
+			var a := -PI * 0.5 + (PI * 0.5) * float(s) / float(fillet_steps)
+			var ca := cos(a)
+			var sa := sin(a)
+			profile.append(Vector3(b_flat_x + bf * ca, -half_h + bf + bf * sa, b_flat_z + bf * ca))
+			ring_normals.append(Vector2(ca, sa))
+		var t_flat_x := maxf(0.002, rx * top_taper - tf)
+		var t_flat_z := maxf(0.002, rz * top_taper - tf)
+		for s in fillet_steps + 1:
+			var a := (PI * 0.5) * float(s) / float(fillet_steps)
+			var ca := cos(a)
+			var sa := sin(a)
+			profile.append(Vector3(t_flat_x + tf * ca, half_h - tf + tf * sa, t_flat_z + tf * ca))
+			ring_normals.append(Vector2(ca, sa))
+		profile.append(Vector3(0.0, half_h, 0.0))
+		ring_normals.append(Vector2(0.0, 1.0))
+
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var rings := profile.size()
+		for r in rings:
+			var p := profile[r]
+			var rn := ring_normals[r]
+			for i in segments:
+				var ang := float(i) * TAU / float(segments)
+				var cx := cos(ang)
+				var sz := sin(ang)
+				var normal := Vector3(cx * rn.x / maxf(0.001, rx), rn.y, sz * rn.x / maxf(0.001, rz)).normalized()
+				st.set_normal(normal)
+				st.add_vertex(Vector3(p.x * cx, p.y, p.z * sz))
+		for r in rings - 1:
+			var row0 := r * segments
+			var row1 := (r + 1) * segments
+			for i in segments:
+				var j := (i + 1) % segments
+				var a := row0 + i
+				var b := row0 + j
+				var c := row1 + i
+				var d := row1 + j
+				if r > 0:
+					st.add_index(a); st.add_index(b); st.add_index(c)
+				if r < rings - 2:
+					st.add_index(b); st.add_index(d); st.add_index(c)
+		molded_meshes[key] = st.commit()
+	var node := MeshInstance3D.new()
+	node.mesh = molded_meshes[key]
+	node.material_override = material(color)
+	node.set_meta("sdf_kind", "cylinder")
+	parent.add_child(node)
+	node.position = pos
+	return node
+
 static func label(parent: Node3D, pos: Vector3, words: String, size: int = 40) -> Label3D:
 	var l := Label3D.new()
 	parent.add_child(l)
@@ -224,11 +294,11 @@ static func person(parent: Node3D, pos: Vector3, shirt: Color, skin_tone: Color=
 	if skin_tone.a>0: skin=skin_tone
 	if hair_tone.a>0: hair=hair_tone
 	for x in [-0.22,0.22]:
-		box(p,Vector3(x,0.4,0),Vector3(0.27,0.68,0.32),Color("465967"))
-		ball(p,Vector3(x,0.1,-0.12),Vector3(0.37,0.24,0.57),Color("775d4a"))
-	ball(p,Vector3(0,1.03,0),Vector3(0.94,1.08,0.60),shirt)
-	box(p,Vector3(0,1.09,-0.29),Vector3(0.045,0.63,0.035),shirt.darkened(0.16))
-	for y in [0.85,1.08,1.31]: ball(p,Vector3(0,y,-0.325),Vector3.ONE*0.075,Color("e8d4ac"))
+		molded_limb(p,Vector3(x,0.42,0),0.145,0.16,0.68,Color("465967"),0.11,0.045,1.02,0.96)
+		molded_limb(p,Vector3(x,0.11,-0.10),0.175,0.275,0.22,Color("775d4a"),0.105,0.032,0.90,1.04)
+	molded_limb(p,Vector3(0,1.03,0),0.45,0.30,1.00,shirt,0.24,0.11,0.90,1.04)
+	molded_limb(p,Vector3(0,1.06,-0.302),0.024,0.018,0.60,shirt.darkened(0.16),0.016,0.016)
+	for y in [0.85,1.08,1.31]: ball(p,Vector3(0,y,-0.318),Vector3.ONE*0.075,Color("e8d4ac"))
 	ball(p,Vector3(0,1.94,0),Vector3(1.01,1.07,0.88),skin).name="Head"
 	ball(p,Vector3(0,2.29,0.06),Vector3(1.07,0.62,0.95),hair)
 	for side in [-1,1]:
@@ -239,8 +309,10 @@ static func person(parent: Node3D, pos: Vector3, shirt: Color, skin_tone: Color=
 		arm.name="ArmLeft" if side<0 else "ArmRight"
 		arm.position=Vector3(side*0.48,1.35,0)
 		arm.rotation.z=side*0.12
-		ball(arm,Vector3(0,-0.28,0),Vector3(0.28,0.65,0.32),shirt)
-		ball(arm,Vector3(0,-0.62,0),Vector3(0.22,0.24,0.22),skin)
+		# Injection-molded cylindrical sleeve: uniform thickness along the arm,
+		# rounded shoulder dome at top and a flatter, softly filleted cuff end.
+		molded_limb(arm,Vector3(0,-0.27,0),0.135,0.145,0.56,shirt,0.11,0.042,0.95,1.0)
+		molded_limb(arm,Vector3(0,-0.59,0),0.105,0.112,0.19,skin,0.045,0.085)
 	var eyes:=Node3D.new()
 	p.add_child(eyes)
 	eyes.name="Eyes"

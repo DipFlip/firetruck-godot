@@ -53,7 +53,8 @@ func run() -> void:
 					elif colour.is_equal_approx(Color("ecb354").darkened(.16)): category=5
 				var eligible:=is_person and category<3 and bounds.size.length()*mesh.scale.length()/sqrt(3)>=.30
 				if pair[0]=="hydrant": eligible=colour.is_equal_approx(Color("dd6950"))
-				parts.append({"raw":points,"normals":normals,"indices":Array(arrays[Mesh.ARRAY_INDEX]),"path":path,"kind":"ellipsoid" if mesh.mesh is SphereMesh else "cylinder" if mesh.mesh is CylinderMesh else "box","centre":[centre.x,centre.y,centre.z],"radii":[bounds.size.x*.5,bounds.size.y*.5,bounds.size.z*.5],"inverse":[[inverse.x.x,inverse.y.x,inverse.z.x],[inverse.x.y,inverse.y.y,inverse.z.y],[inverse.x.z,inverse.y.z,inverse.z.z]],"colour":[colour.r,colour.g,colour.b],"category":category,"bone":bone,"eligible":eligible})
+				var kind: String = str(mesh.get_meta("sdf_kind", "ellipsoid" if mesh.mesh is SphereMesh else "cylinder" if mesh.mesh is CylinderMesh else "box"))
+				parts.append({"raw":points,"normals":normals,"indices":Array(arrays[Mesh.ARRAY_INDEX]),"path":path,"kind":kind,"centre":[centre.x,centre.y,centre.z],"radii":[bounds.size.x*.5,bounds.size.y*.5,bounds.size.z*.5],"inverse":[[inverse.x.x,inverse.y.x,inverse.z.x],[inverse.x.y,inverse.y.y,inverse.z.y],[inverse.x.z,inverse.y.z,inverse.z.z]],"colour":[colour.r,colour.g,colour.b],"category":category,"bone":bone,"eligible":eligible})
 				if pair[0]=="hydrant" and parts[-1].kind=="box":
 					# This rounded crossbar is axis-aligned in fixture space.
 					var size: Vector3=bounds.size*mesh.scale*.5
