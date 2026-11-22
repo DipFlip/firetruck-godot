@@ -49,18 +49,22 @@ func celebrate(job: String, at: Vector3, speaker: String, words: String, animate
 	if completed.has(job): return
 	completed[job]=true
 	var actor: Node3D
-	var race_job: bool=game.travel and game.travel.in_race
+	var world_index: int=game.travel.active_world() if game.travel else 0
+	var race_job: bool=world_index==1
+	var winter_job: bool=world_index==2
 	if race_job:
 		actor=game.travel.race.people[ToyRaceTrack.NAMES.find(speaker)]
+	elif winter_job:
+		actor=game.travel.winter.people[ToyWinterVillage.NAMES.find(speaker)]
 	elif speaker=="ROWAN": actor=game.railway.driver
 	else:
 		actor=game.town.people[{"MAYA":0,"LEO":1,"JUNE":2,"OLIVER":3}[speaker]]
-	pending.append({"speaker":speaker,"words":words,"actor":actor,"race":race_job,"remaining":THANK_YOU_DELAY,"started":false,"animate":animate_actor,"job":job})
+	pending.append({"speaker":speaker,"words":words,"actor":actor,"race":race_job,"world":world_index,"remaining":THANK_YOU_DELAY,"started":false,"animate":animate_actor,"job":job})
 	if pending.size()==1: _begin_reward(pending[0])
-	sparkle_burst(at,28,3.4 if job=="pool" else 1.1,.55 if job=="pool" else 1.0)
+	sparkle_burst(at,28,3.4 if job in ["pool","winter_rink"] else 1.1,.55 if job=="pool" else 1.0)
 
 func controls_locked() -> bool:
-	return not pending.is_empty() and pending[0].race==game.travel.in_race
+	return not pending.is_empty() and pending[0].world==(game.travel.active_world() if game.travel else 0)
 
 func framing_actor() -> Node3D:
 	if game.dialogue_active and game.dialogue_control.interrupting and game.dialogue_actor==thanking_actor: return thanking_actor
@@ -154,8 +158,10 @@ func _process(dt: float) -> void:
 	pending.pop_front()
 	thanking_actor=reward.actor
 	game.talk(reward.speaker+"  /  THANK YOU",reward.words,game.stage,true)
-	if reward.race:
+	if reward.world==1:
 		game.travel.race.chatter_latches[ToyRaceTrack.NAMES.find(reward.speaker)]=true
+	elif reward.world==2:
+		game.travel.winter.chatter_latches[ToyWinterVillage.NAMES.find(reward.speaker)]=true
 	elif reward.speaker!="ROWAN":
 		game.proximity_latches[{"MAYA":0,"LEO":1,"JUNE":2,"OLIVER":3}[reward.speaker]]=true
 

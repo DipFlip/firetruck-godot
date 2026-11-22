@@ -43,7 +43,7 @@ def bake(kind, variant, duration):
             y = (math.sin(phase)*.6 + math.sin(phase*2)*.23 + math.sin(phase*3)*.10 + math.sin(phase*4)*.04)*env
             if kind == 'woof': y += low*env*.6
             if kind == 'meow': y = (math.sin(phase)*.5+math.sin(phase*2)*.28+math.sin(phase*3)*.10)*env
-        elif kind in ('dog_wash', 'dog_jump', 'quack', 'cheer'):
+        elif kind in ('dog_wash', 'dog_jump', 'quack', 'cheer', 'whoa', 'giggle', 'owl'):
             # Rounded character voices with breath, no piercing top harmonics.
             if kind == 'dog_wash':
                 f = (195+variant*13)*(1+.18*math.sin(t*16))
@@ -55,12 +55,48 @@ def bake(kind, variant, duration):
                 age = t % .23
                 f = (265+variant*17)*(1-.25*smooth(0,.17,age))
                 env = smooth(0,.015,age)*(1-smooth(.07,.19,age))
+            elif kind == 'whoa':
+                # Playful surprised pitch arch: quick rise then warm downward bend.
+                u = t / duration
+                f = (175+variant*22)*(1+.55*math.sin(math.pi*min(1.,u*1.35))-.18*smooth(.45,1.,u))
+                env = smooth(0,.025,t)*(1-smooth(duration-.10,duration,t))
+            elif kind == 'giggle':
+                # Two light upward happy chirps for delighted spectators/skaters.
+                age = t % .19
+                pulse = int(t / .19)
+                f = (290+variant*24+pulse*42)*(1+.26*math.sin(math.pi*min(1.,age/.15)))
+                env = smooth(0,.015,age)*(1-smooth(.08,.16,age)) if t < .38 else 0
+            elif kind == 'owl':
+                # Cozy soft two-syllable snowy-owl hoot.
+                age = t if t < .24 else t - .28
+                if 0 <= age < .22 or (t >= .28 and age < .36):
+                    span = .22 if t < .24 else .36
+                    f = (365+variant*16)*(1-.12*smooth(0,span,age))
+                    env = smooth(0,.03,age)*(1-smooth(span-.09,span,age))
+                else:
+                    f, env = 365., 0.
             else:
                 f = (225+variant*20)*(1+.35*math.sin(math.pi*t/duration))
                 env = smooth(0,.07,t)*(1-smooth(duration-.2,duration,t))
             phase += TAU*f/RATE
             y = (math.sin(phase)*.55+math.sin(phase*2)*.19+math.sin(phase*3)*.06+low*.28)*env
             if kind == 'dog_wash': y += low*.45*env
+            if kind == 'owl': y = (math.sin(phase)*.72+math.sin(phase*2)*.14+low*.12)*env
+        elif kind == 'ice_freeze':
+            # Crisp crystalline shimmer when spray freezes onto snow.
+            env = smooth(0,.012,t)*math.exp(-t*7.5)
+            for j, f in enumerate((1180, 1560, 2140, 2680)):
+                age = t - j*.028
+                if age > 0:
+                    y += math.sin(TAU*f*shift*age)*smooth(0,.006,age)*math.exp(-age*(14+j*3))*(.24/(j+1)**.6)
+            y += air*.045*env
+        elif kind == 'ice_glide':
+            # Soft airy skate/tire glide loop over smooth ice.
+            water_low += .18*(n-water_low)
+            water_soft += .06*(water_low-water_soft)
+            band = water_low - water_soft
+            env = .84 + .16*math.sin(TAU*2*t)
+            y = (band*1.8 + math.sin(TAU*(1320+variant*65)*t)*.04)*env
         elif kind in ('plastic', 'ceramic', 'cloth'):
             env = smooth(0,.006,t)*math.exp(-t*(13 if kind=='plastic' else 6))
             if kind == 'cloth':
@@ -185,7 +221,7 @@ def bake(kind, variant, duration):
 
 if __name__=='__main__':
     OUT.mkdir(parents=True,exist_ok=True)
-    durations={'voice':.065,'dodge':.27,'woof':.48,'meow':.75,'bird':.56,'wood':.50,'fence':.38,'metal':.62,'brick':.43,'bush':.48,'car_bump':.35,'splash':.86,'clean':.8,'honk':.3,'chuff':.34,'whistle':1.18,'ringtone':3.,'engine':1.,'refill':1.4,'hydrant_jet':1.8,'fire_sizzle':1.,'dog_wash':.65,'dog_jump':.32,'quack':.46,'cheer':.85,'plastic':.4,'cloth':.5,'ceramic':.65,'ladder_extend':.64,'ladder_retract':.64,'tire_scrub':2.,'block_land':.30,'house_grow':1.05}
+    durations={'voice':.065,'dodge':.27,'woof':.48,'meow':.75,'bird':.56,'wood':.50,'fence':.38,'metal':.62,'brick':.43,'bush':.48,'car_bump':.35,'splash':.86,'clean':.8,'honk':.3,'chuff':.34,'whistle':1.18,'ringtone':3.,'engine':1.,'refill':1.4,'hydrant_jet':1.8,'fire_sizzle':1.,'dog_wash':.65,'dog_jump':.32,'quack':.46,'cheer':.85,'whoa':.36,'giggle':.42,'owl':.68,'ice_freeze':.45,'ice_glide':1.8,'plastic':.4,'cloth':.5,'ceramic':.65,'ladder_extend':.64,'ladder_retract':.64,'tire_scrub':2.,'block_land':.30,'house_grow':1.05}
     for kind,duration in durations.items():
         variants = len(HOUSE_GROW_DURATIONS) if kind=='house_grow' else 1 if kind in ('ringtone','engine') else 3
         for variant in range(variants):

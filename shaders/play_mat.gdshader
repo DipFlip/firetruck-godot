@@ -3,17 +3,23 @@ render_mode diffuse_burley;
 uniform float roll = 0.0;
 uniform bool unfolding = true;
 uniform bool race = false;
+uniform bool winter = false;
 uniform bool printed_toys = true;
 uniform float print_opacity = 1.0;
 uniform vec4 pond_hole = vec4(-29.0,40.0,13.0,10.0);
 uniform vec4 felt_color : source_color = vec4(.37647,.6,.345098,1.0);
+uniform vec4 winter_felt_color : source_color = vec4(.89,.94,.97,1.0);
 uniform sampler2D maple_print : source_color, filter_linear_mipmap, repeat_disable;
 uniform sampler2D race_print : source_color, filter_linear_mipmap, repeat_disable;
+uniform sampler2D winter_print : source_color, filter_linear_mipmap, repeat_disable;
+uniform bool has_winter_print = false;
 uniform sampler2D maple_clean : source_color, filter_linear_mipmap, repeat_disable;
 uniform sampler2D race_clean : source_color, filter_linear_mipmap, repeat_disable;
+uniform sampler2D winter_clean : source_color, filter_linear_mipmap, repeat_disable;
 // Linear data: R/G are the local replacement interval, B is coverage.
 uniform sampler2D maple_arrival : filter_linear, repeat_disable;
 uniform sampler2D race_arrival : filter_linear, repeat_disable;
+uniform sampler2D winter_arrival : filter_linear, repeat_disable;
 uniform float arrival_progress = -1.0;
 varying vec2 printed;
 varying float backing;
@@ -71,19 +77,28 @@ void vertex() {
 }
 float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
 float noise(vec2 p) { vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y); }
-void fragment() {
+ void fragment() {
  vec2 p=printed;
- vec3 ink=vec3(.53,.66,.45);
+ vec3 ink=winter ? winter_felt_color.rgb : vec3(.53,.66,.45);
  if(printed_toys) {
-  if(race) ink=texture(race_print,(p+vec2(80.0))/160.0).rgb;
+  if(winter) {
+   if(has_winter_print) ink=texture(winter_print,(p+vec2(80.0))/160.0).rgb;
+   else {
+    float drift=noise(p*.08)*.06+noise(p*.22)*.03;
+    ink=mix(vec3(.86,.92,.96),vec3(.96,.98,1.0),clamp(.5+drift*4.0,0.0,1.0));
+   }
+  } else if(race) ink=texture(race_print,(p+vec2(80.0))/160.0).rgb;
   else ink=texture(maple_print,(p+vec2(80.0))/160.0).rgb;
-  if(arrival_progress>=0.0) {
+  if(arrival_progress>=0.0 && (!winter || has_winter_print)) {
    vec2 uv=(p+vec2(80.0))/160.0;
-   vec3 timing=race ? texture(race_arrival,uv).rgb : texture(maple_arrival,uv).rgb;
-   vec3 ground=race ? texture(race_clean,uv).rgb : texture(maple_clean,uv).rgb;
+   vec3 timing=winter ? texture(winter_arrival,uv).rgb : race ? texture(race_arrival,uv).rgb : texture(maple_arrival,uv).rgb;
+   vec3 ground=winter ? texture(winter_clean,uv).rgb : race ? texture(race_clean,uv).rgb : texture(maple_clean,uv).rgb;
    float replacement=smoothstep(timing.r,max(timing.r+.003,timing.g),arrival_progress)*timing.b;
    ink=mix(ink,ground,replacement);
   }
+ } else if(winter) {
+  float drift=noise(p*.09)-.5;
+  ink=mix(winter_felt_color.rgb,vec3(.96,.98,1.0),smoothstep(-.3,.4,drift));
  } else {
   ink=mix(ink,vec3(.57,.69,.47),smoothstep(-80.0,80.0,p.y));
   float picnic=step(35.0,p.x)*step(p.x,70.0)*step(30.0,p.y)*step(p.y,74.0);
@@ -92,21 +107,22 @@ void fragment() {
  vec2 corner=abs(p)-vec2(75.5);
  float edge_distance=length(max(corner,vec2(0.0)))+min(max(corner.x,corner.y),0.0)-4.5;
  float border=smoothstep(-2.5,-2.0,edge_distance);
- if(race && !printed_toys && length((p-pond_hole.xy)/pond_hole.zw)<1.0) discard;
- ink=mix(ink,vec3(.78,.46,.33),border);
+ if(race && !winter && !printed_toys && length((p-pond_hole.xy)/pond_hole.zw)<1.0) discard;
+ ink=mix(ink,winter ? vec3(.43,.68,.81) : vec3(.78,.46,.33),border);
  if(backing>.5) ink=vec3(.69,.66,.57);
  vec2 yarn=p*42.0;
  vec2 filtered=sin(yarn)/(1.0+fwidth(yarn)*fwidth(yarn));
  float weave=(filtered.x+filtered.y)*.5;
  if(!printed_toys && backing<.5 && border<.5) {
-  ink=felt_color.rgb;
+  ink=winter ? mix(winter_felt_color.rgb,vec3(.95,.98,1.0),smoothstep(-.35,.45,noise(p*.09)-.5)) : felt_color.rgb;
   float grain=noise(p*9.0)-.5;
   float wide=noise(p*.24)-.5;
   float nap=noise(vec2(p.x*9.0,p.y*46.0))-.5;
   float patch=noise(p*.38+vec2(6.0))-.5;
-  ink*=1.0+weave*.13+nap*.16+patch*.08+grain*.05+wide*.0225;
+  float mod_scale=winter ? .45 : 1.0;
+  ink*=1.0+(weave*.13+nap*.16+patch*.08+grain*.05+wide*.0225)*mod_scale;
   NORMAL_MAP=vec3(.5+filtered.x*.05,.5+filtered.y*.05,1.0);
-  SPECULAR=.12;
+  SPECULAR=winter ? .24 : .12;
  }
  // The print already contains the offline scene's lighting. Retain a little
  // cloth lighting during the toss without lighting the photograph twice.
@@ -120,7 +136,7 @@ void fragment() {
   float along=abs(p.x)>abs(p.y) ? p.y : p.x;
   float seam=sin(along*15.0)/(1.0+pow(fwidth(along*15.0),2.0));
   ink*=1.0+weave*.15+(noise(p*18.0)-.5)*.16;
-  ink=mix(ink,vec3(.91,.66,.45),smoothstep(.6,.9,seam)*.28);
+  ink=mix(ink,winter ? vec3(.75,.90,.97) : vec3(.91,.66,.45),smoothstep(.6,.9,seam)*.28);
   NORMAL_MAP=vec3(.5+filtered.x*.1,.5+filtered.y*.1,1.0);
  }
  vec3 fabric=ink*(.975+.025*weave);

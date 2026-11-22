@@ -553,12 +553,7 @@ func _build_paddock(parent: Node3D) -> void:
 		var rock:=TownProps.ball(parent,Vector3(at.x,.18,at.y),Vector3(rng_shore.randf_range(.5,1.3),rng_shore.randf_range(.3,.7),rng_shore.randf_range(.45,.95)),Color("b3ad92"))
 		rock.rotation.y=rng_shore.randf_range(0,TAU)
 	for i in 3:
-		var duck:=TownProps.toy_group(self,Vector3(-29+i,-.27,40),"drop","SwimmingDuck")
-		TownProps.ball(duck,Vector3.ZERO,Vector3(.85,.55,.6),Color("edc876"))
-		TownProps.ball(duck,Vector3(0,.33,-.26),Vector3(.44,.48,.44),Color("edc876"))
-		TownProps.box(duck,Vector3(0,.29,-.55),Vector3(.27,.10,.25),Color("d9894f"))
-		for side in [-1,1]: TownProps.ball(duck,Vector3(side*.2,.38,-.37),Vector3.ONE*.065,Color("454744"))
-		TownProps.merge_fixed_geometry(duck,[],"race_swimming_duck")
+		var duck:=ToyModels.build_duck(self,Vector3(-29+i,-.27,40),i)
 		ducks.append(duck)
 
 	_camper(parent,Vector3(43,0,54),Color("d2a774"))
@@ -631,6 +626,7 @@ func _build_paddock(parent: Node3D) -> void:
 			for seat in 3:
 				var person:=_person(self,stands.position+stands.basis*Vector3(-4+seat*4,.7+row*.7,row*1.4),Color("dcaa60") if (row+seat)%2 else Color("8daeb5"),false,false,true)
 				person.rotation.y=stands.rotation.y
+				ToyModels.dress_person(person,"spectator")
 				spectators.append(person)
 	_bunting(parent,Vector3(56,0,33),Vector3(74,0,33))
 	_bunting(parent,Vector3(-48,0,-61),Vector3(-12,0,-61))
@@ -640,6 +636,7 @@ func _build_paddock(parent: Node3D) -> void:
 	people.append(_person(self,Vector3(-37,0,-3),Color("cd7058"),false,false,false,true))
 	for i in people.size():
 		people[i].name=NAMES[i]
+		ToyModels.dress_person(people[i],NAMES[i].to_lower())
 		PersonalSpace.protect(people[i],game.truck)
 	var welcome:=SPAWN-people[0].position
 	people[0].rotation.y=atan2(-welcome.x,-welcome.z)
@@ -647,11 +644,13 @@ func _build_paddock(parent: Node3D) -> void:
 		var start:=Vector3(50+i*2,0,41+i*2)
 		var angle:=i*1.7
 		var actor:=_person(self,start+Vector3(sin(angle)*3,0,cos(angle)*2),Color("81a99c") if i%2 else Color("ca8c80"),true)
+		ToyModels.dress_person(actor,"default")
 		var legs: Array[Node3D]=[actor.get_node("LegLeft"),actor.get_node("LegRight")]
 		walkers.append({"actor":actor,"start":start,"phase":i*1.7,"route_angle":i*1.7,"legs":legs})
 	# Built last so the earlier crowd keeps its palettes and baked batches.
 	var timekeeper:=_person(self,TIMEKEEPER_POINT,Color("e9d9b4"),false,false,false,true)
 	timekeeper.name=NAMES[4]
+	ToyModels.dress_person(timekeeper,"piper")
 	var toward_start:=RaceCourse.gate_position(0)-TIMEKEEPER_POINT
 	timekeeper.rotation.y=atan2(-toward_start.x,-toward_start.z)
 	_chequered_flag(actor_rigs[timekeeper].left)
@@ -758,6 +757,7 @@ func _broadcast_camera(parent: Node3D, at: Vector3) -> void:
 	TownProps.box(broadcast_head,Vector3(.42,-.35,.6),Vector3(.08,.08,.9),Color("536872"))
 	camera_operator=_person(self,at+Vector3(0,0,-1.1),Color("6d9cb2"),false,true)
 	camera_operator.name="CameraOperator"
+	ToyModels.dress_person(camera_operator,"operator")
 	camera_operator.rotation.y=PI
 	for arm in ["ArmLeft","ArmRight"]:
 		camera_operator.get_node(arm).rotation=Vector3(2.0,0,.12 if arm=="ArmRight" else -.12)
@@ -787,7 +787,7 @@ func _process(dt: float) -> void:
 	_update_audience(dt)
 	for i in people.size():
 		var actor:=people[i]
-		if actor.get_meta("mission_celebrating",false): continue
+		if actor.get_meta("mission_celebrating",false) or actor.get_meta("spray_reacting",false): continue
 		if not TownProps.near_view(game.camera,actor.global_position,3): continue
 		var rig: Dictionary=actor_rigs[actor]
 		var toward: Vector3=game.truck.global_position-actor.global_position
@@ -801,6 +801,7 @@ func _process(dt: float) -> void:
 func _update_walkers(dt: float) -> void:
 	for walker in walkers:
 		var actor: Node3D=walker.actor
+		if actor.get_meta("spray_reacting",false): continue
 		var next_angle: float=walker.route_angle+dt*.35
 		var next_pos: Vector3=to_global(walker.start+Vector3(sin(next_angle)*3,0,cos(next_angle)*2))
 		var near_talker:=people.any(func(p: Node3D): return p.visible and next_pos.distance_to(p.global_position)<2.2)
@@ -840,6 +841,18 @@ func _update_pond(dt: float) -> void:
 			game.sounds.play("splash",truck.global_position,.65 if not pond_wet else .35,.65)
 	pond_wet=wet
 
+func startle_duck(index: int, away_from: Vector3) -> void:
+	if index<0 or index>=ducks.size(): return
+	if duck_states.is_empty():
+		for duck in ducks: duck_states.append({"velocity":Vector2.ZERO,"quack_at":0.0})
+	var duck:=ducks[index]
+	var away:=Vector2(duck.global_position.x-away_from.x,duck.global_position.z-away_from.z)
+	if away.length()<.05: away=Vector2.RIGHT.rotated(index*2.1)
+	duck_states[index].velocity=away.normalized()*4.4
+	duck_states[index].quack_at=animation_clock+1.8
+	game.sounds.play("quack",duck.global_position,.9,.35)
+	game.truck._splash(duck.global_position+Vector3.UP*.1,Vector3.UP,true)
+
 func _update_ducks(dt: float) -> void:
 	if duck_states.is_empty():
 		for duck in ducks: duck_states.append({"velocity":Vector2.ZERO,"quack_at":0.0})
@@ -872,6 +885,7 @@ func _update_audience(dt: float) -> void:
 		for actor in spectators: audience_states.append({"home":actor.position,"age":5.0,"next_cheer":0.0})
 	for i in spectators.size():
 		var actor:=spectators[i]
+		if actor.get_meta("spray_reacting",false): continue
 		var state:=audience_states[i]
 		state.age+=dt
 		if running and animation_clock>state.next_cheer and actor.global_position.distance_to(game.truck.global_position)<19:

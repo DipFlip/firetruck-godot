@@ -28,7 +28,7 @@ func _gui_input(event: InputEvent) -> void:
 
 func _process(dt: float) -> void:
 	if not game.travel: return
-	if game.paused or game.loading or game.in_main_menu or game.dialogue_active or game.dialogue_control.waiting_for_phone or game.rescue_running or game.rewards.controls_locked() or game.intro.active or game.travel.active or game.travel.in_race and (game.travel.race.running or game.travel.race.challenge.active or game.travel.race.challenge.controls_locked()) or not game.travel.in_race and game.pool_basin.contains_truck():
+	if game.paused or game.loading or game.in_main_menu or game.dialogue_active or game.dialogue_control.waiting_for_phone or game.rescue_running or (game.travel.winter and game.travel.winter.owl_rescue_running) or game.rewards.controls_locked() or game.intro.active or game.travel.active or game.travel.in_race and (game.travel.race.running or game.travel.race.challenge.active or game.travel.race.challenge.controls_locked()) or (not game.travel.in_race and not game.travel.in_winter and game.pool_basin.contains_truck()):
 		hide()
 		return
 	var actors: Array[Node3D]=game._npc_actors()

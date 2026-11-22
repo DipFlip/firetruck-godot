@@ -20,7 +20,10 @@ func _ready() -> void:
 	finish.set_shader_parameter("maple_print",preload("res://assets/scenery/maple_mat.png"))
 	if ResourceLoader.exists("res://assets/scenery/race_mat.png"):
 		finish.set_shader_parameter("race_print",load("res://assets/scenery/race_mat.png"))
-	for world in ["maple","race"]:
+	if ResourceLoader.exists("res://assets/scenery/winter_mat.png"):
+		finish.set_shader_parameter("winter_print",load("res://assets/scenery/winter_mat.png"))
+		finish.set_shader_parameter("has_winter_print",true)
+	for world in ["maple","race","winter"]:
 		for suffix in ["clean","arrival"]:
 			var path: String="res://assets/scenery/%s_mat_%s.png" % [world,suffix]
 			if ResourceLoader.exists(path): finish.set_shader_parameter(world+"_"+suffix,load(path))
@@ -38,12 +41,18 @@ func _ready() -> void:
 	hide()
 
 func show_mat(is_race: bool, amount: float, centre: Vector3=Vector3.ZERO, unfolding: bool=true) -> void:
+	show_world(1 if is_race else 0,amount,centre,unfolding)
+
+func show_world(world_index: int, amount: float, centre: Vector3=Vector3.ZERO, unfolding: bool=true) -> void:
+	var is_race:=world_index==1
+	var is_winter:=world_index==2
 	position=centre+Vector3.UP*.14
 	# The settled print sits between felt (.03) and the road (.055), so the
 	# emerging 3D ribbon can replace its ink without disappearing beneath it.
-	if is_race: position.y=centre.y+lerpf(.04,.14,smoothstep(0,.08,amount))
+	if is_race or is_winter: position.y=centre.y+lerpf(.04,.14,smoothstep(0,.08,amount))
 	rotation=Vector3.ZERO
 	finish.set_shader_parameter("race",is_race)
+	finish.set_shader_parameter("winter",is_winter)
 	amount=clampf(amount,0,1)
 	# Curvature needs dense longitudinal vertices only while the sheet rolls.
 	# The same closed, rounded felt outline can be drawn with 208 triangles
@@ -67,6 +76,7 @@ func set_arrival_progress(progress: float) -> void:
 func fade_print(opacity: float) -> void:
 	if opacity>=1: return
 	print_fade.set_shader_parameter("race",finish.get_shader_parameter("race"))
+	print_fade.set_shader_parameter("winter",finish.get_shader_parameter("winter"))
 	print_fade.set_shader_parameter("roll",0.0)
 	print_fade.set_shader_parameter("print_opacity",clampf(opacity,0,1))
 	material_override=print_fade

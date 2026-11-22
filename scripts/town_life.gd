@@ -28,6 +28,7 @@ func _ready() -> void:
 		var person:=TownProps.person(self,paths[i][0],[Color("819a83"),Color("d4a17a"),Color("8d9db6"),Color("c59099"),Color("dcbe77"),Color("9b9b7a")][i])
 		person.scale=Vector3.ONE*.85
 		var legs:=TownProps.walking_legs(person)
+		ToyModels.dress_person(person,"default")
 		walkers.append({"node":person,"path":paths[i],"next":1,"speed":.95+i*.06,"phase":i*1.7,"legs":legs,"hop":1.0,"from":person.position,"to":person.position,"cooldown":0.0})
 	for i in 9:
 		var bird:=_bird(i)
@@ -57,39 +58,7 @@ func _ready() -> void:
 		ground_birds.append(bird)
 
 func _bird(index: int) -> Dictionary:
-	var bird:=Node3D.new()
-	bird.set_meta("toy_arrival","fade")
-	add_child(bird)
-	var body:=Node3D.new()
-	bird.add_child(body)
-	TownProps.ball(body,Vector3(0,.17,.035),Vector3(.22,.26,.37),Color("677a79"))
-	var tail:=TownProps.ball(body,Vector3(0,.15,.23),Vector3(.10,.065,.20),Color("52676d"))
-	tail.rotation.x=.25
-	# Beak and eyes share the neck pivot, so the complete head pecks together.
-	var head:=Node3D.new()
-	body.add_child(head)
-	head.position=Vector3(0,.20,-.10)
-	TownProps.ball(head,Vector3(0,.03,-.065),Vector3(.18,.18,.21),Color("ece5cc"))
-	TownProps.box(head,Vector3(0,.005,-.175),Vector3(.055,.045,.10),Color("d7a55d"))
-	for side in [-1,1]:
-		TownProps.ball(head,Vector3(side*.076,.055,-.125),Vector3(.032,.032,.032),Color("294754"))
-	var legs: Array[Node3D]=[]
-	for side in [-1,1]:
-		var leg:=Node3D.new()
-		bird.add_child(leg)
-		leg.position=Vector3(side*.055,.06,.035)
-		TownProps.box(leg,Vector3.ZERO,Vector3(.024,.10,.024),Color("d7a55d"))
-		TownProps.box(leg,Vector3(0,-.05,-.025),Vector3(.036,.02,.075),Color("d7a55d"))
-		legs.append(leg)
-	var wings: Array[Node3D]=[]
-	var feathers: Array[MeshInstance3D]=[]
-	for side in [-1,1]:
-		var wing:=Node3D.new()
-		body.add_child(wing)
-		wing.position=Vector3(side*.105,.18,0)
-		feathers.append(TownProps.ball(wing,Vector3(side*.20,0,0),Vector3(.44,.045,.20),Color("d4d8c5")))
-		wings.append(wing)
-	return {"node":bird,"body":body,"head":head,"legs":legs,"wings":wings,"feathers":feathers,"phase":index*.48,"open":1.0}
+	return ToyModels.build_bird(self,index)
 
 func _pose_bird(bird: Dictionary, open: float, peck: float, step: float, flap: float) -> void:
 	bird.body.rotation.x=.12*open-.10*peck
@@ -239,6 +208,7 @@ func _physics_process(dt: float) -> void:
 				wheel.position.y=maxf(.32,clearance.y)
 	for walker in walkers:
 		var person: Node3D=walker.node
+		if person.get_meta("spray_reacting",false): continue
 		var target: Vector3=walker.path[walker.next]
 		var delta:=target-person.position
 		delta.y=0
@@ -303,17 +273,7 @@ func _update_ground_birds(dt: float) -> void:
 			bird.terrain_ready=true
 		var danger:=minf(Vector2(node.position.x-truck.x,node.position.z-truck.z).length(),Vector2(node.position.x-ahead.x,node.position.z-ahead.z).length())<BIRD_FLEE_RADIUS
 		if bird.mode!="flee" and danger:
-			game.sounds.play("bird",node.global_position,.85,.35)
-			bird.mode="flee"
-			bird.age=0.0
-			bird.from=node.position
-			var away: Vector3=node.position-truck
-			away.y=0
-			if away.length()<.1: away=Vector3(cos(bird.phase),0,sin(bird.phase))
-			bird.escape=node.position+away.normalized()*14
-			bird.escape.x=clampf(bird.escape.x,-69,69)
-			bird.escape.z=clampf(bird.escape.z,-69,69)
-			bird.escape.y=15.0
+			startle_bird(bird,truck)
 		if bird.mode=="ground":
 			_forage_bird(bird,dt)
 		else:
@@ -345,6 +305,21 @@ func _update_ground_birds(dt: float) -> void:
 					bird.forage_age=0.0
 					bird.wait=1.5+fmod(bird.phase,1.0)
 					bird.ground_y=bird.home.y
+
+func startle_bird(bird: Dictionary, away_from: Vector3) -> void:
+	if bird.mode=="flee": return
+	var node: Node3D=bird.node
+	game.sounds.play("bird",node.global_position,.85,.35)
+	bird.mode="flee"
+	bird.age=0.0
+	bird.from=node.position
+	var away: Vector3=node.position-away_from
+	away.y=0
+	if away.length()<.1: away=Vector3(cos(bird.phase),0,sin(bird.phase))
+	bird.escape=node.position+away.normalized()*14
+	bird.escape.x=clampf(bird.escape.x,-69,69)
+	bird.escape.z=clampf(bird.escape.z,-69,69)
+	bird.escape.y=15.0
 
 func _bird_floor(point: Vector3) -> Vector3:
 	var query:=PhysicsRayQueryParameters3D.create(point+Vector3.UP*2,point+Vector3.DOWN*2,9,[game.truck.get_rid()])

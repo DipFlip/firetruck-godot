@@ -4,8 +4,10 @@ extends Control
 # A handful of continuous pen strokes, revealed by distance travelled. This
 # stays sharp at any phone resolution and looks written, rather than typed.
 const RACE_NAME:="Motorway Race Club"
+const WINTER_NAME:="Frostpine Hollow"
 var strokes: Array[PackedVector2Array]=[]
 var is_race_title:=false
+var custom_title:=""
 var ink_width:=380.0
 var total_length:=0.0
 var reveal:=0.0
@@ -17,7 +19,14 @@ func _ready() -> void:
 
 func set_race_title() -> void:
 	is_race_title=true
+	custom_title=RACE_NAME
 	ink_width=740
+	_build_paths()
+
+func set_winter_title() -> void:
+	is_race_title=false
+	custom_title=WINTER_NAME
+	ink_width=680
 	_build_paths()
 
 func _build_paths() -> void:
@@ -34,13 +43,20 @@ func _build_paths() -> void:
 		[[340,54],[335,72],[338,83],[349,78],[360,55],[352,91],[343,113],[332,118],[327,112],[333,101],[353,93],[373,79]], # y
 		[[48,96],[121,93],[198,94],[273,95],[323,91]] # understated pen flourish
 	]
-	if is_race_title:
-		# The same hand-drawn pen paths as Maple Bay, laid out as the club name.
+	if is_race_title or not custom_title.is_empty():
+		var phrase:=custom_title if not custom_title.is_empty() else RACE_NAME
+		# The same hand-drawn pen paths as Maple Bay, laid out for each mat name.
 		var glyphs: Dictionary={
 			"M":{"width":79,"paths":[paths[0]]},
+			"F":{"width":49,"paths":[[[4,82],[14,44],[22,12],[46,11]],[[14,46],[38,44]]]},
+			"H":{"width":58,"paths":[[[4,82],[14,12]],[[48,12],[39,82]],[[11,48],[44,46]]]},
 			"o":{"width":34,"paths":[[[0,67],[7,53],[21,53],[27,66],[20,80],[6,82],[0,71],[7,53],[21,53],[29,70]]]},
+			"s":{"width":32,"paths":[[[27,54],[16,50],[5,56],[8,65],[22,68],[27,76],[18,83],[4,80]]]},
 			"t":{"width":31,"paths":[[[9,22],[3,70],[4,81],[14,82],[23,73]],[[0,45],[22,43]]]},
 			"r":{"width":37,"paths":[[[0,81],[6,52],[11,57],[8,70],[18,53],[28,55],[34,63]]]},
+			"p":{"width":42,"paths":[[[12,56],[5,103],[0,117],[10,69],[22,52],[35,53],[37,67],[28,81],[15,83]]]},
+			"i":{"width":22,"paths":[[[8,53],[4,76],[9,83],[18,75]],[[10,36],[12,38]]]},
+			"n":{"width":42,"paths":[[[2,81],[8,53],[14,58],[11,72],[22,53],[33,55],[34,77],[39,83]]]},
 			"w":{"width":54,"paths":[[[0,54],[3,74],[9,83],[21,61],[24,55],[24,76],[31,83],[43,61],[48,53],[43,79],[51,75]]]},
 			"a":{"width":45,"paths":[[[0,65],[11,49],[25,51],[27,66],[16,83],[4,83],[0,70],[11,53],[27,52],[24,78],[28,84],[40,74]]]},
 			"y":{"width":48,"paths":[[[13,54],[8,72],[11,83],[22,78],[33,55],[25,91],[16,113],[5,118],[0,112],[6,101],[26,93],[46,79]]]},
@@ -54,7 +70,7 @@ func _build_paths() -> void:
 		}
 		paths=[]
 		var cursor:=0.0
-		for letter in RACE_NAME:
+		for letter in phrase:
 			if letter==" ": cursor+=26; continue
 			var glyph: Dictionary=glyphs[letter]
 			for stroke in glyph.paths:

@@ -41,10 +41,15 @@ func _ready() -> void:
 			if child is MeshInstance3D and child.position.distance_to(Vector3(17,2.8,-8.6))<.01: child.position=TownLayout.CAT_BRANCH
 		TownProps.apply_toy_finish(self)
 		for art in foliage: TownProps.soften_toy_shine(art)
-		for person in people:
+		ToyModels.upgrade_cat(cat)
+		ToyModels.upgrade_dog(dog)
+		var styles:=["maya","leo","june","oliver"]
+		for i in people.size():
+			var person:=people[i]
 			person.set_meta("toy_arrival","drop")
 			person.set_meta("omit_mat_print",true)
 			TownProps.soften_toy_shine(person)
+			if i<styles.size(): ToyModels.dress_person(person,styles[i])
 		return
 	seed(42)
 	TownProps.box(self,Vector3(0,-0.5,0),Vector3(160,1,160),Color("8ea57c"),true)
@@ -165,7 +170,7 @@ func _process(dt: float) -> void:
 		foliage[i].rotation.x=cos(time*0.6+i)*0.006
 	for i in people.size():
 		var person:=people[i]
-		if person.get_meta("mission_celebrating",false): continue
+		if person.get_meta("mission_celebrating",false) or person.get_meta("spray_reacting",false): continue
 		if truck and not TownProps.near_view(truck.camera,person.global_position+Vector3.UP,3): continue
 		person.scale.y=1+sin(time*2+i)*0.009
 		var eyes: Node3D=person.get_node_or_null("Eyes")
@@ -179,4 +184,16 @@ func _process(dt: float) -> void:
 			person.get_node("ArmLeft").rotation=Vector3(1.10,0,-.15)
 			person.get_node("ArmRight").rotation=Vector3(1.80+sin(time*5)*.13,0,.14+sin(time*5)*.08)
 			if cat.get_parent()==person: cat.position.y=.80+sin(time*2)*.015
-	dog.rotation.y = PI+sin(time*2)*0.15
+	if not dog.get_meta("spray_reacting",false):
+		dog.rotation.y = PI+sin(time*2)*0.15
+	var dog_tail: Node3D=dog.get_node_or_null("TailPivot")
+	if dog_tail:
+		var wag_speed:=16.0 if dog.get_meta("spray_reacting",false) else 7.5
+		dog_tail.rotation.z=sin(time*wag_speed)*0.42
+	var dog_head: Node3D=dog.get_node_or_null("DogHead")
+	if dog_head:
+		for side_name in ["EarLeft","EarRight"]:
+			var ear: Node3D=dog_head.get_node_or_null(side_name)
+			if ear: ear.rotation.z=sin(time*4.5)*(0.12 if side_name=="EarLeft" else -0.12)
+	var cat_tail: Node3D=cat.get_node_or_null("TailPivot")
+	if cat_tail: cat_tail.rotation.z=sin(time*2.6)*0.24

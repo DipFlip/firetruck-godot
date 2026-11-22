@@ -118,6 +118,7 @@ func _ready() -> void:
 	TownProps.cylinder(driver,Vector3(0,2.55,0),.50,.20,Color("365868")).set_meta("blend_accessory",true)
 	TownProps.box(driver,Vector3(0,2.47,-.28),Vector3(.65,.06,.35),Color("365868")).set_meta("blend_accessory",true)
 	for x in [-.10,.10]: TownProps.ball(driver,Vector3(x,1.78,-.42),Vector3(.23,.075,.055),Color("694f3f")).set_meta("blend_accessory",true)
+	ToyModels.dress_person(driver,"rowan")
 	TownProps.soften_toy_shine(driver)
 	driver_guard=PersonalSpace.protect(driver,game.truck)
 	sound=AudioStreamPlayer3D.new()

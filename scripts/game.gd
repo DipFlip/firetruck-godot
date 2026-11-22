@@ -104,6 +104,7 @@ var playroom: Playroom
 var travel: PlayMatTravel
 var controls: ControlPrompts
 var toy_blending: ToyBlending
+var spray_reactions: SprayReactions
 
 func _ready() -> void:
 	if OS.has_feature("web") and bool(JavaScriptBridge.eval("new URLSearchParams(location.search).get('models') === 'blend'")):
@@ -230,6 +231,9 @@ func _ready() -> void:
 	travel=PlayMatTravel.new()
 	travel.game=self
 	add_child(travel)
+	spray_reactions=SprayReactions.new()
+	spray_reactions.game=self
+	add_child(spray_reactions)
 	_setup_camera_interests()
 	if not TownProps.bake_scenery:
 		toy_blending=ToyBlending.new()
@@ -315,7 +319,7 @@ func objective() -> Vector3:
 	return TownLayout.FIRE
 
 func navigation_active() -> bool:
-	if travel and (travel.in_race or travel.active): return false
+	if travel and (travel.in_race or travel.in_winter or travel.active): return false
 	return stage>0 and stage<4 or railway!=null and railway.briefed and not railway.started
 
 func talk(speaker: String, words: String, next: int, interrupting: bool=false) -> void:
@@ -331,6 +335,9 @@ func talk(speaker: String, words: String, next: int, interrupting: bool=false) -
 		var race_index:=ToyRaceTrack.NAMES.find(speaker.get_slice("  /",0))
 		dialogue_actor=travel.race.people[race_index] if race_index>=0 else null
 		if speaker.begins_with("REPORTER"): dialogue_actor=travel.race.challenge.awards.reporter
+	elif travel and travel.in_winter:
+		var winter_index:=ToyWinterVillage.NAMES.find(speaker.get_slice("  /",0))
+		dialogue_actor=travel.winter.people[winter_index] if winter_index>=0 else null
 	dialogue_seen_in_view=false
 	dialogue_out_of_view_time=0
 	if dialogue_actor:
@@ -378,6 +385,8 @@ func _setup_camera_interests() -> void:
 		var at: Vector3=Vector3.UP*1.8 if job.has("fire") else job.point
 		var point:=camera_framing.add(parent,"PaddockJob"+str(i),at,Vector3(job.radius,2.0,job.radius),func(): return not travel.race.running and (not job.done or dialogue_actor==actor or rewards.waiting_for(ToyRaceTrack.NAMES[i])),12,26)
 		job.camera_interest=point
+	if travel and travel.winter:
+		travel.winter.setup_camera_interests()
 
 func _pool_needs_framing() -> bool:
 	if pool_basin.contains_truck() or rewards.waiting_for("OLIVER"): return true
@@ -394,6 +403,9 @@ func _npc_needs_camera(actor: Node3D) -> bool:
 		if index==2: return not travel.race.jobs[2].done
 		if index==3: return not travel.race.challenge.has_raced
 		if index==4: return not travel.race.challenge.has_trialed
+	elif travel.in_winter:
+		var index:=travel.winter.people.find(actor)
+		if index>=0: return [not travel.winter.rink_done,not travel.winter.bonfire_done,not travel.winter.owl_rescued,not travel.winter.sled_done][index]
 	else:
 		var index:=town.people.find(actor)
 		if index>=0: return [not cat_rescued,fire_progress<1,not dog_done,not pool_done][index]
@@ -404,7 +416,7 @@ func _approach_camera_subject(truck_position: Vector3) -> Node3D:
 	if is_instance_valid(camera_requested_subject): return camera_requested_subject
 	if dialogue_active and dialogue_actor==null: return null
 	if travel and travel.in_race and (travel.race.running or travel.race.challenge.active or travel.race.challenge.controls_locked()): return null
-	if not travel.in_race and pool_basin.contains_truck(): return null
+	if not travel.in_race and not travel.in_winter and pool_basin.contains_truck(): return null
 	var nearest: Node3D
 	var distance:=TALK_RELEASE_RADIUS
 	for actor in _npc_actors():
@@ -419,7 +431,7 @@ func _approach_camera_subject(truck_position: Vector3) -> Node3D:
 	return nearest
 
 func phone_ringing() -> bool:
-	if travel and (travel.in_race or travel.active): return false
+	if travel and (travel.in_race or travel.in_winter or travel.active): return false
 	if intro and intro.active: return false
 	return call_timer>0 or barbecue_ring_timer>=0
 
@@ -456,7 +468,7 @@ func _defer_followup_call() -> void:
 
 func _dispatch_mission_active() -> bool:
 	if dialogue_active or dialogue_control.waiting_for_phone or rescue_running or rewards.playing_reward(): return true
-	if travel and (travel.active or travel.in_race): return true
+	if travel and (travel.active or travel.in_race or travel.in_winter): return true
 	# Proximity camera attention counts even before accepting a briefing,
 	# and while lingering beside the neighbour after their conversation.
 	if conversation_blend>.01: return true
@@ -536,7 +548,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			travel.race.running=false
 			travel.race.checkpoint=0
 			travel.race.checkpoint_flag.hide()
-		toast("Back at the paddock." if travel and travel.in_race else "Back at the station. Ready when you are.")
+		toast("Back at Frostpine Hollow." if travel and travel.in_winter else "Back at the paddock." if travel and travel.in_race else "Back at the station. Ready when you are.")
 	if event.is_action_pressed("interact"):
 		if truck.ladder_deployed: truck.retract_ladder()
 		else: truck.extend_ladder()
@@ -547,7 +559,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	# In the basin Space is always a jump, including while Oliver's previous
 	# conversation is still visible. The mobile jump control uses this path too.
-	if event.is_action_pressed("jump") and not (travel and travel.in_race) and pool_basin.contains_truck():
+	if event.is_action_pressed("jump") and not (travel and (travel.in_race or travel.in_winter)) and pool_basin.contains_truck():
 		if dialogue_actor==town.people[3]: end_dialogue()
 		return
 	if (event.is_action_pressed("continue") or event.is_action_pressed("jump")) and (dialogue_active or _nearest_npc()>=0):
@@ -572,7 +584,7 @@ func interact() -> void:
 func _nearest_npc() -> int:
 	var index:=-1
 	var nearest:=9.0
-	if pool_basin and pool_basin.contains_truck(): return -1
+	if pool_basin and not (travel and (travel.in_race or travel.in_winter)) and pool_basin.contains_truck(): return -1
 	if dialogue_control.attention.visible: return dialogue_control.attention.actor_index
 	var actors:=_npc_actors()
 	for i in actors.size():
@@ -585,6 +597,7 @@ func _nearest_npc() -> int:
 
 func _npc_actors() -> Array[Node3D]:
 	if travel and travel.in_race: return travel.race.people
+	if travel and travel.in_winter: return travel.winter.people
 	var actors: Array[Node3D]=[]
 	actors.append_array(town.people)
 	if railway and not railway.boarded: actors.append(railway.driver)
@@ -624,6 +637,7 @@ func _proximity_talk() -> void:
 
 func npc_attention_text(i: int) -> String:
 	if travel and travel.in_race: return travel.race.attention_text(i)
+	if travel and travel.in_winter: return travel.winter.attention_text(i)
 	if i==4:
 		return "Help me, please!" if not railway.started and not railway.briefed and not dialogue_control.has_spoken(railway.driver) else ""
 	if i<0 or i>=4 or rewards.waiting_for(["MAYA","LEO","JUNE","OLIVER"][i]): return ""
@@ -632,8 +646,9 @@ func npc_attention_text(i: int) -> String:
 	return "Oh, help please!" if needs_help else ""
 
 func _talk_to_npc(i: int, manual: bool=false) -> bool:
-	if not manual and not (travel and travel.in_race) and i<4: return false
+	if not manual and not (travel and (travel.in_race or travel.in_winter)) and i<4: return false
 	if travel and travel.in_race: return travel.race.talk_to_person(i,manual)
+	if travel and travel.in_winter: return travel.winter.talk_to_person(i,manual)
 	if i==4: return railway.talk_to_driver(manual)
 	if paused or rescue_running or rewards.waiting_for(["MAYA","LEO","JUNE","OLIVER"][i]): return false
 	match i:
@@ -667,7 +682,7 @@ func _talk_to_npc(i: int, manual: bool=false) -> bool:
 func _process(dt: float) -> void:
 	if not is_instance_valid(truck): return
 	_audio_update(dt)
-	if not paused and travel and (travel.active or travel.in_race): _defer_followup_call()
+	if not paused and travel and (travel.active or travel.in_race or travel.in_winter): _defer_followup_call()
 	if paused or loading or (travel and travel.active): return
 	if intro and intro.active:
 		intro.update(dt)
@@ -694,7 +709,7 @@ func _process(dt: float) -> void:
 	var shake:=camera_trauma*camera_trauma
 	var offset:=gameplay_camera_offset()
 	camera.global_position=camera_focus+offset+Vector3(sin(elapsed*63)*.16,sin(elapsed*79)*.12,cos(elapsed*53)*.08)*shake
-	camera.far=500 if travel and travel.in_race else 250
+	camera.far=500 if travel and (travel.in_race or travel.in_winter) else 250
 	sun.directional_shadow_max_distance=gameplay_shadow_distance+maxf(0,offset.length()-camera_offset.length())
 	camera.look_at(camera_focus)
 	camera.rotation.z+=sin(elapsed*47)*0.004*shake
@@ -718,6 +733,18 @@ func _process(dt: float) -> void:
 			if toast_time<=0: hud.toast_label.text=""
 		travel.race.proximity_talk()
 		hud.set_prompt("")
+		return
+	if travel and travel.in_winter:
+		marker.hide()
+		job_label.hide()
+		if toast_time>0:
+			toast_time-=dt
+			if toast_time<=0: hud.toast_label.text=""
+		travel.winter.proximity_talk()
+		var winter_prompt:=""
+		if not travel.winter.owl_rescued and not travel.winter.owl_rescue_running and not dialogue_active and not truck.ladder_deployed and truck.global_position.distance_to(ToyWinterVillage.ORIGIN+ToyWinterVillage.OWL_TREE)<14:
+			winter_prompt=_ladder_instruction()
+		hud.set_prompt(winter_prompt)
 		return
 	_check_barbecue_discovery(dt)
 	_update_dispatch(dt)
@@ -764,7 +791,7 @@ func gameplay_camera_offset(talking: bool=false) -> Vector3:
 	var offset:=TALK_CAMERA_OFFSET if talking else camera_offset
 	# Keep the orthographic framing, but place the lens beyond the foreground
 	# furniture when following the truck along the southern mat edge.
-	return offset.normalized()*(160 if travel and travel.in_race else 96)
+	return offset.normalized()*(160 if travel and (travel.in_race or travel.in_winter) else 96)
 
 func _talk_camera_size() -> float:
 	if not is_instance_valid(camera_subject): return TALK_CAMERA_SIZE
@@ -882,6 +909,9 @@ func set_paused(value: bool) -> void:
 	elif rescue_tween and rescue_tween.is_valid() and not paused: rescue_tween.play()
 	if cat_cuddle_tween and cat_cuddle_tween.is_valid() and paused: cat_cuddle_tween.pause()
 	elif cat_cuddle_tween and cat_cuddle_tween.is_valid() and not paused: cat_cuddle_tween.play()
+	if travel and travel.winter and travel.winter.owl_rescue_tween and travel.winter.owl_rescue_tween.is_valid():
+		if paused: travel.winter.owl_rescue_tween.pause()
+		else: travel.winter.owl_rescue_tween.play()
 
 # Keyboard and controller navigation for Resume / Main menu.
 func _pause_menu_input(event: InputEvent) -> void:
@@ -913,6 +943,7 @@ func return_to_main_menu() -> void:
 
 func _assisted_water_target(origin: Vector3, requested: Vector3) -> Variant:
 	if travel and travel.in_race: return travel.race.aim_target(origin,requested)
+	if travel and travel.in_winter: return travel.winter.aim_target(origin,requested)
 	var aim:=Vector3(requested.x-origin.x,0,requested.z-origin.z).normalized()
 	if aim.length()<.1: return null
 	var targets: Array[Dictionary]=[]
@@ -957,7 +988,14 @@ func _assisted_water_target(origin: Vector3, requested: Vector3) -> Variant:
 
 func _water_hit(point: Vector3, amount: float) -> bool:
 	if paused or (travel and travel.active): return false
-	if travel and travel.in_race: return travel.race.water_hit(point,amount)
+	if travel and travel.in_race:
+		var race_consumed := travel.race.water_hit(point,amount)
+		if spray_reactions: race_consumed = spray_reactions.water_hit(point,amount) or race_consumed
+		return race_consumed
+	if travel and travel.in_winter:
+		var winter_consumed := travel.winter.water_hit(point,amount)
+		if spray_reactions: winter_consumed = spray_reactions.water_hit(point,amount) or winter_consumed
+		return winter_consumed
 	var consumed := life.water_hit(point,amount)
 	if dog_puddle: consumed=dog_puddle.water_hit(point,amount) or consumed
 	if fire_progress<1 and point.distance_to(TownLayout.FIRE+Vector3.UP*1.8)<1.8:
@@ -974,11 +1012,11 @@ func _water_hit(point: Vector3, amount: float) -> bool:
 		consumed = true
 		sounds.play("dog_wash",town.dog.global_position,.7,1.2)
 		dog_progress=minf(1,dog_progress+amount*0.60)
+		ToyModels.set_dog_clean(town.dog,dog_progress)
 		if dog_progress>=1:
 			dog_done=true
 			if stage==4: _update_mission()
-			for child in town.dog.get_children():
-				if child is MeshInstance3D: child.material_override=TownProps.material(Color("e9c58b"))
+			ToyModels.set_dog_clean(town.dog,1.0)
 			rewards.celebrate("dog",TownLayout.DOG+Vector3.UP*.5,"JUNE","Look at that shiny coat! Thank you — Biscuit's ready for cuddles again.")
 	if not pool_done and absf(point.x-TownLayout.POOL.x)<4.4 and absf(point.z-TownLayout.POOL.z)<2.4 and point.y<=town.pool_water.position.y+.12:
 		if pool_camera_interest: pool_camera_interest.engage()
@@ -990,6 +1028,7 @@ func _water_hit(point: Vector3, amount: float) -> bool:
 			pool_done=true
 			if stage==4: _update_mission()
 			rewards.celebrate("pool",TownLayout.POOL+Vector3.UP*.15,"OLIVER","It's perfect! Thank you for saving our pool party. You're always welcome for a swim!")
+	if spray_reactions: consumed = spray_reactions.water_hit(point,amount) or consumed
 	return consumed
 
 func _update_mission() -> void:
@@ -1162,3 +1201,5 @@ func _exit_tree() -> void:
 	TownProps.rounded_mesh=null
 	TownProps.sphere_mesh=null
 	TownProps.cylinder_meshes.clear()
+	ToyModels.capsule_meshes.clear()
+	ToyModels.torus_meshes.clear()

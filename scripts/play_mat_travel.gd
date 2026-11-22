@@ -13,21 +13,29 @@ const PRINT_FADE_START:=20.9
 const PRINT_FADE_END:=22.7
 const SCENERY_READY:=22.75
 const EXIT_Z:=-82.0
+const EXIT_EAST_X:=82.0
+const EXIT_WEST_X:=-82.0
 const MAPLE_TOYS:=1<<10
 const RACE_TOYS:=1<<11
-const WORLD_TOYS:=MAPLE_TOYS|RACE_TOYS
+const WINTER_TOYS:=1<<12
+const WORLD_TOYS:=MAPLE_TOYS|RACE_TOYS|WINTER_TOYS
 var game: Node3D
 var race: ToyRaceTrack
+var winter: ToyWinterVillage
 var mat: RollingMat
 var outgoing_mat: RollingMat
 var source_race:=false
+var source_world:=0
 var departure_camera:=Transform3D.IDENTITY
 var departure_lens:=25.8
 var departure_focus:=Vector3.ZERO
 var departure_pan:=0.0
 var active:=false
 var in_race:=false
+var in_winter:=false
 var destination_race:=false
+var destination_world:=0
+var return_entry_east:=false
 var swapped:=false
 var clock:=0.0
 var sequence_clock:=0.0
@@ -51,6 +59,7 @@ var instance_inverses: Dictionary={}
 var assembly_instances: Dictionary={}
 var assembly_printed:=false
 var race_visited:=false
+var winter_visited:=false
 var short_transition:=false
 var duration:=DURATION
 var title: TownTitle
@@ -70,20 +79,31 @@ func _ready() -> void:
 	race=ToyRaceTrack.new()
 	race.game=game
 	game.add_child(race)
+	winter=ToyWinterVillage.new()
+	winter.game=game
+	game.add_child(winter)
 	_open_north_street()
+	_open_east_street()
 	for root in maple_roots: _set_toy_layer(root,MAPLE_TOYS)
 	_set_toy_layer(race,RACE_TOYS)
+	_set_toy_layer(winter,WINTER_TOYS)
 	title=TownTitle.new()
 	game.hud.add_child(title)
 	title.set_race_title()
 	title.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	title.hide()
 
+func active_world() -> int:
+	return 2 if in_winter else (1 if in_race else 0)
+
+func world_origin(world_index: int) -> Vector3:
+	return ToyWinterVillage.ORIGIN if world_index==2 else (ToyRaceTrack.ORIGIN if world_index==1 else Vector3.ZERO)
+
 func _set_toy_layer(root: Node3D, layer: int) -> void:
 	var visual_nodes:=root.find_children("*","GeometryInstance3D",true,false)
 	visual_nodes.append_array(root.find_children("*","Label3D",true,false))
 	for node in visual_nodes:
-		if node.layers==0 or node==race.mat or node==game.playroom.floor_art or node.name=="RacePlayroomFloor": continue
+		if node.layers==0 or node==race.mat or (winter and node==winter.mat) or node==game.playroom.floor_art or node.name in ["RacePlayroomFloor","WinterPlayroomFloor"]: continue
 		var backdrop:=false
 		var ancestor: Node=node
 		while ancestor!=root and ancestor!=null:
@@ -142,6 +162,45 @@ func _open_north_street() -> void:
 			block.set_meta("batch_static",true)
 	TownProps.batch_decorations(passage)
 
+func _open_east_street() -> void:
+	# Open Maple Bay's central east street (z = 0) toward Frostpine Hollow.
+	# South-east sections (z = 45, 50) stay solidly enclosed.
+	for wall in game.playroom.walls:
+		if wall.position.x>80 and absf(wall.position.z)<1:
+			wall.get_child(0).shape.size=Vector3(2.8,3.6,72)
+			wall.position.z=-44
+			game.playroom._wall(Vector3(81,1.2,44),Vector3(2.8,3.6,72))
+			break
+	# Relocate any woodland tree standing in the east exit corridor.
+	if game.interactions:
+		for prop in game.interactions.props:
+			if prop.position.x>63.0 and absf(prop.position.z)<10.0:
+				prop.position.z=14.0 if prop.position.z>=0 else -14.0
+				prop.home=prop.global_transform
+				prop.reset_physics_interpolation()
+	var passage:=Node3D.new()
+	passage.name="WinterPassage"
+	passage.set_meta("boundary_blocks",true)
+	game.playroom.add_child(passage)
+	for side in [-1,1]:
+		game.playroom._wall(Vector3(74.5,1.5,side*6.4),Vector3(13.0,3.0,3.2))
+		for piece in 2:
+			var height: float=[3.0,2.8][piece]
+			var block:=TownProps.box(passage,Vector3(70.5+piece*6.5,height*.5,side*6.4),Vector3(6.2,height,3.0),Color.WHITE)
+			block.material_override=Playroom.wood_finish(Color(["d0aa76","e3c79d","b98a5c"][(piece+(1 if side>0 else 0))%3]))
+			block.set_meta("batch_static",true)
+	TownProps.batch_decorations(passage)
+	# Snow-dusted wooden signpost inviting the player east to Frostpine Hollow.
+	var sign_root:=TownProps.toy_group(game.playroom,Vector3(70.0,0,-8.5),"drop","WinterSignpost")
+	TownProps.cylinder(sign_root,Vector3.UP*1.45,.13,2.9,Color("856347"))
+	TownProps.box(sign_root,Vector3(0,2.52,0),Vector3(3.6,.76,.20),Color("4f8096"))
+	TownProps.box(sign_root,Vector3(0,2.95,0),Vector3(3.65,.14,.26),Color("f2f7fb"))
+	var sign_text:=TownProps.label(sign_root,Vector3(0,2.52,.13),"FROSTPINE →",22)
+	sign_text.billboard=BaseMaterial3D.BILLBOARD_DISABLED
+	sign_text.pixel_size=.017
+	# Snow drift cushion at the foot of the signpost.
+	TownProps.ball(sign_root,Vector3(0,.12,0),Vector3(1.5,.28,1.2),Color("eef5f9"))
+
 func north_exit_clear() -> bool:
 	if in_race: return true
 	var engine: RigidBody3D=game.railway.engine
@@ -155,19 +214,33 @@ func _process(dt: float) -> void:
 		_update_transition(dt)
 		return
 	if game.intro.active: return
-	var local: Vector3=game.truck.global_position-(ToyRaceTrack.ORIGIN if in_race else Vector3.ZERO)
+	var world:=active_world()
+	var local: Vector3=game.truck.global_position-world_origin(world)
 	# Moving away from the arrival clears the latch, so arrival cannot bounce
 	# straight back into a second loading sequence.
-	if local.z> -76: exit_armed=true
-	if exit_armed and local.z<EXIT_Z and absf(local.x)<7.0: start(not in_race)
+	if world==0:
+		if local.z> -76 and local.x<76: exit_armed=true
+		if exit_armed and local.z<EXIT_Z and absf(local.x)<7.0: start_world(1)
+		elif exit_armed and local.x>EXIT_EAST_X and absf(local.z)<7.0: start_world(2)
+	elif world==1:
+		if local.z> -76: exit_armed=true
+		if exit_armed and local.z<EXIT_Z and absf(local.x)<7.0: start_world(0)
+	else:
+		if local.x> -76: exit_armed=true
+		if exit_armed and local.x<EXIT_WEST_X and absf(local.z)<7.0: start_world(0)
 
 func start(to_race: bool) -> void:
-	if active or game.rescue_running: return
+	start_world(1 if to_race else 0)
+
+func start_world(target_world: int) -> void:
+	if active or game.rescue_running or (winter and winter.owl_rescue_running): return
 	if in_race: race.challenge.cancel()
+	if game.get("spray_reactions"): game.spray_reactions.clear()
 	finish_assembly()
 	active=true
 	mat.set_arrival_progress(-1)
 	game.hud.reset_water_entrance()
+	source_world=active_world()
 	source_race=in_race
 	departure_camera=game.camera.global_transform
 	departure_focus=game.camera_focus
@@ -176,9 +249,23 @@ func start(to_race: bool) -> void:
 	# position while keeping the camera clear of the room during the pull-out.
 	departure_camera.origin+=departure_camera.basis.z*maxf(0,330-game.camera.global_position.distance_to(game.camera_focus))
 	departure_lens=game.camera.size
-	destination_race=to_race
-	short_transition=not to_race or race_visited
-	duration=(4.2 if short_transition else DURATION/INTRO_PACE)+DEPARTURE_LEAD
+	destination_world=target_world
+	destination_race=target_world==1
+	return_entry_east=source_world==2 and target_world==0
+	if target_world==1:
+		short_transition=race_visited
+		duration=(4.2 if short_transition else DURATION/INTRO_PACE)+DEPARTURE_LEAD
+		title.set_race_title()
+		title.visible=not short_transition
+	elif target_world==2:
+		short_transition=true
+		duration=(4.2 if winter_visited else 6.2)+DEPARTURE_LEAD
+		title.set_winter_title()
+		title.visible=not winter_visited
+	else:
+		short_transition=true
+		duration=4.2+DEPARTURE_LEAD
+		title.visible=false
 	swapped=false
 	clock=0
 	sequence_clock=0
@@ -208,6 +295,9 @@ func start(to_race: bool) -> void:
 	if in_race:
 		race.suspend_bodies()
 		race.process_mode=Node.PROCESS_MODE_DISABLED
+	elif in_winter:
+		winter.suspend_bodies()
+		winter.process_mode=Node.PROCESS_MODE_DISABLED
 	else: suspend_maple()
 	set_world_visible(true)
 	# The outgoing print rolls away as a whole. Hiding toys/shadows by layer
@@ -215,11 +305,31 @@ func start(to_race: bool) -> void:
 	_hide_toys()
 	# Keep only the wooden floor behind the outgoing printed carpet.
 	if in_race: race.mat.hide()
-	title.visible=to_race and not short_transition
+	if in_winter: winter.mat.hide()
 	title.reveal=0
 	title.opacity=0
 	if OS.has_feature("web"): JavaScriptBridge.eval("window.firetruckIntro(true)")
 	_update_transition(0)
+
+func _entry_spawn_local() -> Vector3:
+	if in_winter: return ToyWinterVillage.SPAWN
+	if not in_race and return_entry_east: return Vector3(73,ToyRaceTrack.SPAWN.y,0)
+	return ToyRaceTrack.SPAWN
+
+func _entry_heading() -> float:
+	if in_winter: return -PI*.5
+	if not in_race and return_entry_east: return PI*.5
+	return PI
+
+func _entry_position(centre: Vector3, drive: float, span: float) -> Vector3:
+	if in_winter: return centre+Vector3(lerpf(-73-span,-73,drive),ToyWinterVillage.SPAWN.y,0)
+	if not in_race and return_entry_east: return centre+Vector3(lerpf(73+span,73,drive),ToyRaceTrack.SPAWN.y,0)
+	return centre+Vector3(0,ToyRaceTrack.SPAWN.y,lerpf(-73-span,-73,drive))
+
+func _entry_velocity(speed: float) -> Vector3:
+	if in_winter: return Vector3(speed,0,0)
+	if not in_race and return_entry_east: return Vector3(-speed,0,0)
+	return Vector3(0,0,speed)
 
 func _update_transition(dt: float) -> void:
 	clock+=dt
@@ -260,20 +370,28 @@ func _update_transition(dt: float) -> void:
 	if swapped and sequence_clock-2>=SCENERY_READY and not assembly.is_empty(): finish_assembly()
 
 func _update_short_transition() -> void:
+	var winter_first:=destination_world==2 and not winter_visited
+	var total_seq:=6.2 if winter_first else 4.2
 	_exchange_mats(1.05,2.1,1.425,2.175,1.8,1.2)
-	var phase:=sequence_clock/1.5
-	var centre:=ToyRaceTrack.ORIGIN if in_race else Vector3.ZERO
+	var phase:=sequence_clock/(total_seq/2.8)
+	var centre:=world_origin(active_world())
 	_exchange_camera(centre)
 	if not swapped: return
-	if phase>=2.25:
+	if winter_first:
+		title.reveal=smoothstep(1.9,4.9,sequence_clock)
+		title.opacity=smoothstep(1.8,2.3,sequence_clock)*(1-smoothstep(5.3,6.0,sequence_clock))
+		title.queue_redraw()
+	var reveal_start:=total_seq-.825
+	if sequence_clock>=reveal_start:
 		_show_toys()
 		_set_floor_cut(true)
 		if in_race: race.mat.show()
-		mat.fade_print(1-smoothstep(2.25,2.7,phase))
-		var drive:=entrance_progress((sequence_clock-3.375)/.825)
-		game.truck.arrival_pose(centre+Vector3(0,ToyRaceTrack.SPAWN.y,lerpf(-79,-73,drive)),PI,-6*drive,1.0)
+		if in_winter: winter.mat.show()
+		mat.fade_print(1-smoothstep(reveal_start,total_seq-.15,sequence_clock))
+		var drive:=entrance_progress((sequence_clock-reveal_start)/.825)
+		game.truck.arrival_pose(_entry_position(centre,drive,6.0),_entry_heading(),-6*drive,1.0)
 	var zoom:=smoothstep(1.6,2.4,phase)
-	var focus:=centre+Vector3(0,0,-12).lerp(ToyRaceTrack.SPAWN,zoom)
+	var focus:=centre+Vector3(0,0,-12).lerp(_entry_spawn_local(),zoom)
 	# Complete the framing before bringing the lens through the town's airborne
 	# birds. A wide lens descending through them could clip a wing on return.
 	var offset: Vector3=(Vector3(96,116,124)*2.4).lerp(game.gameplay_camera_offset(),zoom)
@@ -281,15 +399,17 @@ func _update_short_transition() -> void:
 	game.camera.look_at(focus)
 	game.camera.size=lerpf(game.camera.size,25.8,zoom)
 	cinematic_shadows(focus)
-	if phase>=2.25: prepare_handover_view(focus,smoothstep(3.375,4.2,sequence_clock),in_race)
+	if sequence_clock>=reveal_start: prepare_handover_view(focus,smoothstep(reveal_start,total_seq,sequence_clock),in_race or in_winter)
 
 func _swap_world() -> void:
 	swapped=true
 	finish_assembly()
 	if in_race: race.hide()
+	elif in_winter: winter.hide()
 	else:
 		for root in maple_roots: root.hide()
-	in_race=destination_race
+	in_race=destination_world==1
+	in_winter=destination_world==2
 	set_world_visible(true)
 	if short_transition:
 		# Preserve all moved props and actor poses. The complete town can be
@@ -299,13 +419,14 @@ func _swap_world() -> void:
 		begin_assembly(in_race)
 		_show_toys()
 	if in_race: race.mat.hide()
+	if in_winter: winter.mat.hide()
 
 func _exchange_mats(roll_end: float, lift_end: float, incoming_start: float, land_end: float, switch_at: float, rollout_seconds: float=RollingMat.ROLLOUT_SECONDS) -> void:
 	if not swapped and sequence_clock>=switch_at: _swap_world()
-	var centre:=ToyRaceTrack.ORIGIN if in_race else Vector3.ZERO
+	var centre:=world_origin(active_world())
 	# Both independent sheets remain in the same room composition across the
 	# world-coordinate change. The outgoing roll rises and is carried away.
-	outgoing_mat.show_mat(source_race,motion_ease(sequence_clock/roll_end),centre,false)
+	outgoing_mat.show_world(source_world,motion_ease(sequence_clock/roll_end),centre,false)
 	var lift:=smoothstep(roll_end,lift_end,sequence_clock)
 	var carry:=motion_ease(clampf((lift-.55)/.45,0,1))
 	# Carry it out through the open side of the room, clear of the west wall.
@@ -317,7 +438,7 @@ func _exchange_mats(roll_end: float, lift_end: float, incoming_start: float, lan
 		return
 	var land:=smoothstep(incoming_start,land_end,sequence_clock)
 	var amount:=1-motion_ease((sequence_clock-land_end)/rollout_seconds) if short_transition else RollingMat.rollout_amount(sequence_clock-land_end,rollout_seconds)
-	mat.show_mat(destination_race,amount,centre)
+	mat.show_world(destination_world,amount,centre)
 	var approach:=motion_ease(minf(1,land/.55))
 	var lower:=motion_ease(clampf((land-.55)/.45,0,1))
 	mat.position+=Vector3(150*(1-approach),100*(1-lower),-50*(1-approach))
@@ -541,9 +662,9 @@ func assembly_camera(elapsed: float, is_race: bool) -> void:
 func finish() -> void:
 	if not active: return
 	if not swapped:
-		in_race=destination_race
-		if in_race: race.show()
-		else: set_world_visible(true)
+		in_race=destination_world==1
+		in_winter=destination_world==2
+		set_world_visible(true)
 	active=false
 	_show_toys()
 	finish_assembly()
@@ -553,27 +674,37 @@ func finish() -> void:
 	if in_race:
 		race_visited=true
 		for root in maple_roots: root.hide()
+		winter.deactivate()
 		race.mat.show()
 		race.mat.finish.set_shader_parameter("printed_toys",false)
 		race.activate()
+	elif in_winter:
+		winter_visited=true
+		for root in maple_roots: root.hide()
+		race.deactivate()
+		winter.mat.show()
+		winter.mat.finish.set_shader_parameter("printed_toys",false)
+		winter.activate()
 	else:
 		race.deactivate()
+		winter.deactivate()
 		set_world_visible(true)
 		resume_maple()
 	game.rewards.show()
 	for fire in game.get_tree().get_nodes_in_group("toy_fires"): fire.show()
 	game.rewards.set_process(true)
-	game.truck.world_origin=ToyRaceTrack.ORIGIN if in_race else Vector3.ZERO
-	game.truck.recovery_spawn=ToyRaceTrack.SPAWN if in_race else Vector3(0,1,12)
+	var origin:=world_origin(active_world())
+	game.truck.world_origin=origin
+	game.truck.recovery_spawn=ToyWinterVillage.SPAWN if in_winter else (ToyRaceTrack.SPAWN if in_race else Vector3(0,1,12))
 	var wheel_angle: float=game.truck.wheel_travel
 	# Keep the entrance pose and suspension; a full recovery reset caused a
 	# visible stop and chassis snap at the moment control became available.
 	game.truck.wheel_travel=wheel_angle
-	game.truck.global_position=(ToyRaceTrack.ORIGIN if in_race else Vector3.ZERO)+ToyRaceTrack.SPAWN
-	# Both mats meet at their north street; arrivals drive inward, heading south.
-	game.truck.heading=PI
-	game.truck.rotation.y=PI
-	game.truck.linear_velocity=Vector3(0,0,6/.825 if short_transition else 5.0*INTRO_PACE)
+	game.truck.global_position=origin+_entry_spawn_local()
+	var heading:=_entry_heading()
+	game.truck.heading=heading
+	game.truck.rotation.y=heading
+	game.truck.linear_velocity=_entry_velocity(6/.825 if short_transition else 5.0*INTRO_PACE)
 	game.truck.angular_velocity=Vector3.ZERO
 	game.truck.previous_velocity=game.truck.linear_velocity
 	game.truck.reset_physics_interpolation()
@@ -596,12 +727,13 @@ func finish() -> void:
 	game.camera.look_at(game.camera_focus)
 	game.camera.size=25.8
 	game.camera.v_offset=0
-	game.camera.far=500 if in_race else 250
+	game.camera.far=500 if (in_race or in_winter) else 250
 	game.sun.directional_shadow_max_distance=game.gameplay_shadow_distance+maxf(0,game.gameplay_camera_offset().length()-game.camera_offset.length())
 	if OS.has_feature("web"): JavaScriptBridge.eval("window.firetruckIntro(false)")
 
 func set_world_visible(value: bool) -> void:
 	if in_race: race.visible=value
+	elif in_winter: winter.visible=value
 	else:
 		for root in maple_roots:
 			root.visible=value

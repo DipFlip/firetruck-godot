@@ -44,9 +44,12 @@ func _ready() -> void:
 			while along<82.0:
 				if axis==0 and along>=NorthlineRailway.TRACK_Z-4.7 and along<NorthlineRailway.TRACK_Z+4.7:
 					along=NorthlineRailway.TRACK_Z+4.7
+				if axis==0 and side==1 and along>=-8.0 and along<8.0:
+					along=8.0
 				if axis==1 and side==-1 and along>=-8.0 and along<8.0:
 					along=8.0
 				var end:=NorthlineRailway.TRACK_Z-4.7 if axis==0 and along<NorthlineRailway.TRACK_Z-4.7 else 82.0
+				if axis==0 and side==1 and along< -8.0: end=minf(end,-8.0)
 				if axis==1 and side==-1 and along< -8.0: end=-8.0
 				# A mix of long beams, squat cubes and the occasional tall pillar.
 				var kind:=rng.randf()

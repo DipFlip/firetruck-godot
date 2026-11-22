@@ -3,7 +3,7 @@ extends Node
 
 # One reusable bank for quiet, varied local Foley. No per-particle audio nodes
 # or sample generation in the frame loop, including the browser build.
-const LEVELS:={"bird":-25.0,"dodge":-22.0,"woof":-21.0,"meow":-23.0,"wood":-18.0,"fence":-21.0,"metal":-22.0,"brick":-19.0,"bush":-28.0,"car_bump":-20.0,"splash":-20.0,"clean":-22.0,"honk":-24.0,"chuff":-25.0,"whistle":-25.0,"refill":-29.0,"hydrant_jet":-27.0,"fire_sizzle":-24.0,"dog_wash":-25.0,"dog_jump":-24.0,"ladder_extend":-25.0,"ladder_retract":-25.0,"plastic":-23.0,"cloth":-28.0,"ceramic":-25.0,"quack":-26.0,"cheer":-27.0,"tire_scrub":-44.0,"block_land":-22.0,"house_grow":-26.0}
+const LEVELS:={"bird":-25.0,"dodge":-22.0,"woof":-21.0,"meow":-23.0,"wood":-18.0,"fence":-21.0,"metal":-22.0,"brick":-19.0,"bush":-28.0,"car_bump":-20.0,"splash":-20.0,"clean":-22.0,"honk":-24.0,"chuff":-25.0,"whistle":-25.0,"refill":-29.0,"hydrant_jet":-27.0,"fire_sizzle":-24.0,"dog_wash":-25.0,"dog_jump":-24.0,"ladder_extend":-25.0,"ladder_retract":-25.0,"plastic":-23.0,"cloth":-28.0,"ceramic":-25.0,"quack":-26.0,"cheer":-27.0,"whoa":-22.0,"giggle":-24.0,"owl":-23.0,"ice_freeze":-25.0,"ice_glide":-32.0,"tire_scrub":-44.0,"block_land":-22.0,"house_grow":-26.0}
 var game: Node3D
 var bank: Dictionary={}
 var players: Array[AudioStreamPlayer3D]=[]
@@ -20,8 +20,8 @@ var in_pool:=false
 var cat_time:=4.0
 var loops: Dictionary={}
 var hydrant_emitters: Dictionary={}
-var loop_levels: Dictionary={"refill":0.0,"fire_sizzle":0.0,"tire_scrub":0.0}
-var loop_active: Dictionary={"refill":false,"fire_sizzle":false,"tire_scrub":false}
+var loop_levels: Dictionary={"refill":0.0,"fire_sizzle":0.0,"tire_scrub":0.0,"ice_glide":0.0}
+var loop_active: Dictionary={"refill":false,"fire_sizzle":false,"tire_scrub":false,"ice_glide":false}
 var fire_contact_until:=-1.0
 var fire_contact_position:=TownLayout.FIRE+Vector3.UP*1.6
 const IMPACTS:=["wood","fence","metal","brick","bush","car_bump","plastic","cloth","ceramic"]
@@ -47,7 +47,7 @@ func _ready() -> void:
 	ringtone.stream=load("res://assets/audio/town/ringtone_0.wav")
 	ringtone.volume_db=-24
 	add_child(ringtone)
-	for kind in ["refill","fire_sizzle","tire_scrub"]:
+	for kind in ["refill","fire_sizzle","tire_scrub","ice_glide"]:
 		var player:=_spatial_player()
 		player.volume_db=-80
 		loops[kind]=player
@@ -112,7 +112,7 @@ func play(kind: String, at: Vector3, strength: float=1.0, cooldown: float=.18, p
 	return false
 
 func prop_impact(kind: String, at: Vector3, speed: float) -> void:
-	var sound: String={"tree":"wood","bench":"wood","fence":"fence","lamp":"metal","rail_sign":"wood","hydrant":"metal","bush":"bush","planter":"ceramic","flower_pot":"ceramic","traffic_cone":"plastic","tent":"cloth","tire_stack":"plastic","parked_racer":"plastic"}.get(kind,"wood")
+	var sound: String={"tree":"wood","bench":"wood","fence":"fence","lamp":"metal","rail_sign":"wood","hydrant":"metal","bush":"bush","planter":"ceramic","flower_pot":"ceramic","traffic_cone":"plastic","tent":"cloth","tire_stack":"plastic","parked_racer":"plastic","snowman":"bush","snow_fence":"fence","cocoa_table":"wood","snow_sign":"wood"}.get(kind,"wood")
 	# A hedge can contain five adjacent bodies: one quiet rustle covers the pass.
 	if kind=="bush":
 		play(sound,at,clampf(speed/12,.35,.70),.85)
@@ -151,7 +151,11 @@ func _process(dt: float) -> void:
 	_update_loop("refill",refilling,game.truck.global_position,dt)
 	_update_loop("fire_sizzle",time<fire_contact_until,fire_contact_position,dt)
 	var tire_gain: float=game.truck.effects.tire_sound_strength if not game.loading else 0.0
-	_update_loop("tire_scrub",tire_gain>0,game.truck.global_position,dt,tire_gain)
+	var ice_slip: float=game.truck.surface_slip if game.truck.grounded and not game.loading else 0.0
+	var ice_speed:=Vector2(game.truck.linear_velocity.x,game.truck.linear_velocity.z).length()
+	var ice_gain: float=clampf((ice_speed-1.4)/10.0,0.0,1.0)*ice_slip if ice_slip>.15 else 0.0
+	_update_loop("tire_scrub",tire_gain>0 and ice_slip<.4,game.truck.global_position,dt,tire_gain)
+	_update_loop("ice_glide",ice_gain>0.04,game.truck.global_position,dt,ice_gain)
 	var ringing: bool=game.phone_ringing()
 	if ringing and not was_ringing:
 		counts.ringtone=int(counts.get("ringtone",0))+1

@@ -9,6 +9,8 @@ signal empty_spray
 var hit_receiver: Callable
 var drive_guide: Callable
 var drive_surface: Callable
+var slip_sampler: Callable
+var surface_slip := 0.0
 var surface_sample: Dictionary={}
 var train_push_z:=NAN
 var aim_assist: Callable
@@ -319,6 +321,7 @@ func reset_truck() -> void:
 	charge=0
 	brake_engagement=0
 	brake_holding=false
+	surface_slip=0.0
 	suspension_offset=0
 	suspension_velocity=0
 	jump_pitch=0
@@ -390,12 +393,14 @@ func _physics_process(dt: float) -> void:
 	# supports are separated. Account for that geometry when detecting contact.
 	support_height=.8 if drive_surface.is_valid() else (.8+absf(ground_normal.dot(global_basis.z))*1.1)/maxf(.4,ground_normal.y)
 	grounded = ground_distance<=support_height+.3
+	surface_slip=clampf(float(slip_sampler.call(global_position)),0.0,1.0) if grounded and slip_sampler.is_valid() else 0.0
 	var braking:=enabled and not input_blocked_until_release and Input.is_action_pressed("brake")
 	brake_engagement=lerpf(brake_engagement,1.0 if braking else 0.0,1-exp(-10*dt))
 	var planar:=Vector3(linear_velocity.x,0,linear_velocity.z)
 	# Sliding brakes and stationary bracing need different responses. Once
 	# stopped, tire grip absorbs horizontal hose recoil without locking gravity.
-	brake_holding=braking and grounded and planar.length()<.35
+	# On slick ice, stationary brakes can no longer hold completely solid.
+	brake_holding=braking and grounded and planar.length()<.35 and surface_slip<.45
 	var input := drive_input()
 	var desired := Vector3.ZERO
 	if camera:
@@ -406,6 +411,10 @@ func _physics_process(dt: float) -> void:
 		right.y = 0
 		desired = (right*input.x-forward*input.y).normalized()*input.length()
 	if drive_guide.is_valid(): desired=drive_guide.call(desired,dt)
+	var ice_traction:=lerpf(1.0,.56,surface_slip)
+	var ice_lateral:=lerpf(1.0,.16,surface_slip)
+	var ice_coast:=lerpf(1.0,.18,surface_slip)
+	var ice_brake:=lerpf(1.0,.24,surface_slip)
 	if desired.length() > 0.1:
 		var target_heading := atan2(-desired.x,-desired.z)
 		var heading_error:=angle_difference(heading,target_heading)
@@ -414,7 +423,7 @@ func _physics_process(dt: float) -> void:
 		var facing := Vector3(-sin(heading),0,-cos(heading))
 		var speed := linear_velocity.dot(facing)
 		var throttle := clampf((top_speed-speed)/5,0,1)
-		apply_central_force(facing*acceleration*mass*throttle*(1.0 if grounded else 0.28)*(0.0 if brake_holding else 1-brake_engagement))
+		apply_central_force(facing*acceleration*mass*throttle*(ice_traction if grounded else 0.28)*(0.0 if brake_holding else 1-brake_engagement))
 	else:
 		steering=lerpf(steering,0.0,1-exp(-7*dt))
 	# Modest sideways grip leaves room for recoil and playful slides.
@@ -422,15 +431,15 @@ func _physics_process(dt: float) -> void:
 	if planar.length()>top_speed*1.55:
 		apply_central_force(-planar.normalized()*(planar.length()-top_speed*1.55)*mass*5)
 	var lateral := Vector3(cos(heading),0,-sin(heading))
-	apply_central_force(-lateral*linear_velocity.dot(lateral)*mass*(2.2 if input.length()>0 else 0.7))
+	apply_central_force(-lateral*linear_velocity.dot(lateral)*mass*(2.2 if input.length()>0 else 0.7)*ice_lateral)
 	if input.length()<0.1 and grounded:
-		apply_central_force(-Vector3(linear_velocity.x,0,linear_velocity.z)*mass*1.5)
+		apply_central_force(-Vector3(linear_velocity.x,0,linear_velocity.z)*mass*1.5*ice_coast)
 	if brake_holding:
 		apply_central_force(-planar*mass/maxf(dt,.001))
 	elif braking:
 		# Limit deceleration instead of multiplying driving speed by a huge
 		# damping factor. Pressure eases in so momentum carries a short slide.
-		apply_central_force(-planar.normalized()*minf(planar.length()/maxf(dt,.001),26)*mass*brake_engagement*(1.0 if grounded else .25))
+		apply_central_force(-planar.normalized()*minf(planar.length()/maxf(dt,.001),26)*mass*brake_engagement*(ice_brake if grounded else .25))
 	elif not enabled:
 		apply_central_force(-planar*mass*(22 if grounded else 8))
 	if jump_blocked_until_release and not Input.is_action_pressed("jump"):

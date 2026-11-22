@@ -52,6 +52,7 @@ var toast_panel: Panel
 var prompt_panel: Panel
 var hud_group: Control
 var portrait_atlas := preload("res://assets/portraits/neighbours.png")
+var winter_portrait_atlas := preload("res://assets/portraits/winter_neighbours.png")
 var shown_water := 1.0
 var water_activity:=0.0
 var water_empty_time:=0.0
@@ -274,13 +275,16 @@ func begin_dialogue(speaker: String, text: String) -> void:
 	dialogue_panel.phone_mode=speaker_key=="DISPATCH"
 	portrait.show()
 	auto_close_delay=6.0 if dialogue_panel.phone_mode else -1.0
-	var names: Dictionary={"DISPATCH":"Captain Robin","MAYA":"Maya","LEO":"Leo","JUNE":"June","OLIVER":"Oliver"}
+	var names: Dictionary={"DISPATCH":"Captain Robin","MAYA":"Maya","LEO":"Leo","JUNE":"June","OLIVER":"Oliver","ELSA":"Elsa","BRAM":"Bram","ASTRID":"Astrid","TORSTEN":"Torsten"}
 	speaker_label.text=names.get(speaker_key,speaker_key.capitalize())
+	var winter_cells: Dictionary={"ELSA":Vector2i(0,0),"BRAM":Vector2i(1,0),"ASTRID":Vector2i(0,1),"TORSTEN":Vector2i(1,1)}
+	var is_winter_speaker:=winter_cells.has(speaker_key)
 	var cells: Dictionary={"DISPATCH":Vector2i(0,0),"MAYA":Vector2i(1,0),"LEO":Vector2i(0,1),"JUNE":Vector2i(1,1),"ROWAN":Vector2i(0,1),"KIT":Vector2i(1,0),"SAMI":Vector2i(0,1),"NORA":Vector2i(1,1),"QUINN":Vector2i(0,1)}
-	var cell: Vector2i=cells.get(speaker_key,Vector2i.ZERO)
+	var cell: Vector2i=winter_cells[speaker_key] if is_winter_speaker else cells.get(speaker_key,Vector2i.ZERO)
+	var source_atlas: Texture2D=winter_portrait_atlas if is_winter_speaker else portrait_atlas
 	var atlas:=AtlasTexture.new()
-	atlas.atlas=portrait_atlas
-	var half:=portrait_atlas.get_size()/2
+	atlas.atlas=source_atlas
+	var half:=source_atlas.get_size()/2
 	atlas.region=Rect2(Vector2(cell)*half,half)
 	var single:=speaker_key in ["OLIVER","ROWAN"]
 	portrait.texture=preload("res://assets/portraits/rowan.png") if speaker_key=="ROWAN" else preload("res://assets/portraits/oliver.png") if speaker_key=="OLIVER" else atlas
@@ -694,7 +698,7 @@ func _layout_viewport() -> void:
 
 func _speak() -> void:
 	if syllables.is_empty() or voice.playing or DisplayServer.get_name()=="headless": return
-	var pitches: Dictionary={"DISPATCH":1.04,"MAYA":1.16,"LEO":0.86,"JUNE":1.08,"OLIVER":.96,"ROWAN":.92,"KIT":1.12,"SAMI":.86,"NORA":1.08}
+	var pitches: Dictionary={"DISPATCH":1.04,"MAYA":1.16,"LEO":0.86,"JUNE":1.08,"OLIVER":.96,"ROWAN":.92,"KIT":1.12,"SAMI":.86,"NORA":1.08,"ELSA":1.15,"BRAM":0.82,"ASTRID":1.10,"TORSTEN":0.88}
 	voice.pitch_scale=float(pitches.get(speaker_key,1.0))*voice_random.randf_range(.96,1.04)
 	voice.stream=syllables[voice_random.randi_range(0,syllables.size()-1)]
 	voice.play()
@@ -785,6 +789,9 @@ func _draw_map() -> void:
 	if game.travel and game.travel.in_race:
 		_draw_race_map()
 		return
+	if game.travel and game.travel.in_winter:
+		_draw_winter_map()
+		return
 	var center:=Vector2(126,size.y-126)
 	var r:=84.0
 	if touch_mode: center=Vector2(92,166); r=62
@@ -837,6 +844,43 @@ func _draw_map() -> void:
 	var north:=center+Vector2(0,-1).rotated(.5)*(r+15)
 	draw_style_box(style(INK,7,false),Rect2(north-Vector2(14,12),Vector2(28,24)))
 	draw_string(bold,north+Vector2(-5,5),"N",HORIZONTAL_ALIGNMENT_LEFT,-1,12,PAPER)
+	# Mark the east road signpost leading to Frostpine Hollow.
+	var east_exit:=center+Vector2(79,0).rotated(.5)*s
+	draw_circle(east_exit,5.5*s,Color("6bb8d9"))
+	draw_circle(east_exit,3.0*s,Color("eff9fd"))
+
+func _draw_winter_map() -> void:
+	var center:=size*.5
+	var r:=minf(280,minf(size.x,size.y)*.38)
+	var s:=r/92
+	draw_circle(center,r+12,INK)
+	draw_circle(center,r+8,PAPER)
+	draw_circle(center,r,Color("dcecf4"))
+	var winter: ToyWinterVillage=game.travel.winter
+	for seg in [[Vector2(-80,0),Vector2(56,0)],[Vector2(8,-38),Vector2(8,38)],[Vector2(-42,-36),Vector2(-42,36)],[Vector2(38,-34),Vector2(38,34)],[Vector2(-46,-34),Vector2(42,-34)],[Vector2(-46,34),Vector2(42,34)]]:
+		draw_line(center+seg[0]*s,center+seg[1]*s,Color("587c87"),8*s,true)
+		draw_line(center+seg[0]*s,center+seg[1]*s,PAPER,4.5*s,true)
+	# Rink rectangle
+	var rink_rect:=Rect2(center+(Vector2(ToyWinterVillage.RINK_CENTER.x,ToyWinterVillage.RINK_CENTER.z)-ToyWinterVillage.RINK_SIZE*.5)*s,ToyWinterVillage.RINK_SIZE*s)
+	draw_rect(rink_rect,Color("8fd4ec") if winter.rink_done else Color("b8d5e4"))
+	draw_rect(rink_rect,INK,false,2.0)
+	# Mission markers
+	var mission_points:=[
+		[ToyWinterVillage.RINK_CENTER,winter.rink_done],
+		[ToyWinterVillage.BONFIRE_POS,winter.bonfire_done],
+		[ToyWinterVillage.OWL_TREE,winter.owl_rescued],
+		[winter.sled.position if is_instance_valid(winter.sled) else ToyWinterVillage.SLED_START,winter.sled_done],
+	]
+	for item in mission_points:
+		var pt: Vector3=item[0]
+		draw_circle(center+Vector2(pt.x,pt.z)*s,4.5*s,Color("70b892") if item[1] else Color("d9765f"))
+	for h in ToyWinterVillage.HYDRANT_POINTS:
+		var at:=center+Vector2(h.x,h.z)*s
+		draw_circle(at,3.5*s,INK)
+		draw_circle(at,2.0*s,Color("80e0ed"))
+	var p: Vector3=game.truck.global_position-ToyWinterVillage.ORIGIN
+	draw_circle(center+Vector2(p.x,p.z)*s,6,ORANGE)
+	draw_string(bold,center+Vector2(-86,-r-22),"FROSTPINE HOLLOW",HORIZONTAL_ALIGNMENT_LEFT,-1,18,PAPER)
 
 func _draw_race_map() -> void:
 	var center:=size*.5

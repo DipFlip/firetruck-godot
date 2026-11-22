@@ -22,7 +22,9 @@ const SETTINGS:={
 	"race_grill":{"impact":3.0,"mass":.6},
 	"flower_pot":{"impact":2.0,"mass":.3},
 	"traffic_cone":{"impact":1.5,"mass":.16},
-	"tire_stack":{"impact":2.0,"mass":.4}
+	"tire_stack":{"impact":2.0,"mass":.4},
+	"snowman":{"impact":2.2,"mass":.28},
+	"snow_fence":{"impact":3.2,"mass":.42}
 }
 @export var impact_speed := 5.0
 @export var respawn_seconds := 10.0
@@ -41,6 +43,7 @@ var loose := false
 var age := 0.0
 var appearing := false
 var protected_cat_tree := false
+var locked := false
 var spawn_shape: Shape3D
 var spawn_offset := Vector3.ZERO
 var sweep_inverse:=Transform3D.IDENTITY
@@ -96,7 +99,7 @@ func _opacity(value: float) -> void:
 
 func knock(velocity: Vector3) -> bool:
 	var planar:=Vector3(velocity.x,0,velocity.z)
-	if loose or planar.length()<impact_speed or (protected_cat_tree and not game.cat_rescued): return false
+	if loose or locked or planar.length()<impact_speed or (protected_cat_tree and not game.cat_rescued): return false
 	loose=true
 	game.sounds.prop_impact(kind,global_position,planar.length())
 	appearing=false

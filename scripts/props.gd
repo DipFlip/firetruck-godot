@@ -264,7 +264,7 @@ static func articulate_head(person: Node3D) -> Node3D:
 	pivot.position=Vector3(0,1.55,0)
 	for child in person.get_children():
 		if child==pivot: continue
-		if child is MeshInstance3D and child.position.y>=1.6 or child.name=="Eyes": child.reparent(pivot)
+		if child is MeshInstance3D and child.position.y>=1.6 or child.name in ["Eyes","HeadDetails"]: child.reparent(pivot)
 	return pivot
 
 static func walking_legs(person: Node3D) -> Array[Node3D]:
